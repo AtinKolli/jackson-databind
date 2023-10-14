@@ -48,7 +48,7 @@ public class ObjectIdReordering1388Test extends BaseMapTest
         final UUID id = UUID.fromString("a59aa02c-fe3c-43f8-9b5a-5fe01878a818");
         final NamedThing thing = new NamedThing(id, "Hello");
 
-        final TypeReference<List<NamedThing>> namedThingListType = new TypeReference<List<NamedThing>>() { };
+        final TypeReference<?> namedThingListType = new TypeReference<List<NamedThing>>() { };
 
         {
             final String jsog = mapper.writeValueAsString(Arrays.asList(thing, thing, thing));
@@ -68,14 +68,14 @@ public class ObjectIdReordering1388Test extends BaseMapTest
 
         // next, move @id to between properties
         {
-            final String json = a2q("[{'id':'a59aa02c-fe3c-43f8-9b5a-5fe01878a818','@id':1,'name':'Hello'}, 1, 1]");
+            final String json = aposToQuotes("[{'id':'a59aa02c-fe3c-43f8-9b5a-5fe01878a818','@id':1,'name':'Hello'}, 1, 1]");
             final List<NamedThing> forward = mapper.readValue(json, namedThingListType);
             _assertAllSame(forward);
         }
 
         // and last, move @id to be not the first key in the object
         {
-            final String json = a2q("[{'id':'a59aa02c-fe3c-43f8-9b5a-5fe01878a818','name':'Hello','@id':1}, 1, 1]");
+            final String json = aposToQuotes("[{'id':'a59aa02c-fe3c-43f8-9b5a-5fe01878a818','name':'Hello','@id':1}, 1, 1]");
             final List<NamedThing> forward = mapper.readValue(json, namedThingListType);
             _assertAllSame(forward);
         }

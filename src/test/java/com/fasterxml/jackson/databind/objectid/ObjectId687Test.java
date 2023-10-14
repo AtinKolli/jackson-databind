@@ -63,7 +63,7 @@ public class ObjectId687Test extends BaseMapTest
     /*****************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = objectMapper();
 
     // for [databind#687]
     public void testSerializeDeserializeWithCreator() throws IOException {
@@ -102,5 +102,5 @@ public class ObjectId687Test extends BaseMapTest
 
         // also, compare by re-serializing:
         assertEquals(json, MAPPER.writeValueAsString(result));
-    }
+    }    
 }

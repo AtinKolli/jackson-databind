@@ -27,7 +27,7 @@ public class AlwaysAsReferenceFirstTest extends BaseMapTest
     static class Value1607
     {
         public int value;
-
+        
         public Value1607() { this(0); }
         public Value1607(int v) {
             value = v;
@@ -59,7 +59,7 @@ public class AlwaysAsReferenceFirstTest extends BaseMapTest
     /* Test methods
     /**********************************************************
      */
-
+    
     private final ObjectMapper MAPPER = new ObjectMapper();
 
     // [databind#1255]
@@ -79,6 +79,6 @@ public class AlwaysAsReferenceFirstTest extends BaseMapTest
     public void testIssue1607() throws Exception
     {
         String json = MAPPER.writeValueAsString(new ReallyAlwaysContainer());
-        assertEquals(a2q("{'alwaysClass':1,'alwaysProp':2}"), json);
+        assertEquals(aposToQuotes("{'alwaysClass':1,'alwaysProp':2}"), json);
     }
 }

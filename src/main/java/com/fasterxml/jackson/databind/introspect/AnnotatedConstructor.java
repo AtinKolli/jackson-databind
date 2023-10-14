@@ -1,9 +1,6 @@
 package com.fasterxml.jackson.databind.introspect;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Member;
-import java.lang.reflect.Type;
-import java.util.Objects;
+import java.lang.reflect.*;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.util.ClassUtil;
@@ -16,10 +13,7 @@ public final class AnnotatedConstructor
     protected final Constructor<?> _constructor;
 
     /**
-     * Field that is used to make JDK serialization work with this
-     * object.
-     *
-     * @since 2.1
+     * Field that is used to make JDK serialization work with this object.
      */
     protected Serialization _serialization;
 
@@ -33,12 +27,14 @@ public final class AnnotatedConstructor
             AnnotationMap classAnn, AnnotationMap[] paramAnn)
     {
         super(ctxt, classAnn, paramAnn);
-        _constructor = Objects.requireNonNull(constructor);
+        if (constructor == null) {
+            throw new IllegalArgumentException("Null constructor not allowed");
+        }
+        _constructor = constructor;
     }
 
     /**
      * Method used for JDK serialization support
-     * @since 2.1
      */
     protected AnnotatedConstructor(Serialization ser)
     {
@@ -46,12 +42,12 @@ public final class AnnotatedConstructor
         _constructor = null;
         _serialization = ser;
     }
-
+    
     @Override
     public AnnotatedConstructor withAnnotations(AnnotationMap ann) {
         return new AnnotatedConstructor(_typeContext, _constructor, ann, _paramAnnotations);
     }
-
+    
     /*
     /**********************************************************
     /* Annotated impl
@@ -85,7 +81,7 @@ public final class AnnotatedConstructor
 
     @Override
     public int getParameterCount() {
-        return _constructor.getParameterCount();
+        return _constructor.getParameterTypes().length;
     }
 
     @Override
@@ -105,20 +101,13 @@ public final class AnnotatedConstructor
     }
 
     @Override
-    @Deprecated // since 2.7
-    public Type getGenericParameterType(int index) {
-        Type[] types = _constructor.getGenericParameterTypes();
-        if (index >= types.length) {
-            return null;
-        }
-        return types[index];
+    public Parameter[] getNativeParameters() {
+        return _constructor.getParameters();
     }
 
     @Override
     public final Object call() throws Exception {
-        // 31-Mar-2021, tatu: Note! This is faster than calling without arguments
-        //   because JDK in its wisdom would otherwise allocate `new Object[0]` to pass
-        return _constructor.newInstance((Object[]) null);
+        return _constructor.newInstance();
     }
 
     @Override
@@ -158,7 +147,7 @@ public final class AnnotatedConstructor
         throw new UnsupportedOperationException("Cannot call getValue() on constructor of "
                 +getDeclaringClass().getName());
     }
-
+    
     /*
     /**********************************************************
     /* Extended API, specific annotations
@@ -167,26 +156,19 @@ public final class AnnotatedConstructor
 
     @Override
     public String toString() {
-        final int argCount = _constructor.getParameterCount();
-        return String.format("[constructor for %s (%d arg%s), annotations: %s",
-                ClassUtil.nameOf(_constructor.getDeclaringClass()), argCount,
-                (argCount == 1) ? "" : "s", _annotations);
+        return "[constructor for "+getName()+", annotations: "+_annotations+"]";
     }
 
     @Override
     public int hashCode() {
-        // _constructor can be null for special case of JDK serialization so:
-        return Objects.hashCode(_constructor);
+        return _constructor.getName().hashCode();
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (o == this) return true;
-        if (!ClassUtil.hasClass(o, getClass())) {
-            return false;
-        }
-        AnnotatedConstructor other = (AnnotatedConstructor) o;
-        return Objects.equals(_constructor, other._constructor);
+        return ClassUtil.hasClass(o, getClass())
+                && (((AnnotatedConstructor) o)._constructor == _constructor);
     }
 
     /*
@@ -213,7 +195,7 @@ public final class AnnotatedConstructor
                     +_serialization.args.length+" args from Class '"+clazz.getName());
         }
     }
-
+    
     /**
      * Helper class that is used as the workaround to persist
      * Field references. It basically just stores declaring class

@@ -3,11 +3,9 @@ package com.fasterxml.jackson.databind.deser.jdk;
 import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 
 /**
  * Tests for special collection/map types via `java.util.Collections`
@@ -27,12 +25,12 @@ public class JDKCollectionsDeserTest extends BaseMapTest
     /**********************************************************************
      */
 
-    private final static ObjectMapper MAPPER = newJsonMapper();
-
+    private final static ObjectMapper MAPPER = new ObjectMapper();
+    
     // And then a round-trip test for singleton collections
     public void testSingletonCollections() throws Exception
     {
-        final TypeReference<List<XBean>> xbeanListType = new TypeReference<List<XBean>>() { };
+        final TypeReference<?> xbeanListType = new TypeReference<List<XBean>>() { };
 
         String json = MAPPER.writeValueAsString(Collections.singleton(new XBean(3)));
         Collection<XBean> result = MAPPER.readValue(json, xbeanListType);
@@ -50,18 +48,23 @@ public class JDKCollectionsDeserTest extends BaseMapTest
     // [databind#1868]: Verify class name serialized as is
     public void testUnmodifiableSet() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .activateDefaultTyping(NoCheckSubTypeValidator.instance,
-                        ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
 
         Set<String> theSet = Collections.unmodifiableSet(Collections.singleton("a"));
         String json = mapper.writeValueAsString(theSet);
 
         assertEquals("[\"java.util.Collections$UnmodifiableSet\",[\"a\"]]", json);
 
-        Set<?> result = mapper.readValue(json, Set.class);
+        // 04-Jan-2018, tatu: Alas, no way to make this actually work well, at this point.
+         //   In theory could jiggle things back on deser, using one of two ways:
+         //
+         //   1) Do mapping to regular Set/List types (abstract type mapping): would work, but get rid of immutability
+         //   2) Have actually separate deserializer OR ValueInstantiator
+        /*
+        Set<String> result = mapper.readValue(json, Set.class);
         assertNotNull(result);
         assertEquals(1, result.size());
+        */
     }
 }

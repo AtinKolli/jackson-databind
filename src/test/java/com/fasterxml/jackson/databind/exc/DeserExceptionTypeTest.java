@@ -3,15 +3,15 @@ package com.fasterxml.jackson.databind.exc;
 import java.io.*;
 
 import com.fasterxml.jackson.core.*;
-
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.testutil.BrokenStringReader;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
  * Unit test for verifying that exceptions are properly handled (caught,
  * re-thrown or wrapped, depending) with Object deserialization,
- * including using concrete subtypes of {@link DatabindException}
- * (and streaming-level equivalents).
+ * including using concrete subtypes of {@link JsonMappingException}
+ * (or, for low-level parsing, {@link JsonParseException}).
  */
 public class DeserExceptionTypeTest
     extends BaseMapTest
@@ -26,17 +26,17 @@ public class DeserExceptionTypeTest
         public int x;
 
         // Constructor that is not detectable as Creator
-        public NoCreatorsBean(boolean foo, int foo2) { }
+        protected NoCreatorsBean(boolean foo, int foo2) { }
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = new ObjectMapper();
+    
     public void testHandlingOfUnrecognized() throws Exception
     {
         UnrecognizedPropertyException exc = null;
@@ -56,29 +56,33 @@ public class DeserExceptionTypeTest
 
     /**
      * Simple test to check behavior when end-of-stream is encountered
-     * without content.
+     * without content. Used to expect EOFException (Jackson 1.x); but
+     * nowadays ought to be JsonMappingException
      */
     public void testExceptionWithEmpty() throws Exception
     {
         try {
             Object result = MAPPER.readValue("    ", Object.class);
             fail("Expected an exception, but got result value: "+result);
-        } catch (MismatchedInputException e) {
-            verifyException(e, "No content");
+        } catch (Exception e) {
+            verifyException(e, MismatchedInputException.class, "No content");
         }
     }
 
+    @SuppressWarnings("resource")
     public void testExceptionWithIncomplete()
         throws Exception
     {
         BrokenStringReader r = new BrokenStringReader("[ 1, ", "TEST");
-        try (JsonParser p = MAPPER.createParser(r)) {
+        JsonParser p = MAPPER.createParser(r);
+        try {
             @SuppressWarnings("unused")
             Object ob = MAPPER.readValue(p, Object.class);
             fail("Should have gotten an exception");
         } catch (IOException e) {
-            // For "bona fide" IO problems (due to low-level problem,
-            // thrown by reader/stream), IOException must be thrown
+            /* For "bona fide" IO problems (due to low-level problem,
+             * thrown by reader/stream), IOException must be thrown
+             */
             verifyException(e, IOException.class, "TEST");
         }
     }
@@ -111,25 +115,8 @@ public class DeserExceptionTypeTest
         try {
             NoCreatorsBean b = MAPPER.readValue("{}", NoCreatorsBean.class);
             fail("Should not succeed, got: "+b);
-        } catch (InvalidDefinitionException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, InvalidDefinitionException.class, "no Creators");
-        }
-    }
-
-    /*
-    /**********************************************************
-    /* Helper methods
-    /**********************************************************
-     */
-
-    void verifyException(Exception e, Class<?> expType, String expMsg)
-        throws Exception
-    {
-        if (e.getClass() != expType) {
-            fail("Expected exception of type "+expType.getName()+", got "+e.getClass().getName());
-        }
-        if (expMsg != null) {
-            verifyException(e, expMsg);
         }
     }
 }

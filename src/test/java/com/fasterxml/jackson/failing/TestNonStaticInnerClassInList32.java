@@ -17,13 +17,13 @@ public class TestNonStaticInnerClassInList32 extends BaseMapTest
             public int length;
         }
     }
-
+    
     /*
     /**********************************************************
     /* Tests
     /**********************************************************
      */
-
+    
     // core/[Issue#32]
     public void testInnerList() throws Exception
     {
@@ -41,6 +41,7 @@ public class TestNonStaticInnerClassInList32 extends BaseMapTest
 //        System.out.println(dogJson);
       // output: {"name":"Spike","legs":[{length: 5}, {length: 4}]}
 
+        // currently throws JsonMappingException
         Dog2 dogCopy = mapper.readValue(dogJson, Dog2.class);
         assertEquals(dogCopy.legs.get(1).length, 4);
         // prefer fully populated Dog instance

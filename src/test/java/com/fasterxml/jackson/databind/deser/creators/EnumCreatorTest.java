@@ -1,11 +1,7 @@
 package com.fasterxml.jackson.databind.deser.creators;
 
 import java.math.BigDecimal;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
@@ -16,7 +12,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.Deserializers;
 import com.fasterxml.jackson.databind.deser.std.EnumDeserializer;
-import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
@@ -47,13 +42,13 @@ public class EnumCreatorTest extends BaseMapTest
     protected enum TestEnumFromInt
     {
         ENUM_A(1), ENUM_B(2), ENUM_C(3);
-
+        
         private final int id;
-
+        
         private TestEnumFromInt(int id) {
             this.id = id;
         }
-
+        
         @JsonCreator public static TestEnumFromInt fromId(int id) {
             for (TestEnumFromInt e: values()) {
                 if (e.id == id) return e;
@@ -62,25 +57,16 @@ public class EnumCreatorTest extends BaseMapTest
         }
     }
 
-    protected enum TestEnumFromString
-    {
-        ENUM_A, ENUM_B, ENUM_C;
-
-        @JsonCreator public static TestEnumFromString fromId(String id) {
-            return valueOf(id);
-        }
-    }
-
     static enum EnumWithPropertiesModeJsonCreator {
         TEST1,
         TEST2,
         TEST3;
-
+       
         @JsonGetter("name")
         public String getName() {
             return name();
         }
-
+       
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
         public static EnumWithPropertiesModeJsonCreator create(@JsonProperty("name") String name) {
             return EnumWithPropertiesModeJsonCreator.valueOf(name);
@@ -102,12 +88,12 @@ public class EnumCreatorTest extends BaseMapTest
             return EnumWithDelegateModeJsonCreator.valueOf(json.get("name").asText());
         }
     }
-
+    
     // [databind#324]: exception from creator method
     protected enum TestEnum324
     {
         A, B;
-
+        
         @JsonCreator public static TestEnum324 creator(String arg) {
             throw new RuntimeException("Foobar!");
         }
@@ -117,8 +103,7 @@ public class EnumCreatorTest extends BaseMapTest
     static class DelegatingDeserializers extends Deserializers.Base
     {
         @Override
-        public JsonDeserializer<?> findEnumDeserializer(final Class<?> type, final DeserializationConfig config, final BeanDescription beanDesc)
-        {
+        public JsonDeserializer<?> findEnumDeserializer(final Class<?> type, final DeserializationConfig config, final BeanDescription beanDesc) throws JsonMappingException {
             final Collection<AnnotatedMethod> factoryMethods = beanDesc.getFactoryMethods();
             if (factoryMethods != null) {
                 for (AnnotatedMethod am : factoryMethods) {
@@ -159,7 +144,7 @@ public class EnumCreatorTest extends BaseMapTest
     static enum MyEnum960
     {
         VALUE, BOGUS;
-
+        
         @JsonCreator
         public static MyEnum960 getInstance() {
             return VALUE;
@@ -200,33 +185,13 @@ public class EnumCreatorTest extends BaseMapTest
         }
     }
 
-    // [databind#3280]
-    static enum Enum3280 {
-        x("x"),
-        y("y"),
-        z("z");
-        private final String value;
-        Enum3280(String value) {
-            this.value = value;
-        }
-        @JsonCreator
-        public static Enum3280 getByValue(@JsonProperty("b") String value) {
-            for (Enum3280 e : Enum3280.values()) {
-                if (e.value.equals(value)) {
-                    return e;
-                }
-            }
-            return null;
-        }
-    }
-
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    protected final ObjectMapper MAPPER = newJsonMapper();
+    protected final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testCreatorEnums() throws Exception {
         EnumWithCreator value = MAPPER.readValue("\"enumA\"", EnumWithCreator.class);
@@ -260,21 +225,21 @@ public class EnumCreatorTest extends BaseMapTest
     {
         EnumWithPropertiesModeJsonCreator type1 = MAPPER.readValue("{\"name\":\"TEST1\", \"description\":\"TEST\"}", EnumWithPropertiesModeJsonCreator.class);
         assertSame(EnumWithPropertiesModeJsonCreator.TEST1, type1);
-
+        
         EnumWithPropertiesModeJsonCreator type2 = MAPPER.readValue("{\"name\":\"TEST3\", \"description\":\"TEST\"}", EnumWithPropertiesModeJsonCreator.class);
         assertSame(EnumWithPropertiesModeJsonCreator.TEST3, type2);
-
+     
     }
-
+    
     public void testJsonCreatorDelagateWithEnum() throws Exception {
         final ObjectMapper mapper = new ObjectMapper();
-
+        
         EnumWithDelegateModeJsonCreator type1 = mapper.readValue("{\"name\":\"TEST1\", \"description\":\"TEST\"}", EnumWithDelegateModeJsonCreator.class);
         assertSame(EnumWithDelegateModeJsonCreator.TEST1, type1);
-
+        
         EnumWithDelegateModeJsonCreator type2 = mapper.readValue("{\"name\":\"TEST3\", \"description\":\"TEST\"}", EnumWithDelegateModeJsonCreator.class);
         assertSame(EnumWithDelegateModeJsonCreator.TEST3, type2);
-
+     
     }
 
     public void testEnumsFromInts() throws Exception
@@ -288,13 +253,13 @@ public class EnumCreatorTest extends BaseMapTest
     public void testExceptionFromCreator() throws Exception
     {
         try {
-            /*TestEnum324 e =*/ MAPPER.readValue(q("xyz"), TestEnum324.class);
+            /*TestEnum324 e =*/ MAPPER.readValue(quote("xyz"), TestEnum324.class);
             fail("Should throw exception");
-        } catch (ValueInstantiationException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "foobar");
         }
     }
-
+    
     // [databind#745]
     public void testDeserializerForCreatorWithEnumMaps() throws Exception
     {
@@ -311,7 +276,7 @@ public class EnumCreatorTest extends BaseMapTest
         Enum929 v = MAPPER.readValue("{\"id\":3,\"name\":\"B\"}", Enum929.class);
         assertEquals(Enum929.B, v);
     }
-
+    
     // for [databind#960]
     public void testNoArgEnumCreator() throws Exception
     {
@@ -342,37 +307,4 @@ public class EnumCreatorTest extends BaseMapTest
         assertEquals(Enum929.B, valueList.get(2));
     }
 
-    // for [databind#3280]
-    public void testPropertyCreatorEnum3280() throws Exception
-    {
-        final ObjectReader r = MAPPER.readerFor(Enum3280.class);
-        assertEquals(Enum3280.x, r.readValue("{\"b\":\"x\"}"));
-        assertEquals(Enum3280.x, r.readValue("{\"a\":\"1\", \"b\":\"x\"}"));
-        assertEquals(Enum3280.y, r.readValue("{\"b\":\"y\", \"a\":{}}"));
-        assertEquals(Enum3280.y, r.readValue("{\"b\":\"y\", \"a\":{}}"));
-        assertEquals(Enum3280.x, r.readValue("{\"a\":[], \"b\":\"x\"}"));
-        assertEquals(Enum3280.x, r.readValue("{\"a\":{}, \"b\":\"x\"}"));
-    }
-
-    // for [databind#3655]
-    public void testEnumsFromIntsUnwrapped() throws Exception
-    {
-        Object ob = MAPPER
-                .readerFor(TestEnumFromInt.class)
-                .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
-                .readValue("[1]");
-        assertEquals(TestEnumFromInt.class, ob.getClass());
-        assertSame(TestEnumFromInt.ENUM_A, ob);
-    }
-
-    // for [databind#3655]
-    public void testEnumsFromStringUnwrapped() throws Exception
-    {
-        Object ob = MAPPER
-                .readerFor(TestEnumFromString.class)
-                .with(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
-                .readValue("[\"ENUM_A\"]");
-        assertEquals(TestEnumFromString.class, ob.getClass());
-        assertSame(TestEnumFromString.ENUM_A, ob);
-    }
 }

@@ -14,7 +14,7 @@ public class TestInjectables extends BaseMapTest
         protected String otherStuff;
 
         protected long third;
-
+        
         public int value;
 
         @JacksonInject
@@ -26,7 +26,7 @@ public class TestInjectables extends BaseMapTest
     static class CtorBean {
         protected String name;
         protected int age;
-
+        
         public CtorBean(@JacksonInject String n, @JsonProperty("age") int a)
         {
             name = n;
@@ -37,7 +37,7 @@ public class TestInjectables extends BaseMapTest
     static class CtorBean2 {
         protected String name;
         protected Integer age;
-
+        
         public CtorBean2(@JacksonInject String n, @JacksonInject("number") Integer a)
         {
             name = n;
@@ -52,7 +52,7 @@ public class TestInjectables extends BaseMapTest
 
         public int value;
     }
-
+    
     static class Bean471 {
 
         protected final Object constructorInjected;
@@ -90,11 +90,11 @@ public class TestInjectables extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = newObjectMapper();
+    
     public void testSimple() throws Exception
     {
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = newObjectMapper();
         mapper.setInjectableValues(new InjectableValues.Std()
             .addValue(String.class, "stuffValue")
             .addValue("myId", "xyz")
@@ -106,7 +106,7 @@ public class TestInjectables extends BaseMapTest
         assertEquals("xyz", bean.otherStuff);
         assertEquals(37L, bean.third);
     }
-
+    
     public void testWithCtors() throws Exception
     {
         CtorBean bean = MAPPER.readerFor(CtorBean.class)
@@ -135,13 +135,13 @@ public class TestInjectables extends BaseMapTest
         final Object methodInjected = "methodInjected";
         final Object fieldInjected = "fieldInjected";
 
-        ObjectMapper mapper = newJsonMapper()
+        ObjectMapper mapper = newObjectMapper()
                         .setInjectableValues(new InjectableValues.Std()
                                 .addValue("constructor_injected", constructorInjected)
                                 .addValue("method_injected", methodInjected)
                                 .addValue("field_injected", fieldInjected));
 
-        Bean471 bean = mapper.readValue(a2q(
+        Bean471 bean = mapper.readValue(aposToQuotes(
 "{'x':13,'constructor_value':'constructor','method_value':'method','field_value':'field'}"),
                 Bean471.class);
 

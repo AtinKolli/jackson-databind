@@ -23,7 +23,7 @@ public class ExceptionPathTest extends BaseMapTest
     /* Test methods
     /**********************************************************
      */
-
+    
     private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testReferenceChainForInnerClass() throws Exception
@@ -32,9 +32,15 @@ public class ExceptionPathTest extends BaseMapTest
         try {
             MAPPER.readValue(json, Outer.class);
             fail("Should not pass");
-        } catch (ValueInstantiationException e) {
-            String referenceStr = e.getPath().get(0).toString();
-            assertEquals(getClass().getName()+"$Outer[\"inner\"]", referenceStr);
+        } catch (JsonMappingException e) {
+            JsonMappingException.Reference reference = e.getPath().get(0);
+            assertEquals(getClass().getName()+"$Outer[\"inner\"]",
+                    reference.toString());
         }
+    }
+
+    public static void main(String[] args)
+    {
+        System.err.println("Int, full: "+Integer.TYPE.getName());
     }
 }

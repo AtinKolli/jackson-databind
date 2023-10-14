@@ -1,17 +1,16 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.HashMap;
 
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.core.type.WritableTypeId;
+
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ser.ContainerSerializer;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
@@ -45,7 +44,7 @@ public class StdArraySerializers
     public static JsonSerializer<?> findStandardImpl(Class<?> cls) {
         return _arraySerializers.get(cls.getName());
     }
-
+    
     /*
      ****************************************************************
     /* Intermediate base classes
@@ -97,12 +96,12 @@ public class StdArraySerializers
                 BeanProperty prop, Boolean unwrapSingle) {
             super(src, prop, unwrapSingle);
         }
-
+        
         @Override
         public JsonSerializer<?> _withResolved(BeanProperty prop, Boolean unwrapSingle) {
             return new BooleanArraySerializer(this, prop, unwrapSingle);
         }
-
+        
         /**
          * Booleans never add type info; hence, even if type serializer is suggested,
          * we'll ignore it...
@@ -122,7 +121,7 @@ public class StdArraySerializers
             // 14-Jan-2012, tatu: We could refer to an actual serializer if absolutely necessary
             return null;
         }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, boolean[] value) {
             return value.length == 0;
@@ -153,18 +152,6 @@ public class StdArraySerializers
             for (int i = 0, len = value.length; i < len; ++i) {
                 g.writeBoolean(value[i]);
             }
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
-        {
-            ObjectNode o = createSchemaNode("array", true);
-            o.set("items", createSchemaNode("boolean"));
-            return o;
         }
 
         @Override
@@ -203,7 +190,7 @@ public class StdArraySerializers
             // 14-Jan-2012, tatu: We could refer to an actual serializer if absolutely necessary
             return null;
         }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, short[] value) {
             return value.length == 0;
@@ -226,7 +213,8 @@ public class StdArraySerializers
             serializeContents(value, g, provider);
             g.writeEndArray();
         }
-
+        
+        @SuppressWarnings("cast")
         @Override
         public void serializeContents(short[] value, JsonGenerator g, SerializerProvider provider)
             throws IOException
@@ -234,18 +222,6 @@ public class StdArraySerializers
             for (int i = 0, len = value.length; i < len; ++i) {
                 g.writeNumber((int)value[i]);
             }
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
-        {
-            //no "short" type defined by json
-            ObjectNode o = createSchemaNode("array", true);
-            return o.set("items", createSchemaNode("integer"));
         }
 
         @Override
@@ -267,12 +243,12 @@ public class StdArraySerializers
     public static class CharArraySerializer extends StdSerializer<char[]>
     {
         public CharArraySerializer() { super(char[].class); }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, char[] value) {
             return value.length == 0;
         }
-
+        
         @Override
         public void serialize(char[] value, JsonGenerator g, SerializerProvider provider)
             throws IOException
@@ -315,19 +291,6 @@ public class StdArraySerializers
             }
         }
 
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
-        {
-            ObjectNode o = createSchemaNode("array", true);
-            ObjectNode itemSchema = createSchemaNode("string");
-            itemSchema.put("type", "string");
-            return o.set("items", itemSchema);
-        }
-
         @Override
         public void acceptJsonFormatVisitor(JsonFormatVisitorWrapper visitor, JavaType typeHint)
             throws JsonMappingException
@@ -345,19 +308,16 @@ public class StdArraySerializers
 
         public IntArraySerializer() { super(int[].class); }
 
-        /**
-         * @since 2.6
-         */
         protected IntArraySerializer(IntArraySerializer src,
                 BeanProperty prop, Boolean unwrapSingle) {
             super(src, prop, unwrapSingle);
         }
-
+        
         @Override
         public JsonSerializer<?> _withResolved(BeanProperty prop, Boolean unwrapSingle) {
             return new IntArraySerializer(this, prop, unwrapSingle);
         }
-
+        
         /**
          * Ints never add type info; hence, even if type serializer is suggested,
          * we'll ignore it...
@@ -365,7 +325,7 @@ public class StdArraySerializers
         @Override
         public ContainerSerializer<?> _withValueTypeSerializer(TypeSerializer vts) {
             return this;
-        }
+        }        
 
         @Override
         public JavaType getContentType() {
@@ -377,7 +337,7 @@ public class StdArraySerializers
             // 14-Jan-2012, tatu: We could refer to an actual serializer if absolutely necessary
             return null;
         }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, int[] value) {
             return value.length == 0;
@@ -397,6 +357,7 @@ public class StdArraySerializers
                 return;
             }
             // 11-May-2016, tatu: As per [core#277] we have efficient `writeArray(...)` available
+            g.setCurrentValue(value);
             g.writeArray(value, 0, value.length);
         }
 
@@ -407,15 +368,6 @@ public class StdArraySerializers
             for (int i = 0, len = value.length; i < len; ++i) {
                 g.writeNumber(value[i]);
             }
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-            return createSchemaNode("array", true).set("items", createSchemaNode("integer"));
         }
 
         @Override
@@ -453,7 +405,7 @@ public class StdArraySerializers
             // 14-Jan-2012, tatu: We could refer to an actual serializer if absolutely necessary
             return null;
         }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, long[] value) {
             return value.length == 0;
@@ -473,9 +425,10 @@ public class StdArraySerializers
                 return;
             }
             // 11-May-2016, tatu: As per [core#277] we have efficient `writeArray(...)` available
+            g.setCurrentValue(value);
             g.writeArray(value, 0, value.length);
         }
-
+        
         @Override
         public void serializeContents(long[] value, JsonGenerator g, SerializerProvider provider)
             throws IOException
@@ -483,17 +436,6 @@ public class StdArraySerializers
             for (int i = 0, len = value.length; i < len; ++i) {
                 g.writeNumber(value[i]);
             }
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint)
-        {
-            return createSchemaNode("array", true)
-                .set("items", createSchemaNode("number", true));
         }
 
         @Override
@@ -510,7 +452,7 @@ public class StdArraySerializers
         // as above, assuming no one re-defines primitive/wrapper types
         @SuppressWarnings("deprecation")
         private final static JavaType VALUE_TYPE = TypeFactory.defaultInstance().uncheckedSimpleType(Float.TYPE);
-
+        
         public FloatArraySerializer() {
             super(float[].class);
         }
@@ -534,7 +476,7 @@ public class StdArraySerializers
             // 14-Jan-2012, tatu: We could refer to an actual serializer if absolutely necessary
             return null;
         }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, float[] value) {
             return value.length == 0;
@@ -557,7 +499,7 @@ public class StdArraySerializers
             serializeContents(value, g, provider);
             g.writeEndArray();
         }
-
+        
         @Override
         public void serializeContents(float[] value, JsonGenerator g, SerializerProvider provider)
             throws IOException
@@ -565,15 +507,6 @@ public class StdArraySerializers
             for (int i = 0, len = value.length; i < len; ++i) {
                 g.writeNumber(value[i]);
             }
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-            return createSchemaNode("array", true).set("items", createSchemaNode("number"));
         }
 
         @Override
@@ -624,7 +557,7 @@ public class StdArraySerializers
             // 14-Jan-2012, tatu: We could refer to an actual serializer if absolutely necessary
             return null;
         }
-
+        
         @Override
         public boolean isEmpty(SerializerProvider prov, double[] value) {
             return value.length == 0;
@@ -643,6 +576,7 @@ public class StdArraySerializers
                 serializeContents(value, g, provider);
                 return;
             }
+            g.setCurrentValue(value);
             // 11-May-2016, tatu: As per [core#277] we have efficient `writeArray(...)` available
             g.writeArray(value, 0, value.length);
         }
@@ -653,15 +587,6 @@ public class StdArraySerializers
             for (int i = 0, len = value.length; i < len; ++i) {
                 g.writeNumber(value[i]);
             }
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-            return createSchemaNode("array", true).set("items", createSchemaNode("number"));
         }
 
         @Override

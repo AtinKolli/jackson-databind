@@ -3,20 +3,15 @@ package com.fasterxml.jackson.databind.introspect;
 import java.lang.annotation.Annotation;
 import java.util.*;
 
-import com.fasterxml.jackson.annotation.JacksonInject;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.OptBoolean;
 import com.fasterxml.jackson.core.Version;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.deser.std.NumberDeserializers;
 import com.fasterxml.jackson.databind.deser.std.StringDeserializer;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
 import com.fasterxml.jackson.databind.ser.std.StringSerializer;
@@ -116,7 +111,7 @@ public class IntrospectorPairTest extends BaseMapTest
         /******************************************************
         /* General class annotations
         /******************************************************
-         */
+         */        
 
         @Override
         public PropertyName findRootName(AnnotatedClass ac) {
@@ -124,8 +119,8 @@ public class IntrospectorPairTest extends BaseMapTest
         }
 
         @Override
-        public JsonIgnoreProperties.Value findPropertyIgnoralByName(MapperConfig<?> config, Annotated a) {
-            return (JsonIgnoreProperties.Value) values.get("findPropertyIgnoralByName");
+        public JsonIgnoreProperties.Value findPropertyIgnorals(Annotated a) {
+            return (JsonIgnoreProperties.Value) values.get("findPropertyIgnorals");
         }
 
         @Override
@@ -137,7 +132,7 @@ public class IntrospectorPairTest extends BaseMapTest
         public Object findFilterId(Annotated ann) {
             return (Object) values.get("findFilterId");
         }
-
+        
         @Override
         public Object findNamingStrategy(AnnotatedClass ac) {
             return (Object) values.get("findNamingStrategy");
@@ -189,7 +184,7 @@ public class IntrospectorPairTest extends BaseMapTest
         {
             return (TypeResolverBuilder<?>) values.get("findPropertyContentTypeResolver");
         }
-
+        
         @SuppressWarnings("unchecked")
         @Override
         public List<NamedType> findSubtypes(Annotated a)
@@ -200,27 +195,6 @@ public class IntrospectorPairTest extends BaseMapTest
         @Override
         public String findTypeName(AnnotatedClass ac) {
             return (String) values.get("findTypeName");
-        }
-
-        /*
-        /******************************************************
-        /* Serialization introspection
-        /******************************************************
-         */
-
-        @Override
-        public Boolean hasAsKey(MapperConfig<?> config, Annotated a) {
-            return (Boolean) values.get("hasAsKey");
-        }
-
-        @Override
-        public Boolean hasAsValue(Annotated a) {
-            return (Boolean) values.get("hasAsValue");
-        }
-
-        @Override
-        public Boolean hasAnyGetter(Annotated ann) {
-            return (Boolean) values.get("hasAnyGetter");
         }
 
         /*
@@ -238,7 +212,7 @@ public class IntrospectorPairTest extends BaseMapTest
         /******************************************************
         /* Helper methods
         /******************************************************
-         */
+         */        
 
         private boolean _boolean(String key) {
             Object ob = values.get(key);
@@ -311,14 +285,14 @@ public class IntrospectorPairTest extends BaseMapTest
     {
         JsonIgnoreProperties.Value incl = JsonIgnoreProperties.Value.forIgnoredProperties("foo");
         IntrospectorWithMap intr = new IntrospectorWithMap()
-                .add("findPropertyIgnoralByName", incl);
+                .add("findPropertyIgnorals", incl);
         IntrospectorWithMap intrEmpty = new IntrospectorWithMap()
-                .add("findPropertyIgnoralByName", JsonIgnoreProperties.Value.empty());
+                .add("findPropertyIgnorals", JsonIgnoreProperties.Value.empty());
         assertEquals(JsonIgnoreProperties.Value.empty(),
-                new AnnotationIntrospectorPair(intrEmpty, intrEmpty).findPropertyIgnoralByName(null, null));
+                new AnnotationIntrospectorPair(intrEmpty, intrEmpty).findPropertyIgnorals(null));
         // should actually verify inclusion combining, but there are separate tests for that
-        assertEquals(incl, new AnnotationIntrospectorPair(intrEmpty, intr).findPropertyIgnoralByName(null, null));
-        assertEquals(incl, new AnnotationIntrospectorPair(intr, intrEmpty).findPropertyIgnoralByName(null, null));
+        assertEquals(incl, new AnnotationIntrospectorPair(intrEmpty, intr).findPropertyIgnorals(null));
+        assertEquals(incl, new AnnotationIntrospectorPair(intr, intrEmpty).findPropertyIgnorals(null));
     }
 
     public void testIsIgnorableType() throws Exception
@@ -404,94 +378,19 @@ public class IntrospectorPairTest extends BaseMapTest
         assertNull(new AnnotationIntrospectorPair(nop2, nop).findSerializer(null));
     }
 
-    public void testHasAsValue() throws Exception
-    {
-        IntrospectorWithMap intr1 = new IntrospectorWithMap()
-                .add("hasAsValue", Boolean.TRUE);
-        IntrospectorWithMap intr2 = new IntrospectorWithMap()
-                .add("hasAsValue", Boolean.FALSE);
-        assertNull(new AnnotationIntrospectorPair(NO_ANNOTATIONS, NO_ANNOTATIONS)
-                .hasAsValue(null));
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(intr1, NO_ANNOTATIONS)
-                .hasAsValue(null));
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(NO_ANNOTATIONS, intr1)
-                .hasAsValue(null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(intr2, NO_ANNOTATIONS)
-                .hasAsValue(null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(NO_ANNOTATIONS, intr2)
-                .hasAsValue(null));
-
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(intr1, intr2)
-                .hasAsValue(null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(intr2, intr1)
-                .hasAsValue(null));
-    }
-
-    public void testHasAsKey() throws Exception
-    {
-        IntrospectorWithMap intr1 = new IntrospectorWithMap()
-                .add("hasAsKey", Boolean.TRUE);
-        IntrospectorWithMap intr2 = new IntrospectorWithMap()
-                .add("hasAsKey", Boolean.FALSE);
-        assertNull(new AnnotationIntrospectorPair(NO_ANNOTATIONS, NO_ANNOTATIONS)
-                .hasAsKey(null, null));
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(intr1, NO_ANNOTATIONS)
-                .hasAsKey(null, null));
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(NO_ANNOTATIONS, intr1)
-                .hasAsKey(null, null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(intr2, NO_ANNOTATIONS)
-                .hasAsKey(null, null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(NO_ANNOTATIONS, intr2)
-                .hasAsKey(null, null));
-
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(intr1, intr2)
-                .hasAsKey(null, null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(intr2, intr1)
-                .hasAsKey(null, null));
-    }
-
-    public void testHasAnyGetter() throws Exception
-    {
-        IntrospectorWithMap intr1 = new IntrospectorWithMap()
-                .add("hasAnyGetter", Boolean.TRUE);
-        IntrospectorWithMap intr2 = new IntrospectorWithMap()
-                .add("hasAnyGetter", Boolean.FALSE);
-        assertNull(new AnnotationIntrospectorPair(NO_ANNOTATIONS, NO_ANNOTATIONS)
-                .hasAnyGetter(null));
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(intr1, NO_ANNOTATIONS)
-                .hasAnyGetter(null));
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(NO_ANNOTATIONS, intr1)
-                .hasAnyGetter(null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(intr2, NO_ANNOTATIONS)
-                .hasAnyGetter(null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(NO_ANNOTATIONS, intr2)
-                .hasAnyGetter(null));
-
-        assertEquals(Boolean.TRUE, new AnnotationIntrospectorPair(intr1, intr2)
-                .hasAnyGetter(null));
-        assertEquals(Boolean.FALSE, new AnnotationIntrospectorPair(intr2, intr1)
-                .hasAnyGetter(null));
-    }
-
-    /*
-    /**********************************************************
-    /* Test methods, deser
-    /**********************************************************
-     */
-
     public void testFindDeserializer() throws Exception
     {
         final JsonDeserializer<?> deserString = StringDeserializer.instance;
-        final JsonDeserializer<?> deserBoolean = NumberDeserializers.find(Boolean.TYPE, "b");
+        final JsonDeserializer<?> deserObject = UntypedObjectDeserializer.Vanilla.std;
 
         AnnotationIntrospector intr1 = new IntrospectorWithHandlers(deserString, null);
-        AnnotationIntrospector intr2 = new IntrospectorWithHandlers(deserBoolean, null);
+        AnnotationIntrospector intr2 = new IntrospectorWithHandlers(deserObject, null);
         AnnotationIntrospector nop = AnnotationIntrospector.nopInstance();
         AnnotationIntrospector nop2 = new IntrospectorWithHandlers(JsonDeserializer.None.class, null);
 
         assertSame(deserString,
                 new AnnotationIntrospectorPair(intr1, intr2).findDeserializer(null));
-        assertSame(deserBoolean,
+        assertSame(deserObject,
                 new AnnotationIntrospectorPair(intr2, intr1).findDeserializer(null));
         // also: no-op instance should not block real one, regardless
         assertSame(deserString,
@@ -605,95 +504,5 @@ public class IntrospectorPairTest extends BaseMapTest
 
         assertEquals(JsonInclude.Include.NON_EMPTY, v21.getContentInclusion());
         assertEquals(JsonInclude.Include.NON_ABSENT, v21.getValueInclusion());
-    }
-
-    /*
-    /**********************************************************
-    /* Introspectors and test for [jackson-modules-base#134]/[databind#962]
-    /**********************************************************
-     */
-    static class TestIntrospector extends NopAnnotationIntrospector {
-        @Override
-        public JacksonInject.Value findInjectableValue(AnnotatedMember m) {
-            if (m.getRawType() == UnreadableBean.class) {
-                return JacksonInject.Value.forId("jjj");
-            }
-            return null;
-        }
-    }
-
-    static class TestInjector extends InjectableValues {
-        @Override
-        public Object findInjectableValue(Object valueId, DeserializationContext ctxt, BeanProperty forProperty, Object beanInstance) {
-            if (valueId == "jjj") {
-                UnreadableBean bean = new UnreadableBean();
-                bean.setValue(1);
-                return bean;
-            }
-            return null;
-        }
-    }
-
-    enum SimpleEnum { ONE, TWO }
-
-    static class UnreadableBean {
-        public SimpleEnum value;
-
-        public void setValue(SimpleEnum value) {
-            this.value = value;
-        }
-
-        public void setValue(Integer intValue) {
-            this.value = SimpleEnum.values()[intValue];
-        }
-
-        public SimpleEnum getValue() {
-            return value;
-        }
-    }
-
-    static class ReadableInjectedBean {
-        public ReadableInjectedBean(@JacksonInject(useInput = OptBoolean.FALSE) UnreadableBean injectBean) {
-            this.injectBean = injectBean;
-        }
-        @JsonProperty
-        String foo;
-        @JsonIgnore
-        UnreadableBean injectBean;
-    }
-
-    static class UnreadableInjectedBean {
-        public UnreadableInjectedBean(@JacksonInject UnreadableBean injectBean) {
-            this.injectBean = injectBean;
-        }
-        @JsonProperty
-        private String foo;
-        @JsonIgnore
-        private UnreadableBean injectBean;
-    }
-
-    public void testMergingIntrospectorsForInjection() throws Exception {
-        AnnotationIntrospector testIntrospector = new TestIntrospector();
-        ObjectMapper mapper = new JsonMapper();
-        mapper.setInjectableValues(new TestInjector());
-        mapper.setAnnotationIntrospectors(
-                new AnnotationIntrospectorPair(testIntrospector,
-                        mapper.getSerializationConfig().getAnnotationIntrospector()),
-                new AnnotationIntrospectorPair(testIntrospector,
-                        mapper.getDeserializationConfig().getAnnotationIntrospector())
-        );
-        ReadableInjectedBean bean = mapper.readValue("{\"foo\": \"bob\"}", ReadableInjectedBean.class);
-        assertEquals("bob", bean.foo);
-        assertEquals(SimpleEnum.TWO, bean.injectBean.value);
-
-        boolean successReadingUnreadableInjectedBean;
-        try {
-            /*UnreadableInjectedBean noBean =*/ mapper.readValue("{\"foo\": \"bob\"}", UnreadableInjectedBean.class);
-            successReadingUnreadableInjectedBean = true;
-        } catch (JsonMappingException e) {
-            successReadingUnreadableInjectedBean = false;
-            assertTrue(e.getMessage().contains("Conflicting setter definitions"));
-        }
-        assertFalse(successReadingUnreadableInjectedBean);
     }
 }

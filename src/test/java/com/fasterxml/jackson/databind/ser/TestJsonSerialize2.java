@@ -5,6 +5,7 @@ import java.util.*;
 
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -16,15 +17,15 @@ public class TestJsonSerialize2
 {
     static class SimpleKey {
         protected final String key;
-
+        
         public SimpleKey(String str) { key = str; }
-
+        
         @Override public String toString() { return "toString:"+key; }
     }
 
     static class SimpleValue {
         public final String value;
-
+        
         public SimpleValue(String str) { value = str; }
     }
 
@@ -32,14 +33,14 @@ public class TestJsonSerialize2
     static class ActualValue extends SimpleValue
     {
         public final String other = "123";
-
+        
         public ActualValue(String str) { super(str); }
     }
 
     static class SimpleKeySerializer extends JsonSerializer<SimpleKey> {
         @Override
         public void serialize(SimpleKey key, JsonGenerator jgen, SerializerProvider provider)
-            throws IOException {
+            throws IOException, JsonProcessingException {
             jgen.writeFieldName("key "+key.key);
         }
     }
@@ -47,7 +48,7 @@ public class TestJsonSerialize2
     static class SimpleValueSerializer extends JsonSerializer<SimpleValue> {
         @Override
         public void serialize(SimpleValue value, JsonGenerator jgen, SerializerProvider provider)
-            throws IOException {
+            throws IOException, JsonProcessingException {
             jgen.writeString("value "+value.value);
         }
     }
@@ -63,12 +64,12 @@ public class TestJsonSerialize2
 
     @JsonSerialize(keyUsing=SimpleKeySerializer.class, contentUsing=SimpleValueSerializer.class)
     static class SimpleValueMapWithSerializer extends HashMap<SimpleKey, ActualValue> { }
-
+    
     static class ListWrapperSimple
     {
         @JsonSerialize(contentAs=SimpleValue.class)
         public final ArrayList<ActualValue> values = new ArrayList<ActualValue>();
-
+        
         public ListWrapperSimple(String value) {
             values.add(new ActualValue(value));
         }
@@ -78,17 +79,17 @@ public class TestJsonSerialize2
     {
         @JsonSerialize(contentUsing=SimpleValueSerializer.class)
         public final ArrayList<ActualValue> values = new ArrayList<ActualValue>();
-
+        
         public ListWrapperWithSerializer(String value) {
             values.add(new ActualValue(value));
         }
     }
-
+    
     static class MapWrapperSimple
     {
         @JsonSerialize(contentAs=SimpleValue.class)
         public final HashMap<SimpleKey, ActualValue> values = new HashMap<SimpleKey, ActualValue>();
-
+        
         public MapWrapperSimple(String key, String value) {
             values.put(new SimpleKey(key), new ActualValue(value));
         }
@@ -98,7 +99,7 @@ public class TestJsonSerialize2
     {
         @JsonSerialize(keyUsing=SimpleKeySerializer.class, contentUsing=SimpleValueSerializer.class)
         public final HashMap<SimpleKey, ActualValue> values = new HashMap<SimpleKey, ActualValue>();
-
+        
         public MapWrapperWithSerializer(String key, String value) {
             values.put(new SimpleKey(key), new ActualValue(value));
         }
@@ -117,7 +118,7 @@ public class TestJsonSerialize2
      */
 
     private final ObjectMapper MAPPER = new ObjectMapper();
-
+    
     // test value annotation applied to List value class
     public void testSerializedAsListWithClassAnnotations() throws IOException
     {
@@ -148,7 +149,7 @@ public class TestJsonSerialize2
         ListWrapperSimple input = new ListWrapperSimple("bar");
         assertEquals("{\"values\":[{\"value\":\"bar\"}]}", MAPPER.writeValueAsString(input));
     }
-
+    
     public void testSerializedAsMapWithClassSerializer() throws IOException
     {
         SimpleValueMapWithSerializer map = new SimpleValueMapWithSerializer();
@@ -162,7 +163,7 @@ public class TestJsonSerialize2
         assertEquals("{\"values\":{\"toString:a\":{\"value\":\"b\"}}}",
                 MAPPER.writeValueAsString(input));
     }
-
+    
     public void testSerializedAsListWithPropertyAnnotations2() throws IOException
     {
         ListWrapperWithSerializer input = new ListWrapperWithSerializer("abc");

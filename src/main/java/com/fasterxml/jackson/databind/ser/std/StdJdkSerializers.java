@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.*;
-import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.atomic.*;
 
@@ -48,6 +47,18 @@ public class StdJdkSerializers
         sers.put(Void.class, NullSerializer.instance);
         sers.put(Void.TYPE, NullSerializer.instance);
 
+        // 09-Jan-2015, tatu: As per [databind#1073], let's try to guard against possibility
+        //   of some environments missing `java.sql.` types
+        try {
+            // note: timestamps are very similar to java.util.Date, thus serialized as such
+            sers.put(java.sql.Timestamp.class, DateSerializer.instance);
+    
+            // leave some of less commonly used ones as lazy, no point in proactive construction
+            sers.put(java.sql.Date.class, SqlDateSerializer.class);
+            sers.put(java.sql.Time.class, SqlTimeSerializer.class);
+        } catch (NoClassDefFoundError e) {
+            // nothing much we can do here; could log, but probably not useful for now.
+        }
         return sers.entrySet();
     }
 
@@ -61,19 +72,10 @@ public class StdJdkSerializers
         extends StdScalarSerializer<AtomicBoolean>
     {
         public AtomicBooleanSerializer() { super(AtomicBoolean.class, false); }
-
+    
         @Override
-        public void serialize(AtomicBoolean value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(AtomicBoolean value, JsonGenerator gen, SerializerProvider provider) throws IOException, JsonGenerationException {
             gen.writeBoolean(value.get());
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-            return createSchemaNode("boolean", true);
         }
 
         @Override
@@ -81,24 +83,15 @@ public class StdJdkSerializers
             visitor.expectBooleanFormat(typeHint);
         }
     }
-
+    
     public static class AtomicIntegerSerializer
         extends StdScalarSerializer<AtomicInteger>
     {
         public AtomicIntegerSerializer() { super(AtomicInteger.class, false); }
-
+    
         @Override
-        public void serialize(AtomicInteger value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(AtomicInteger value, JsonGenerator gen, SerializerProvider provider) throws IOException, JsonGenerationException {
             gen.writeNumber(value.get());
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-            return createSchemaNode("integer", true);
         }
 
         @Override
@@ -112,19 +105,10 @@ public class StdJdkSerializers
         extends StdScalarSerializer<AtomicLong>
     {
         public AtomicLongSerializer() { super(AtomicLong.class, false); }
-
+    
         @Override
-        public void serialize(AtomicLong value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(AtomicLong value, JsonGenerator gen, SerializerProvider provider) throws IOException, JsonGenerationException {
             gen.writeNumber(value.get());
-        }
-
-        /**
-         * @deprecated Since 2.15
-         */
-        @Deprecated
-        @Override
-        public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-            return createSchemaNode("integer", true);
         }
 
         @Override

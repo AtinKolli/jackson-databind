@@ -10,9 +10,8 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import com.fasterxml.jackson.databind.deser.ValueInstantiator;
+import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
-import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 
 /**
@@ -70,11 +69,11 @@ public class ProblemHandlerTest extends BaseMapTest
         extends DeserializationProblemHandler
     {
         protected final Object value;
-
+    
         public WeirdStringHandler(Object v0) {
             value = v0;
         }
-
+    
         @Override
         public Object handleWeirdStringValue(DeserializationContext ctxt,
                 Class<?> targetType, String v,
@@ -89,18 +88,18 @@ public class ProblemHandlerTest extends BaseMapTest
         extends DeserializationProblemHandler
     {
         protected final Object value;
-
+    
         public InstantiationProblemHandler(Object v0) {
             value = v0;
         }
-
+    
         @Override
         public Object handleInstantiationProblem(DeserializationContext ctxt,
                 Class<?> instClass, Object argument, Throwable t)
             throws IOException
         {
-            if (!(t instanceof ValueInstantiationException)) {
-                throw new IllegalArgumentException("Should have gotten `ValueInstantiationException`, instead got: "+t);
+            if (!(t instanceof InvalidDefinitionException)) {
+                throw new IllegalArgumentException("Should have gotten `InvalidDefinitionException`, instead got: "+t);
             }
             return value;
         }
@@ -110,7 +109,7 @@ public class ProblemHandlerTest extends BaseMapTest
         extends DeserializationProblemHandler
     {
         protected final Object value;
-
+    
         public MissingInstantiationHandler(Object v0) {
             value = v0;
         }
@@ -136,7 +135,7 @@ public class ProblemHandlerTest extends BaseMapTest
 
         @Override
         public Object handleUnexpectedToken(DeserializationContext ctxt,
-                JavaType targetType, JsonToken t, JsonParser p,
+                Class<?> targetType, JsonToken t, JsonParser p,
                 String failureMsg)
             throws IOException
         {
@@ -150,7 +149,7 @@ public class ProblemHandlerTest extends BaseMapTest
         protected final Class<?> raw;
 
         public UnknownTypeIdHandler(Class<?> r) { raw = r; }
-
+        
         @Override
         public JavaType handleUnknownTypeId(DeserializationContext ctxt,
                 JavaType baseType, String subTypeId, TypeIdResolver idResolver,
@@ -165,9 +164,9 @@ public class ProblemHandlerTest extends BaseMapTest
         extends DeserializationProblemHandler
     {
         protected final Class<?> raw;
-
+    
         public MissingTypeIdHandler(Class<?> r) { raw = r; }
-
+        
         @Override
         public JavaType handleMissingTypeId(DeserializationContext ctxt,
                 JavaType baseType, TypeIdResolver idResolver,
@@ -207,7 +206,7 @@ public class ProblemHandlerTest extends BaseMapTest
     static class Base2Wrapper {
         public Base2 value;
     }
-
+    
     enum SingleValuedEnum {
         A;
     }
@@ -233,13 +232,12 @@ public class ProblemHandlerTest extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = newObjectMapper();
 
     public void testWeirdKeyHandling() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-            .addHandler(new WeirdKeyHandler(7))
-            .build();
+        ObjectMapper mapper = newObjectMapper()
+            .addHandler(new WeirdKeyHandler(7));
         IntKeyMapWrapper w = mapper.readValue("{\"stuff\":{\"foo\":\"abc\"}}",
                 IntKeyMapWrapper.class);
         Map<Integer,String> map = w.stuff;
@@ -250,49 +248,32 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testWeirdNumberHandling() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
+        ObjectMapper mapper = newObjectMapper()
             .addHandler(new WeirdNumberHandler(SingleValuedEnum.A))
-            .build();
+            ;
         SingleValuedEnum result = mapper.readValue("3", SingleValuedEnum.class);
         assertEquals(SingleValuedEnum.A, result);
     }
 
     public void testWeirdStringHandling() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
+        ObjectMapper mapper = newObjectMapper()
             .addHandler(new WeirdStringHandler(SingleValuedEnum.A))
-            .build();
+            ;
         SingleValuedEnum result = mapper.readValue("\"B\"", SingleValuedEnum.class);
         assertEquals(SingleValuedEnum.A, result);
 
         // also, write [databind#1629] try this
         mapper = new ObjectMapper()
                 .addHandler(new WeirdStringHandler(null));
-        UUID result2 = mapper.readValue(q("not a uuid!"), UUID.class);
+        UUID result2 = mapper.readValue(quote("not a uuid!"), UUID.class);
         assertNull(result2);
-    }
-
-    // [databind#3784]: Base64 decoding
-    public void testWeirdStringForBase64() throws Exception
-    {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .addHandler(new WeirdStringHandler(new byte[0]))
-                .build();
-        byte[] binary = mapper.readValue(q("foobar"), byte[].class);
-        assertNotNull(binary);
-        assertEquals(0, binary.length);
-
-        JsonNode tree = mapper.readTree(q("foobar"));
-        binary = mapper.treeToValue(tree, byte[].class);
-        assertNotNull(binary);
-        assertEquals(0, binary.length);
     }
 
     public void testInvalidTypeId() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-            .addHandler(new UnknownTypeIdHandler(BaseImpl.class))
-            .build();
+        ObjectMapper mapper = newObjectMapper()
+            .addHandler(new UnknownTypeIdHandler(BaseImpl.class));
         BaseWrapper w = mapper.readValue("{\"value\":{\"type\":\"foo\",\"a\":4}}",
                 BaseWrapper.class);
         assertNotNull(w);
@@ -301,9 +282,8 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testInvalidClassAsId() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-            .addHandler(new UnknownTypeIdHandler(Base2Impl.class))
-            .build();
+        ObjectMapper mapper = newObjectMapper()
+            .addHandler(new UnknownTypeIdHandler(Base2Impl.class));
         Base2Wrapper w = mapper.readValue("{\"value\":{\"clazz\":\"com.fizz\",\"a\":4}}",
                 Base2Wrapper.class);
         assertNotNull(w);
@@ -314,9 +294,8 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testMissingTypeId() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-            .addHandler(new MissingTypeIdHandler(BaseImpl.class))
-            .build();
+        ObjectMapper mapper = newObjectMapper()
+            .addHandler(new MissingTypeIdHandler(BaseImpl.class));
         BaseWrapper w = mapper.readValue("{\"value\":{\"a\":4}}",
                 BaseWrapper.class);
         assertNotNull(w);
@@ -325,15 +304,14 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testMissingClassAsId() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-            .addHandler(new MissingTypeIdHandler(Base2Impl.class))
-            .build();
+        ObjectMapper mapper = newObjectMapper()
+            .addHandler(new MissingTypeIdHandler(Base2Impl.class));
         Base2Wrapper w = mapper.readValue("{\"value\":{\"a\":4}}",
                 Base2Wrapper.class);
         assertNotNull(w);
         assertEquals(Base2Impl.class, w.value.getClass());
     }
-
+    
     // verify that by default we get special exception type
     public void testInvalidTypeIdFail() throws Exception
     {
@@ -350,9 +328,8 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testInstantiationExceptionHandling() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-            .addHandler(new InstantiationProblemHandler(BustedCtor.INST))
-            .build();
+        ObjectMapper mapper = newObjectMapper()
+            .addHandler(new InstantiationProblemHandler(BustedCtor.INST));
         BustedCtor w = mapper.readValue("{ }",
                 BustedCtor.class);
         assertNotNull(w);
@@ -360,9 +337,9 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testMissingInstantiatorHandling() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
+        ObjectMapper mapper = newObjectMapper()
             .addHandler(new MissingInstantiationHandler(new NoDefaultCtor(13)))
-            .build();
+            ;
         NoDefaultCtor w = mapper.readValue("{ \"x\" : true }", NoDefaultCtor.class);
         assertNotNull(w);
         assertEquals(13, w.value);
@@ -370,21 +347,10 @@ public class ProblemHandlerTest extends BaseMapTest
 
     public void testUnexpectedTokenHandling() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
+        ObjectMapper mapper = newObjectMapper()
             .addHandler(new WeirdTokenHandler(Integer.valueOf(13)))
-            .build();
+        ;
         Integer v = mapper.readValue("true", Integer.class);
         assertEquals(Integer.valueOf(13), v);
-
-        // Just for code coverage really...
-        mapper = newJsonMapper();
-        mapper.addHandler(new WeirdTokenHandler(Integer.valueOf(13)));
-        mapper.clearProblemHandlers();
-        try {
-            mapper.readValue("true", Integer.class);
-            fail("Should not pass");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "from Boolean value (token `JsonToken.VALUE_TRUE`)");
-        }
     }
 }

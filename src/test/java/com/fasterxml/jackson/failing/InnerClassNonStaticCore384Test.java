@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
+
+import static org.junit.Assert.assertThat;
+
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 
 // see [https://github.com/FasterXML/jackson-core/issues/384]: most likely
 // can not be fixed, but could we improve error message to indicate issue
@@ -167,9 +170,8 @@ public class InnerClassNonStaticCore384Test extends BaseMapTest
      */
 
     public void testHierarchy() throws IOException {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .activateDefaultTyping(NoCheckSubTypeValidator.instance)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enableDefaultTyping();
 
         Fleet fleet = initVehicle();
 
@@ -186,8 +188,8 @@ for (Vehicle v : fleet.vehicles) {
 
         Fleet deserializedFleet = mapper.readValue(serializedFleet, Fleet.class);
 
-        assertTrue(deserializedFleet.getVehicles().get(0) instanceof Car);
-        assertTrue(deserializedFleet.getVehicles().get(1) instanceof Truck);
+        assertThat(deserializedFleet.getVehicles().get(0), instanceOf(Car.class));
+        assertThat(deserializedFleet.getVehicles().get(1), instanceOf(Truck.class));
 
         assertEquals(fleet, deserializedFleet);
     }

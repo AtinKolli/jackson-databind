@@ -36,12 +36,12 @@ public class GenericTypeId1735Test extends BaseMapTest
     private final ObjectMapper MAPPER = objectMapper();
 
     private final static String NEF_CLASS = Nefarious1735.class.getName();
-
+    
     // Existing checks should kick in fine
     public void testSimpleTypeCheck1735() throws Exception
     {
         try {
-            MAPPER.readValue(a2q(
+            MAPPER.readValue(aposToQuotes(
 "{'w':{'type':'"+NEF_CLASS+"'}}"),
                     Wrapper1735.class);
             fail("Should not pass");
@@ -55,7 +55,7 @@ public class GenericTypeId1735Test extends BaseMapTest
     public void testNestedTypeCheck1735() throws Exception
     {
         try {
-            MAPPER.readValue(a2q(
+            MAPPER.readValue(aposToQuotes(
 "{'w':{'type':'java.util.HashMap<java.lang.String,java.lang.String>'}}"),
                     Wrapper1735.class);
             fail("Should not pass");

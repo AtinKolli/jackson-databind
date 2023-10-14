@@ -4,15 +4,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonParser;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.TreeNode;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.util.StdConverter;
-
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Tests for various conversions, especially ones using
@@ -69,19 +67,18 @@ public class TestBeanConversions
         public Leaf() { }
         public Leaf(int v) { value = v; }
     }
-
+    
     // [databind#288]
 
     @JsonSerialize(converter = ConvertingBeanConverter.class)
-    static class ConvertingBean {
-       public int x, y;
+    static class ConvertingBean { 
+       public int x, y; 
        public ConvertingBean(int v1, int v2) {
           x = v1;
           y = v2;
        }
     }
 
-    @JsonPropertyOrder({ "a", "b" })
     public static class DummyBean {
        public final int a, b;
        public DummyBean(int v1, int v2) {
@@ -97,18 +94,18 @@ public class TestBeanConversions
           return new DummyBean(cb.x, cb.y);
        }
     }
-
+    
     @JsonDeserialize(using = NullBeanDeserializer.class)
     static class NullBean {
         public static final NullBean NULL_INSTANCE = new NullBean();
     }
-
+    
     static class NullBeanDeserializer extends JsonDeserializer<NullBean> {
         @Override
         public NullBean getNullValue(final DeserializationContext context) {
             return NullBean.NULL_INSTANCE;
         }
-
+        
         @Override
         public NullBean deserialize(final JsonParser parser, final DeserializationContext context) {
             throw new UnsupportedOperationException();
@@ -120,7 +117,7 @@ public class TestBeanConversions
     /* Test methods
     /**********************************************************
      */
-
+    
     private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testBeanConvert()
@@ -133,7 +130,7 @@ public class TestBeanConversions
         // z not included in input, will be whatever default constructor provides
         assertEquals(-13, point.z);
     }
-
+    
     // For [JACKSON-371]; verify that we know property that caused issue...
     // (note: not optimal place for test, but will have to do for now)
     public void testErrorReporting() throws Exception
@@ -142,14 +139,14 @@ public class TestBeanConversions
         // First: unknown property
         try {
             MAPPER.readValue("{\"unknownProp\":true}", BooleanBean.class);
-        } catch (UnrecognizedPropertyException e) {
+        } catch (JsonProcessingException e) {
             verifyException(e, "unknownProp");
         }
 
         // then bad conversion
         try {
             MAPPER.readValue("{\"boolProp\":\"foobar\"}", BooleanBean.class);
-        } catch (InvalidFormatException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot deserialize value of type `boolean` from String");
         }
     }
@@ -195,7 +192,17 @@ public class TestBeanConversions
         // should just cast...
         assertSame(str, result);
     }
-
+    
+    // [Issue-11]: simple cast, for Tree
+    public void testNodeConvert() throws Exception
+    {
+        ObjectNode src = (ObjectNode) MAPPER.readTree("{}");
+        TreeNode node = src;
+        ObjectNode result = MAPPER.treeToValue(node, ObjectNode.class);
+        // should just cast...
+        assertSame(src, result);
+    }
+    
     private void _convertAndVerifyPoint(ObjectMapper m)
     {
         final PointZ input = new PointZ(1, 2, 3);
@@ -210,10 +217,19 @@ public class TestBeanConversions
      */
     public void testIssue11() throws Exception
     {
+        // First the expected use case, Node specification
+        ObjectNode root = MAPPER.createObjectNode();
+        JsonNode n = root;
+        ObjectNode ob2 = MAPPER.convertValue(n, ObjectNode.class);
+        assertSame(root, ob2);
+
+        JsonNode n2 = MAPPER.convertValue(n, JsonNode.class);
+        assertSame(root, n2);
+        
         // then some other no-op conversions
-        StringBuilder SB = new StringBuilder("test");
-        CharSequence seq = MAPPER.convertValue(SB, CharSequence.class);
-        assertNotSame(SB, seq);
+        String STR = "test";
+        CharSequence seq = MAPPER.convertValue(STR, CharSequence.class);
+        assertSame(STR, seq);
 
         // and then something that should NOT use short-cut
         Leaf l = new Leaf(13);
@@ -240,7 +256,7 @@ public class TestBeanConversions
         } catch (IllegalArgumentException e) {
             verifyException(e, "no properties discovered");
         }
-
+        
         ObjectMapper mapper = new ObjectMapper();
         mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
         try {
@@ -260,13 +276,13 @@ public class TestBeanConversions
         // must be  {"a":2,"b":4}
         assertEquals("{\"a\":2,\"b\":4}", json);
     }
-
+    
     // Test null conversions from [databind#1433]
     public void testConversionIssue1433() throws Exception
     {
         assertNull(MAPPER.convertValue(null, Object.class));
         assertNull(MAPPER.convertValue(null, PointZ.class));
-
+        
         assertSame(NullBean.NULL_INSTANCE,
                 MAPPER.convertValue(null, NullBean.class));
     }

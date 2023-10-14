@@ -1,18 +1,13 @@
 package com.fasterxml.jackson.databind.node;
 
-import com.fasterxml.jackson.annotation.JsonRootName;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.*;
-
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.Assert;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.core.json.JsonFactory;
 import com.fasterxml.jackson.core.type.WritableTypeId;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -52,71 +47,29 @@ public class TestConversions extends BaseMapTest
     @JsonSerialize(using=Issue467TreeSerializer.class)
     static class Issue467Tree  {
     }
-
+    
     static class Issue467Serializer extends JsonSerializer<Issue467Bean> {
         @Override
-        public void serialize(Issue467Bean value, JsonGenerator jgen,
+        public void serialize(Issue467Bean value, JsonGenerator g,
                 SerializerProvider provider) throws IOException {
-            jgen.writeObject(new Issue467TmpBean(value.i));
+            g.writeObject(new Issue467TmpBean(value.i));
         }
-    }
+    }    
 
     static class Issue467TreeSerializer extends JsonSerializer<Issue467Tree> {
         @Override
-        public void serialize(Issue467Tree value, JsonGenerator jgen,
+        public void serialize(Issue467Tree value, JsonGenerator g,
                 SerializerProvider provider) throws IOException {
-            jgen.writeTree(BooleanNode.TRUE);
+            g.writeTree(BooleanNode.TRUE);
         }
-    }
-
+    }    
+    
     static class Issue467TmpBean  {
         public int x;
 
         public Issue467TmpBean(int i) { x = i; }
     }
-
-    static class Issue709Bean {
-        public byte[] data;
-    }
-
-    @JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include=JsonTypeInfo.As.PROPERTY, property="_class")
-    static class LongContainer1940 {
-        public Long longObj;
-    }
-
-    // [databind#433]
-    static class CustomSerializedPojo implements JsonSerializable
-    {
-        private final ObjectNode node = JsonNodeFactory.instance.objectNode();
-
-        public void setFoo(final String foo) {
-            node.put("foo", foo);
-        }
-
-        @Override
-        public void serialize(final JsonGenerator jgen, final SerializerProvider provider) throws IOException
-        {
-            jgen.writeTree(node);
-        }
-
-        @Override
-        public void serializeWithType(JsonGenerator g,
-                SerializerProvider provider, TypeSerializer typeSer) throws IOException
-        {
-            WritableTypeId typeIdDef = new WritableTypeId(this, JsonToken.START_OBJECT);
-            typeSer.writeTypePrefix(g, typeIdDef);
-            serialize(g, provider);
-            typeSer.writeTypePrefix(g, typeIdDef);
-        }
-    }
-
-    // [databind#4047]
-    @JsonRootName("event")
-    static class Event {
-        public Long id;
-        public String name;
-    }
-
+    
     /*
     /**********************************************************
     /* Unit tests
@@ -124,7 +77,7 @@ public class TestConversions extends BaseMapTest
      */
 
     private final ObjectMapper MAPPER = objectMapper();
-
+    
     public void testAsInt() throws Exception
     {
         assertEquals(9, IntNode.valueOf(9).asInt());
@@ -150,13 +103,13 @@ public class TestConversions extends BaseMapTest
 
         assertEquals(true, new POJONode(Boolean.TRUE).asBoolean());
     }
-
+    
     // Deserializer to trigger the problem described in [JACKSON-554]
     public static class LeafDeserializer extends JsonDeserializer<Leaf>
     {
         @Override
         public Leaf deserialize(JsonParser jp, DeserializationContext ctxt)
-                throws IOException
+                throws IOException, JsonProcessingException
         {
             JsonNode tree = (JsonNode) jp.readValueAsTree();
             Leaf leaf = new Leaf();
@@ -175,21 +128,6 @@ public class TestConversions extends BaseMapTest
         Root r1 = mapper.treeToValue(root, Root.class);
         assertNotNull(r1);
         assertEquals(13, r1.leaf.value);
-
-        // ... also JavaType
-        r1 = mapper.treeToValue(root, mapper.constructType(Root.class));
-        assertEquals(13, r1.leaf.value);
-
-        // ... also TypeReference
-        r1 = mapper.treeToValue(root, new TypeReference<Root>() {});
-        assertEquals(13, r1.leaf.value);
-
-        JSON = "[{\"leaf\":{\"value\":13}}, {\"leaf\":{\"value\":12}}]";
-        root = mapper.readTree(JSON);
-        List<Root> array = mapper.treeToValue(root, new TypeReference<List<Root>>() {});
-        assertEquals(2, array.size());
-        assertEquals(13, array.get(0).leaf.value);
-        assertEquals(12, array.get(1).leaf.value);
     }
 
     // [databind#1208]: should coerce POJOs at least at root level
@@ -197,19 +135,16 @@ public class TestConversions extends BaseMapTest
     {
         Calendar c = Calendar.getInstance();
         c.setTime(new java.util.Date(0));
-        final ValueNode pojoNode = MAPPER.getNodeFactory().pojoNode(c);
+        ValueNode pojoNode = MAPPER.getNodeFactory().pojoNode(c);        
         Calendar result = MAPPER.treeToValue(pojoNode, Calendar.class);
-        assertEquals(result.getTimeInMillis(), c.getTimeInMillis());
-
-        // and same with JavaType
-        result = MAPPER.treeToValue(pojoNode, MAPPER.constructType(Calendar.class));
+        assertNotNull(result);
         assertEquals(result.getTimeInMillis(), c.getTimeInMillis());
     }
 
     public void testBase64Text() throws Exception
     {
         // let's actually iterate over sets of encoding modes, lengths
-
+        
         final int[] LENS = { 1, 2, 3, 4, 7, 9, 32, 33, 34, 35 };
         final Base64Variant[] VARIANTS = {
                 Base64Variants.MIME,
@@ -229,26 +164,18 @@ public class TestConversions extends BaseMapTest
                 try {
                     data = n.getBinaryValue(variant);
                 } catch (Exception e) {
-                    fail("Failed (variant "+variant+", data length "+len+"): "+e.getMessage());
+                    throw new IOException("Failed (variant "+variant+", data length "+len+"): "+e.getMessage());
                 }
                 assertNotNull(data);
                 assertArrayEquals(data, input);
-
-                // 15-Aug-2018, tatu: [databind#2096] requires another test
-                JsonParser p = new TreeTraversingParser(n);
-                assertEquals(JsonToken.VALUE_STRING, p.nextToken());
-                try {
-                    data = p.getBinaryValue(variant);
-                } catch (Exception e) {
-                    fail("Failed (variant "+variant+", data length "+len+"): "+e.getMessage());
-                }
-                assertNotNull(data);
-                assertArrayEquals(data, input);
-                p.close();
             }
         }
     }
 
+    static class Issue709Bean {
+        public byte[] data;
+    }
+    
     /**
      * Simple test to verify that byte[] values can be handled properly when
      * converting, as long as there is metadata (from POJO definitions).
@@ -262,7 +189,7 @@ public class TestConversions extends BaseMapTest
         String json = MAPPER.writeValueAsString(node);
         Issue709Bean resultFromString = MAPPER.readValue(json, Issue709Bean.class);
         Issue709Bean resultFromConvert = MAPPER.convertValue(node, Issue709Bean.class);
-
+        
         // all methods should work equally well:
         Assert.assertArrayEquals(inputData, resultFromString.data);
         Assert.assertArrayEquals(inputData, resultFromConvert.data);
@@ -271,7 +198,7 @@ public class TestConversions extends BaseMapTest
 
     public void testEmbeddedByteArray() throws Exception
     {
-        TokenBuffer buf = new TokenBuffer(MAPPER, false);
+        TokenBuffer buf = TokenBuffer.forGeneration();
         buf.writeObject(new byte[3]);
         JsonNode node = MAPPER.readTree(buf.asParser());
         buf.close();
@@ -284,8 +211,9 @@ public class TestConversions extends BaseMapTest
     // [databind#232]
     public void testBigDecimalAsPlainStringTreeConversion() throws Exception
     {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN);
+        ObjectMapper mapper = new ObjectMapper(JsonFactory.builder()
+                .with(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN)
+                .build());
         Map<String, Object> map = new HashMap<String, Object>();
         String PI_STR = "3.00000000";
         map.put("pi", new BigDecimal(PI_STR));
@@ -293,6 +221,31 @@ public class TestConversions extends BaseMapTest
         assertNotNull(tree);
         assertEquals(1, tree.size());
         assertTrue(tree.has("pi"));
+    }
+
+    static class CustomSerializedPojo implements JsonSerializable
+    {
+        private final ObjectNode node = JsonNodeFactory.instance.objectNode();
+
+        public void setFoo(final String foo) {
+            node.put("foo", foo);
+        }
+
+        @Override
+        public void serialize(final JsonGenerator g, final SerializerProvider provider) throws IOException
+        {
+            g.writeTree(node);
+        }
+
+        @Override
+        public void serializeWithType(JsonGenerator g,
+                SerializerProvider provider, TypeSerializer typeSer) throws IOException
+        {
+            WritableTypeId typeIdDef = new WritableTypeId(this, JsonToken.START_OBJECT);
+            typeSer.writeTypePrefix(g, typeIdDef);
+            serialize(g, provider);
+            typeSer.writeTypePrefix(g, typeIdDef);
+        }    
     }
 
     // [databind#433]
@@ -309,7 +262,7 @@ public class TestConversions extends BaseMapTest
     {
         final Issue467Bean input = new Issue467Bean(13);
         final String EXP = "{\"x\":13}";
-
+        
         // first, sanity check
         String json = MAPPER.writeValueAsString(input);
         assertEquals(EXP, json);
@@ -335,70 +288,5 @@ public class TestConversions extends BaseMapTest
         assertTrue("Expected Object, got "+tree.getNodeType(), tree.isBoolean());
         assertEquals(EXP, MAPPER.writeValueAsString(tree));
     }
-
-    // [databind#1940]: losing of precision due to coercion
-    public void testBufferedLongViaCoercion() throws Exception {
-        long EXP = 1519348261000L;
-        JsonNode tree = MAPPER.readTree("{\"longObj\": "+EXP+".0, \"_class\": \""+LongContainer1940.class.getName()+"\"}");
-        LongContainer1940 obj = MAPPER.treeToValue(tree, LongContainer1940.class);
-        assertEquals(Long.valueOf(EXP), obj.longObj);
-    }
-
-    public void testConversionsOfNull() throws Exception
-    {
-        // First: `null` value should become `NullNode`
-        JsonNode n = MAPPER.valueToTree(null);
-        assertNotNull(n);
-        assertTrue(n.isNull());
-
-        // and vice versa
-        Object pojo = MAPPER.treeToValue(n, Root.class);
-        assertNull(pojo);
-
-        pojo = MAPPER.treeToValue(n, MAPPER.constructType(Root.class));
-        assertNull(pojo);
-
-        // [databind#2972]
-        AtomicReference<?> result = MAPPER.treeToValue(NullNode.instance,
-                AtomicReference.class);
-        assertNotNull(result);
-        assertNull(result.get());
-
-        result = MAPPER.treeToValue(NullNode.instance,
-                MAPPER.constructType(AtomicReference.class));
-        assertNotNull(result);
-        assertNull(result.get());
-    }
-
-    // Simple cast, for Tree
-    public void testNodeConvert() throws Exception
-    {
-        ObjectNode src = (ObjectNode) MAPPER.readTree("{}");
-        TreeNode node = src;
-        ObjectNode result = MAPPER.treeToValue(node, ObjectNode.class);
-        // should just cast...
-        assertSame(src, result);
-
-        // ditto w/ JavaType
-        result = MAPPER.treeToValue(node, MAPPER.constructType(ObjectNode.class));
-        assertSame(src, result);
-    }
-
-    // [databind#4047] : ObjectMapper.valueToTree will ignore the configuration SerializationFeature.WRAP_ROOT_VALUE
-    public void testValueToTree() throws Exception
-    {
-        // Arrange
-        Event value = new Event();
-        value.id = 1L;
-        value.name = "foo";
-
-        ObjectMapper wrapRootMapper = jsonMapperBuilder()
-                .enable(SerializationFeature.WRAP_ROOT_VALUE)
-                .build();
-
-        // Act & Assert
-        String expected = "{\"event\":{\"id\":1,\"name\":\"foo\"}}";
-        assertEquals(expected, wrapRootMapper.writeValueAsString(value));
-        assertEquals(expected, wrapRootMapper.valueToTree(value).toString());
-    }
 }
+

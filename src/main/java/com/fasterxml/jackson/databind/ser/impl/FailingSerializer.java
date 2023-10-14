@@ -3,9 +3,10 @@ package com.fasterxml.jackson.databind.ser.impl;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.*;
-
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 /**
@@ -20,15 +21,20 @@ public class FailingSerializer
     extends StdSerializer<Object>
 {
     protected final String _msg;
-
+    
     public FailingSerializer(String msg) {
         super(Object.class);
         _msg = msg;
     }
+    
+    @Override
+    public void serialize(Object value, JsonGenerator g, SerializerProvider provider) throws IOException
+    {
+        provider.reportMappingProblem(_msg);
+    }
 
     @Override
-    public void serialize(Object value, JsonGenerator g, SerializerProvider ctxt) throws IOException
-    {
-        ctxt.reportMappingProblem(_msg);
+    public void acceptJsonFormatVisitor(JsonFormatVisitorWrapper visitor, JavaType typeHint) {
+        ;
     }
 }

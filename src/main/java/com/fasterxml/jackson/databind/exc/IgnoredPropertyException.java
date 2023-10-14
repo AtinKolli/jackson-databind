@@ -10,17 +10,12 @@ import com.fasterxml.jackson.databind.JsonMappingException;
  * Specialized {@link JsonMappingException} sub-class used to indicate
  * case where an explicitly ignored property is encountered, and mapper
  * is configured to consider this an error.
- *
- * @since 2.3
  */
 public class IgnoredPropertyException
     extends PropertyBindingException
 {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * @since 2.7
-     */
     public IgnoredPropertyException(JsonParser p, String msg, JsonLocation loc,
             Class<?> referringClass, String propName,
             Collection<Object> propertyIds)
@@ -29,19 +24,8 @@ public class IgnoredPropertyException
     }
 
     /**
-     * @deprecated Since 2.7
-     */
-    @Deprecated
-    public IgnoredPropertyException(String msg, JsonLocation loc,
-            Class<?> referringClass, String propName,
-            Collection<Object> propertyIds)
-    {
-        super(msg, loc, referringClass, propName, propertyIds);
-    }
-
-    /**
      * Factory method used for constructing instances of this exception type.
-     *
+     * 
      * @param p Underlying parser used for reading input being used for data-binding
      * @param fromObjectOrClass Reference to either instance of problematic type (
      *    if available), or if not, type itself

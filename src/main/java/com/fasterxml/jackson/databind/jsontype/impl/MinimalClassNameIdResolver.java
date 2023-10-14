@@ -5,15 +5,8 @@ import java.io.IOException;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.DatabindContext;
 import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
-/**
- * Specialization of {@link ClassNameIdResolver} that instead uses a
- * "minimal" derivation of {@link Class} name, using relative reference
- * from the base type (base class) that polymorphic value has.
- */
 public class MinimalClassNameIdResolver
     extends ClassNameIdResolver
 {
@@ -29,10 +22,9 @@ public class MinimalClassNameIdResolver
      */
     protected final String _basePackagePrefix;
 
-    protected MinimalClassNameIdResolver(JavaType baseType, TypeFactory typeFactory,
-            PolymorphicTypeValidator ptv)
+    protected MinimalClassNameIdResolver(JavaType baseType, TypeFactory typeFactory)
     {
-        super(baseType, typeFactory, ptv);
+        super(baseType, typeFactory);
         String base = baseType.getRawClass().getName();
         int ix = base.lastIndexOf('.');
         if (ix < 0) { // can this ever occur?
@@ -44,14 +36,9 @@ public class MinimalClassNameIdResolver
         }
     }
 
-    public static MinimalClassNameIdResolver construct(JavaType baseType, MapperConfig<?> config,
-            PolymorphicTypeValidator ptv) {
-        return new MinimalClassNameIdResolver(baseType, config.getTypeFactory(), ptv);
-    }
-
     @Override
     public JsonTypeInfo.Id getMechanism() { return JsonTypeInfo.Id.MINIMAL_CLASS; }
-
+    
     @Override
     public String idFromValue(Object value)
     {
@@ -68,7 +55,7 @@ public class MinimalClassNameIdResolver
     {
         if (id.startsWith(".")) {
             StringBuilder sb = new StringBuilder(id.length() + _basePackageName.length());
-            if  (_basePackageName.isEmpty()) {
+            if  (_basePackageName.length() == 0) {
                 // no package; must remove leading '.' from id
                 sb.append(id.substring(1));
             } else {

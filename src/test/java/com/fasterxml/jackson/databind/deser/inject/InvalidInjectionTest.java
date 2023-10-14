@@ -24,8 +24,8 @@ public class InvalidInjectionTest extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = newObjectMapper();
+    
     public void testInvalidDup() throws Exception
     {
         try {

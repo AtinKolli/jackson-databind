@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.*;
 
 import com.fasterxml.jackson.core.*;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
@@ -191,17 +190,6 @@ public class TestValueAnnotations
         }
     }
 
-    // for [databind#2553]
-    @SuppressWarnings("rawtypes")
-    static class List2553 {
-        @JsonDeserialize(contentAs = Item2553.class)
-        public List items;
-    }
-
-    static class Item2553 {
-        public String name;
-    }
-
     final static class InvalidContentClass
     {
         /* Such annotation not allowed, since it makes no sense;
@@ -242,11 +230,10 @@ public class TestValueAnnotations
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
     public void testOverrideClassValid() throws Exception
     {
-        CollectionHolder result = MAPPER.readValue
+        ObjectMapper m = new ObjectMapper();
+        CollectionHolder result = m.readValue
             ("{ \"strings\" : [ \"test\" ] }", CollectionHolder.class);
 
         Collection<String> strs = result._strings;
@@ -257,8 +244,9 @@ public class TestValueAnnotations
 
     public void testOverrideMapValid() throws Exception
     {
+        ObjectMapper m = new ObjectMapper();
         // note: expecting conversion from number to String, as well
-        MapHolder result = MAPPER.readValue
+        MapHolder result = m.readValue
             ("{ \"strings\" :  { \"a\" : 3 } }", MapHolder.class);
 
         Map<String,String> strs = result._data;
@@ -270,7 +258,8 @@ public class TestValueAnnotations
 
     public void testOverrideArrayClass() throws Exception
     {
-        ArrayHolder result = MAPPER.readValue
+        ObjectMapper m = new ObjectMapper();
+        ArrayHolder result = m.readValue
             ("{ \"strings\" : [ \"test\" ] }", ArrayHolder.class);
 
         String[] strs = result._strings;
@@ -283,10 +272,10 @@ public class TestValueAnnotations
     {
         // should fail due to incompatible Annotation
         try {
-            BrokenCollectionHolder result = MAPPER.readValue
+            BrokenCollectionHolder result = new ObjectMapper().readValue
                 ("{ \"strings\" : [ ] }", BrokenCollectionHolder.class);
             fail("Expected a failure, but got results: "+result);
-        } catch (DatabindException jme) {
+        } catch (JsonMappingException jme) {
             verifyException(jme, "not subtype of");
         }
     }
@@ -299,21 +288,21 @@ public class TestValueAnnotations
 
     public void testRootInterfaceAs() throws Exception
     {
-        RootInterface value = MAPPER.readValue("{\"a\":\"abc\" }", RootInterface.class);
+        RootInterface value = new ObjectMapper().readValue("{\"a\":\"abc\" }", RootInterface.class);
         assertTrue(value instanceof RootInterfaceImpl);
         assertEquals("abc", value.getA());
     }
 
     public void testRootInterfaceUsing() throws Exception
     {
-        RootString value = MAPPER.readValue("\"xxx\"", RootString.class);
+        RootString value = new ObjectMapper().readValue("\"xxx\"", RootString.class);
         assertTrue(value instanceof RootString);
         assertEquals("xxx", value.contents());
     }
 
     public void testRootListAs() throws Exception
     {
-        RootMap value = MAPPER.readValue("{\"a\":\"b\"}", RootMap.class);
+        RootMap value = new ObjectMapper().readValue("{\"a\":\"b\"}", RootMap.class);
         assertEquals(1, value.size());
         Object v2 = value.get("a");
         assertEquals(RootStringImpl.class, v2.getClass());
@@ -322,7 +311,7 @@ public class TestValueAnnotations
 
     public void testRootMapAs() throws Exception
     {
-        RootList value = MAPPER.readValue("[ \"c\" ]", RootList.class);
+        RootList value = new ObjectMapper().readValue("[ \"c\" ]", RootList.class);
         assertEquals(1, value.size());
         Object v2 = value.get(0);
         assertEquals(RootStringImpl.class, v2.getClass());
@@ -338,7 +327,8 @@ public class TestValueAnnotations
     @SuppressWarnings("unchecked")
 	public void testOverrideKeyClassValid() throws Exception
     {
-        MapKeyHolder result = MAPPER.readValue("{ \"map\" : { \"xxx\" : \"yyy\" } }", MapKeyHolder.class);
+        ObjectMapper m = new ObjectMapper();
+        MapKeyHolder result = m.readValue("{ \"map\" : { \"xxx\" : \"yyy\" } }", MapKeyHolder.class);
         Map<StringWrapper, String> map = (Map<StringWrapper,String>)(Map<?,?>)result._map;
         assertEquals(1, map.size());
         Map.Entry<StringWrapper, String> en = map.entrySet().iterator().next();
@@ -353,10 +343,10 @@ public class TestValueAnnotations
     {
         // should fail due to incompatible Annotation
         try {
-            BrokenMapKeyHolder result = MAPPER.readValue
+            BrokenMapKeyHolder result = new ObjectMapper().readValue
                 ("{ \"123\" : \"xxx\" }", BrokenMapKeyHolder.class);
             fail("Expected a failure, but got results: "+result);
-        } catch (DatabindException jme) {
+        } catch (JsonMappingException jme) {
             verifyException(jme, "not subtype of");
         }
     }
@@ -368,9 +358,10 @@ public class TestValueAnnotations
      */
 
     @SuppressWarnings("unchecked")
-    public void testOverrideContentClassValid() throws Exception
+	public void testOverrideContentClassValid() throws Exception
     {
-        ListContentHolder result = MAPPER.readValue("{ \"list\" : [ \"abc\" ] }", ListContentHolder.class);
+        ObjectMapper m = new ObjectMapper();
+        ListContentHolder result = m.readValue("{ \"list\" : [ \"abc\" ] }", ListContentHolder.class);
         List<StringWrapper> list = (List<StringWrapper>)result._list;
         assertEquals(1, list.size());
         Object value = list.get(0);
@@ -380,7 +371,8 @@ public class TestValueAnnotations
 
     public void testOverrideArrayContents() throws Exception
     {
-        ArrayContentHolder result = MAPPER.readValue("{ \"data\" : [ 1, 2, 3 ] }",
+        ObjectMapper m = new ObjectMapper();
+        ArrayContentHolder result = m.readValue("{ \"data\" : [ 1, 2, 3 ] }",
                                                 ArrayContentHolder.class);
         Object[] data = result._data;
         assertEquals(3, data.length);
@@ -392,22 +384,13 @@ public class TestValueAnnotations
 
     public void testOverrideMapContents() throws Exception
     {
-        MapContentHolder result = MAPPER.readValue("{ \"map\" : { \"a\" : 9 } }",
+        ObjectMapper m = new ObjectMapper();
+        MapContentHolder result = m.readValue("{ \"map\" : { \"a\" : 9 } }",
                                                 MapContentHolder.class);
         Map<Object,Object> map = result._map;
         assertEquals(1, map.size());
         Object ob = map.values().iterator().next();
         assertEquals(Integer.class, ob.getClass());
         assertEquals(Integer.valueOf(9), ob);
-    }
-
-    // [databind#2553]
-    public void testRawListTypeContentAs() throws Exception
-    {
-        List2553 list =  MAPPER.readValue("{\"items\": [{\"name\":\"item1\"}]}", List2553.class);
-        assertEquals(1, list.items.size());
-        Object value = list.items.get(0);
-        assertEquals(Item2553.class, value.getClass());
-        assertEquals("item1", ((Item2553) value).name);
     }
 }

@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.util.Annotations;
 
 /**
  * Tests for verifying that one can append virtual properties after regular ones.
+ * 
+ * @since 2.5
  */
 public class TestVirtualProperties extends BaseMapTest
 {
@@ -80,7 +82,7 @@ public class TestVirtualProperties extends BaseMapTest
     {
         public int value = 72;
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
@@ -98,12 +100,12 @@ public class TestVirtualProperties extends BaseMapTest
         String json = WRITER.withAttribute("id", "abc123")
                 .withAttribute("internal", stuff)
                 .writeValueAsString(new SimpleBean());
-        assertEquals(a2q("{'value':13,'id':'abc123','extra':{'x':3,'y':'B'}}"), json);
+        assertEquals(aposToQuotes("{'value':13,'id':'abc123','extra':{'x':3,'y':'B'}}"), json);
 
         json = WRITER.withAttribute("id", "abc123")
                 .withAttribute("internal", stuff)
                 .writeValueAsString(new SimpleBeanPrepend());
-        assertEquals(a2q("{'id':'abc123','extra':{'x':3,'y':'B'},'value':13}"), json);
+        assertEquals(aposToQuotes("{'id':'abc123','extra':{'x':3,'y':'B'},'value':13}"), json);
     }
 
     public void testAttributePropInclusion() throws Exception
@@ -111,22 +113,22 @@ public class TestVirtualProperties extends BaseMapTest
         // first, with desc
         String json = WRITER.withAttribute("desc", "nice")
                 .writeValueAsString(new OptionalsBean());
-        assertEquals(a2q("{'value':28,'desc':'nice'}"), json);
+        assertEquals(aposToQuotes("{'value':28,'desc':'nice'}"), json);
 
         // then with null (not defined)
         json = WRITER.writeValueAsString(new OptionalsBean());
-        assertEquals(a2q("{'value':28}"), json);
+        assertEquals(aposToQuotes("{'value':28}"), json);
 
         // and finally "empty"
         json = WRITER.withAttribute("desc", "")
                 .writeValueAsString(new OptionalsBean());
-        assertEquals(a2q("{'value':28}"), json);
+        assertEquals(aposToQuotes("{'value':28}"), json);
     }
 
     public void testCustomProperties() throws Exception
     {
         String json = WRITER.withAttribute("desc", "nice")
                 .writeValueAsString(new CustomVBean());
-        assertEquals(a2q("{'id':'abc123','extra':[42],'value':72}"), json);
+        assertEquals(aposToQuotes("{'id':'abc123','extra':[42],'value':72}"), json);
     }
 }

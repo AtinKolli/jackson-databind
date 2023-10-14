@@ -1,6 +1,5 @@
 package com.fasterxml.jackson.databind.ser.std;
 
-import java.lang.reflect.Type;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.*;
@@ -22,9 +21,9 @@ public class NullSerializer
     extends StdSerializer<Object>
 {
     public final static NullSerializer instance = new NullSerializer();
-
+    
     private NullSerializer() { super(Object.class); }
-
+    
     @Override
     public void serialize(Object value, JsonGenerator gen, SerializerProvider provider) throws IOException {
         gen.writeNull();
@@ -42,15 +41,6 @@ public class NullSerializer
         throws IOException
     {
         gen.writeNull();
-    }
-
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider provider, Type typeHint) throws JsonMappingException {
-        return createSchemaNode("null");
     }
 
     @Override

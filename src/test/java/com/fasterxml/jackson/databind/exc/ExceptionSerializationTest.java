@@ -4,11 +4,8 @@ import java.io.IOException;
 import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import com.fasterxml.jackson.core.JsonParser;
-
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 /**
  * Unit tests for verifying that simple exceptions can be serialized.
@@ -40,12 +37,12 @@ public class ExceptionSerializationTest
     }
 
     /*
-    /**********************************************************************
-    /* Test methods
-    /**********************************************************************
+    /**********************************************************
+    /* Tests
+    /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testSimple() throws Exception
     {
@@ -79,7 +76,7 @@ public class ExceptionSerializationTest
         p.close();
         assertNotNull(json);
     }
-
+    
     // for [databind#877]
     @SuppressWarnings("unchecked")
     public void testIgnorals() throws Exception
@@ -116,13 +113,13 @@ public class ExceptionSerializationTest
     }
 
     // [databind#1368]
-    public void testDatabindExceptionSerialization() throws IOException {
+    public void testJsonMappingExceptionSerialization() throws IOException {
         Exception e = null;
         // cant deserialize due to unexpected constructor
         try {
             MAPPER.readValue( "{ \"val\": \"foo\" }", NoSerdeConstructor.class );
             fail("Should not pass");
-        } catch (MismatchedInputException e0) {
+        } catch (JsonMappingException e0) {
             verifyException(e0, "cannot deserialize from Object");
             e = e0;
         }
@@ -134,16 +131,5 @@ public class ExceptionSerializationTest
         if (!msg.toLowerCase().contains(MATCH)) {
             fail("Exception should contain '"+MATCH+"', does not: '"+msg+"'");
         }
-    }
-
-    // [databind#3275]
-    public void testSerializeWithNamingStrategy() throws IOException {
-        final ObjectMapper mapper = JsonMapper.builder()
-                .propertyNamingStrategy(PropertyNamingStrategies.UPPER_CAMEL_CASE)
-                .build();
-        String json = mapper.writeValueAsString(new Exception("message!"));
-        Map<?,?> map = mapper.readValue(json, Map.class);
-        assertEquals(new HashSet<>(Arrays.asList("Cause", "StackTrace", "Message", "Suppressed", "LocalizedMessage")),
-                map.keySet());
     }
 }

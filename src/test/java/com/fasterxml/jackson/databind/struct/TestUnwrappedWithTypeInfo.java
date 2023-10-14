@@ -1,8 +1,13 @@
 package com.fasterxml.jackson.databind.struct;
 
-import com.fasterxml.jackson.annotation.*;
-
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import com.fasterxml.jackson.databind.BaseMapTest;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 // Tests for [#81]
 public class TestUnwrappedWithTypeInfo extends BaseMapTest
@@ -35,14 +40,14 @@ public class TestUnwrappedWithTypeInfo extends BaseMapTest
 		public void setP2(String p2) { this.p2 = p2; }
 
 	}
-
+    
     /*
     /**********************************************************
     /* Tests, serialization
     /**********************************************************
      */
 
-	// [databind#81]
+	// [Issue#81]
 	public void testDefaultUnwrappedWithTypeInfo() throws Exception
 	{
 	    Outer outer = new Outer();
@@ -57,7 +62,7 @@ public class TestUnwrappedWithTypeInfo extends BaseMapTest
 	    try {
 	        mapper.writeValueAsString(outer);
 	         fail("Expected exception to be thrown.");
-	    } catch (DatabindException ex) {
+	    } catch (JsonMappingException ex) {
 	        verifyException(ex, "requires use of type information");
 	    }
 	}
@@ -71,13 +76,10 @@ public class TestUnwrappedWithTypeInfo extends BaseMapTest
 		inner.setP2("202");
 		outer.setInner(inner);
 
-		ObjectMapper mapper = jsonMapperBuilder()
-		        .disable(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS)
-		        .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
-		        .build();
+		ObjectMapper mapper = new ObjectMapper();
+		mapper = mapper.disable(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS);
 
 		String json = mapper.writeValueAsString(outer);
-
-		assertEquals("{\"@type\":\"OuterType\",\"p2\":\"202\",\"p1\":\"101\"}", json);
+		assertEquals("{\"@type\":\"OuterType\",\"p1\":\"101\",\"p2\":\"202\"}", json);
 	}
 }

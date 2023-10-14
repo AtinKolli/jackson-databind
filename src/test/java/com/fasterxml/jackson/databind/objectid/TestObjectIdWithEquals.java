@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.*;
 
 public class TestObjectIdWithEquals extends BaseMapTest
 {
-    @JsonPropertyOrder({"id","bars","otherBars"})
     @JsonIdentityInfo(generator=ObjectIdGenerators.PropertyGenerator.class, property="id", scope=Foo.class)
     static class Foo {
         public int id;
@@ -30,7 +29,7 @@ public class TestObjectIdWithEquals extends BaseMapTest
         public Bar(int i) {
             id = i;
         }
-
+        
         @Override
         public int hashCode() {
             return id;
@@ -91,7 +90,7 @@ public class TestObjectIdWithEquals extends BaseMapTest
         Bar bar1 = new Bar(1);
         Bar bar2 = new Bar(2);
         // this is another bar which is supposed to be "equal" to bar1
-        // due to the same ID and
+        // due to the same ID and 
         // Bar class' equals() method will return true.
         Bar anotherBar1 = new Bar(1);
 
@@ -103,7 +102,8 @@ public class TestObjectIdWithEquals extends BaseMapTest
 
         String json = mapper.writeValueAsString(foo);
         assertEquals("{\"id\":1,\"bars\":[{\"id\":1},{\"id\":2}],\"otherBars\":[1,2]}", json);
-        Foo foo2 = mapper.readValue(json, Foo.class);
+
+        Foo foo2 = mapper.readValue(json, Foo.class);       
         assertNotNull(foo2);
         assertEquals(foo.id, foo2.id);
     }

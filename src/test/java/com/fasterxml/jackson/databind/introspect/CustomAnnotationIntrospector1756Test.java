@@ -8,7 +8,6 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
 @SuppressWarnings("serial")
@@ -90,12 +89,11 @@ public class CustomAnnotationIntrospector1756Test extends BaseMapTest
       }
 
       @Override
-      public JsonCreator.Mode findCreatorAnnotation(MapperConfig<?> config, Annotated ann) {
-          final AnnotatedConstructor ctor = (AnnotatedConstructor) ann;
-          if (ctor.getParameterCount() > 0) {
-              if (ctor.getParameter(0).getAnnotation(Field1756.class) != null) {
-                  return JsonCreator.Mode.PROPERTIES;
-              }
+      public JsonCreator.Mode findCreatorAnnotation(MapperConfig<?> config, Annotated a) {
+          final AnnotatedConstructor ctor = (AnnotatedConstructor) a;
+          if ((ctor.getParameterCount() > 0)
+                  && (ctor.getParameter(0).getAnnotation(Field1756.class) != null)) {
+              return JsonCreator.Mode.PROPERTIES;
           }
           return null;
       }
@@ -113,11 +111,10 @@ public class CustomAnnotationIntrospector1756Test extends BaseMapTest
     {
         Issue1756Module m = new Issue1756Module();
         m.addAbstractTypeMapping(Foobar.class, FoobarImpl.class);
-        final ObjectMapper mapper = JsonMapper.builder()
-                .addModule(m)
-                .build();
+        final ObjectMapper mapper = new ObjectMapper()
+            .registerModule(m);
 
-        final Foobar foobar = mapper.readValue(a2q("{'bar':'bar', 'foo':'foo'}"),
+        final Foobar foobar = mapper.readValue(aposToQuotes("{'bar':'bar', 'foo':'foo'}"),
                 Foobar.class);
         assertNotNull(foobar);
     }

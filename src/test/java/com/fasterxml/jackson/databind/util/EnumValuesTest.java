@@ -6,9 +6,6 @@ import com.fasterxml.jackson.databind.BaseMapTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.cfg.EnumFeature;
-import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
-import com.fasterxml.jackson.databind.introspect.AnnotatedClassResolver;
 
 public class EnumValuesTest extends BaseMapTest
 {
@@ -25,12 +22,13 @@ public class EnumValuesTest extends BaseMapTest
         public String toString() { return desc; }
     }
 
-    private final ObjectMapper MAPPER = new ObjectMapper();
+    final ObjectMapper MAPPER = new ObjectMapper();
 
+    @SuppressWarnings("unchecked")
     public void testConstructFromName() {
         SerializationConfig cfg = MAPPER.getSerializationConfig()
                 .without(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
-        AnnotatedClass enumClass = resolve(MAPPER, ABC.class);
+        Class<Enum<?>> enumClass = (Class<Enum<?>>)(Class<?>) ABC.class;
         EnumValues values = EnumValues.construct(cfg, enumClass);
         assertEquals("A", values.serializedValueFor(ABC.A).toString());
         assertEquals("B", values.serializedValueFor(ABC.B).toString());
@@ -39,10 +37,11 @@ public class EnumValuesTest extends BaseMapTest
         assertEquals(3, values.internalMap().size());
     }
 
+    @SuppressWarnings("unchecked")
     public void testConstructWithToString() {
         SerializationConfig cfg = MAPPER.getSerializationConfig()
                 .with(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
-        AnnotatedClass enumClass = resolve(MAPPER, ABC.class);
+        Class<Enum<?>> enumClass = (Class<Enum<?>>)(Class<?>) ABC.class;
         EnumValues values = EnumValues.construct(cfg, enumClass);
         assertEquals("A", values.serializedValueFor(ABC.A).toString());
         assertEquals("b", values.serializedValueFor(ABC.B).toString());
@@ -51,10 +50,9 @@ public class EnumValuesTest extends BaseMapTest
         assertEquals(3, values.internalMap().size());
     }
 
-    public void testEnumResolverNew()
+    public void testEnumResolver()
     {
-        AnnotatedClass annotatedClass = resolve(MAPPER, ABC.class);
-        EnumResolver enumRes = EnumResolver.constructUsingToString(MAPPER.getDeserializationConfig(), annotatedClass);
+        EnumResolver enumRes = EnumResolver.constructUnsafeUsingToString(ABC.class, null);
         assertEquals(ABC.B, enumRes.getEnum(1));
         assertNull(enumRes.getEnum(-1));
         assertNull(enumRes.getEnum(3));
@@ -64,23 +62,5 @@ public class EnumValuesTest extends BaseMapTest
         assertEquals(ABC.A, enums.get(0));
         assertEquals(ABC.B, enums.get(1));
         assertEquals(ABC.C, enums.get(2));
-    }
-
-    // [databind#3053]
-    public void testConstructFromNameLowerCased() {
-        SerializationConfig cfg = MAPPER.getSerializationConfig()
-            .with(EnumFeature.WRITE_ENUMS_TO_LOWERCASE);
-        AnnotatedClass enumClass = resolve(MAPPER, ABC.class);
-        EnumValues values = EnumValues.construct(cfg, enumClass);
-        assertEquals("a", values.serializedValueFor(ABC.A).toString());
-        assertEquals("b", values.serializedValueFor(ABC.B).toString());
-        assertEquals("c", values.serializedValueFor(ABC.C).toString());
-        assertEquals(3, values.values().size());
-        assertEquals(3, values.internalMap().size());
-    }
-
-    private AnnotatedClass resolve(ObjectMapper mapper, Class<?> enumClass) {
-        return AnnotatedClassResolver.resolve(mapper.getSerializationConfig(),
-                mapper.constructType(enumClass), null);
     }
 }

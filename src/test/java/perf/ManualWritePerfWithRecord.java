@@ -1,6 +1,6 @@
 package perf;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ManualWritePerfWithRecord
     extends ObjectWriterTestBase<Record, RecordAsArray>
@@ -16,7 +16,7 @@ public class ManualWritePerfWithRecord
         }
         Record input1 = new Record(44, "BillyBob", "Bumbler", 'm', true);
         RecordAsArray input2 = new RecordAsArray(44, "BillyBob", "Bumbler", 'm', true);
-        JsonMapper m = new JsonMapper();
+        ObjectMapper m = new ObjectMapper();
         new ManualWritePerfWithRecord().test(m,
                 "JSON-as-Object", input1, Record.class,
                 "JSON-as-Array", input2, RecordAsArray.class);

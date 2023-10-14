@@ -23,12 +23,7 @@ public class NullsFailProvider
     }
 
     public static NullsFailProvider constructForProperty(BeanProperty prop) {
-        return constructForProperty(prop, prop.getType());
-    }
-
-    // @since 2.10.2
-    public static NullsFailProvider constructForProperty(BeanProperty prop, JavaType type) {
-        return new NullsFailProvider(prop.getFullName(), type);
+        return new NullsFailProvider(prop.getFullName(), prop.getType());
     }
 
     public static NullsFailProvider constructForRootValue(JavaType t) {

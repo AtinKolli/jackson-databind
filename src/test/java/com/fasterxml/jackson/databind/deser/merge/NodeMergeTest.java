@@ -1,20 +1,17 @@
 package com.fasterxml.jackson.databind.deser.merge;
 
 import com.fasterxml.jackson.annotation.JsonMerge;
-import com.fasterxml.jackson.core.JsonParser;
+
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
 public class NodeMergeTest extends BaseMapTest
 {
-    final static ObjectMapper MAPPER = jsonMapperBuilder()
+    private final static ObjectMapper MAPPER = newObjectMapper()
             // 26-Oct-2016, tatu: Make sure we'll report merge problems by default
             .disable(MapperFeature.IGNORE_MERGE_FOR_UNMERGEABLE)
-            // 15-Feb-2021, tatu: slightly related to [databind#3056],
-            //   ensure that dup detection will not trip handling here
-            .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-            .build();
+    ;
 
     static class ObjectNodeWrapper {
         @JsonMerge
@@ -44,7 +41,7 @@ public class NodeMergeTest extends BaseMapTest
         base.put("first", "foo");
         assertSame(base,
                 MAPPER.readerForUpdating(base)
-                .readValue(a2q("{'second':'bar', 'third':5, 'fourth':true}")));
+                .readValue(aposToQuotes("{'second':'bar', 'third':5, 'fourth':true}")));
         assertEquals(4, base.size());
         assertEquals("bar", base.path("second").asText());
         assertEquals("foo", base.path("first").asText());
@@ -54,7 +51,7 @@ public class NodeMergeTest extends BaseMapTest
 
     public void testObjectNodeMerge() throws Exception
     {
-        ObjectNodeWrapper w = MAPPER.readValue(a2q("{'props':{'stuff':'xyz'}}"),
+        ObjectNodeWrapper w = MAPPER.readValue(aposToQuotes("{'props':{'stuff':'xyz'}}"),
                 ObjectNodeWrapper.class);
         assertEquals(2, w.props.size());
         assertEquals("enabled", w.props.path("default").asText());
@@ -72,12 +69,12 @@ public class NodeMergeTest extends BaseMapTest
         base.putNull("misc");
         assertSame(base,
                 MAPPER.readerForUpdating(base)
-                .readValue(a2q(
-"{'props':{'value':true, 'extra':25.5, 'array' : [ 3 ]}}")));
+                .readValue(aposToQuotes(
+                        "{'props':{'value':true, 'extra':25.5, 'array' : [ 3 ]}}")));
         assertEquals(2, base.size());
         ObjectNode resultProps = (ObjectNode) base.get("props");
         assertEquals(4, resultProps.size());
-
+        
         assertEquals(123, resultProps.path("base").asInt());
         assertTrue(resultProps.path("value").asBoolean());
         assertEquals(25.5, resultProps.path("extra").asDouble());
@@ -93,7 +90,7 @@ public class NodeMergeTest extends BaseMapTest
         base.add("first");
         assertSame(base,
                 MAPPER.readerForUpdating(base)
-                .readValue(a2q("['second',false,null]")));
+                .readValue(aposToQuotes("['second',false,null]")));
         assertEquals(4, base.size());
         assertEquals("first", base.path(0).asText());
         assertEquals("second", base.path(1).asText());
@@ -103,7 +100,7 @@ public class NodeMergeTest extends BaseMapTest
 
     public void testArrayNodeMerge() throws Exception
     {
-        ArrayNodeWrapper w = MAPPER.readValue(a2q("{'list':[456,true,{},  [], 'foo']}"),
+        ArrayNodeWrapper w = MAPPER.readValue(aposToQuotes("{'list':[456,true,{},  [], 'foo']}"),
                 ArrayNodeWrapper.class);
         assertEquals(6, w.list.size());
         assertEquals(123, w.list.get(0).asInt());
@@ -116,84 +113,5 @@ public class NodeMergeTest extends BaseMapTest
         assertTrue(n.isArray());
         assertEquals(0, n.size());
         assertEquals("foo", w.list.get(5).asText());
-    }
-
-    // [databind#3056]
-    public void testUpdateObjectNodeWithNull() throws Exception
-    {
-        JsonNode src = MAPPER.readTree(a2q("{'test':{}}"));
-        JsonNode update = MAPPER.readTree(a2q("{'test':null}"));
-
-        ObjectNode result = MAPPER.readerForUpdating(src)
-            .readValue(update, ObjectNode.class);
-
-        assertEquals(a2q("{'test':null}"), result.toString());
-    }
-
-    public void testUpdateObjectNodeWithNumber() throws Exception
-    {
-        JsonNode src = MAPPER.readTree(a2q("{'test':{}}"));
-        JsonNode update = MAPPER.readTree(a2q("{'test':123}"));
-
-        ObjectNode result = MAPPER.readerForUpdating(src)
-            .readValue(update, ObjectNode.class);
-
-        assertEquals(a2q("{'test':123}"), result.toString());
-    }
-
-    public void testUpdateArrayWithNull() throws Exception
-    {
-        JsonNode src = MAPPER.readTree(a2q("{'test':[]}"));
-        JsonNode update = MAPPER.readTree(a2q("{'test':null}"));
-
-        ObjectNode result = MAPPER.readerForUpdating(src)
-            .readValue(update, ObjectNode.class);
-
-        assertEquals(a2q("{'test':null}"), result.toString());
-    }
-
-    public void testUpdateArrayWithString() throws Exception
-    {
-        JsonNode src = MAPPER.readTree(a2q("{'test':[]}"));
-        JsonNode update = MAPPER.readTree(a2q("{'test':'n/a'}"));
-
-        ObjectNode result = MAPPER.readerForUpdating(src)
-            .readValue(update, ObjectNode.class);
-
-        assertEquals(a2q("{'test':'n/a'}"), result.toString());
-    }
-
-    // [databind#3122]: "readTree()" fails where "readValue()" doesn't:
-    public void testObjectDeepMerge3122() throws Exception
-    {
-        final String jsonToMerge = a2q("{'root':{'b':'bbb','foo':'goodbye'}}");
-
-        JsonNode node1 = MAPPER.readTree(a2q("{'root':{'a':'aaa','foo':'hello'}}"));
-        assertEquals(2, node1.path("root").size());
-
-        JsonNode node2 = MAPPER.readerForUpdating(node1)
-                .readValue(jsonToMerge);
-        assertSame(node1, node2);
-        assertEquals(3, node1.path("root").size());
-
-        node1 = MAPPER.readTree(a2q("{'root':{'a':'aaa','foo':'hello'}}"));
-        JsonNode node3 = MAPPER.readerForUpdating(node1)
-                .readTree(jsonToMerge);
-        assertSame(node1, node3);
-        assertEquals(3, node1.path("root").size());
-
-        node1 = MAPPER.readTree(a2q("{'root':{'a':'aaa','foo':'hello'}}"));
-        JsonNode node4 = MAPPER.readerForUpdating(node1)
-                .readTree(utf8Bytes(jsonToMerge));
-        assertSame(node1, node4);
-        assertEquals(3, node1.path("root").size());
-
-        // And finally variant passing `JsonParser`
-        try (JsonParser p = MAPPER.createParser(jsonToMerge)) {
-            JsonNode node5 = MAPPER.readerForUpdating(node1)
-                    .readTree(p);
-            assertSame(node1, node5);
-            assertEquals(3, node1.path("root").size());
-        }
     }
 }

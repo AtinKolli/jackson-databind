@@ -10,7 +10,7 @@ public class DelegatingExternalProperty1003Test extends BaseMapTest
 
         private final Hero hero;
 
-        HeroBattle(Hero hero) {
+        private HeroBattle(Hero hero) {
             if (hero == null) throw new Error();
             this.hero = hero;
         }
@@ -40,7 +40,7 @@ public class DelegatingExternalProperty1003Test extends BaseMapTest
         public String getName() {
             return name;
         }
-    }
+    }    
 
     public void testExtrnalPropertyDelegatingCreator() throws Exception
     {

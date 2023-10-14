@@ -8,8 +8,6 @@ import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
  * properties. Carved out to reduce number of distinct properties that
  * actual property implementations and place holders need to store;
  * since instances are immutable, they can be freely shared.
- *
- * @since 2.3
  */
 public class PropertyMetadata
     implements java.io.Serializable
@@ -28,8 +26,6 @@ public class PropertyMetadata
     /**
      * Helper class used for containing information about expected merge
      * information for this property, if merging is expected.
-     *
-     * @since 2.9
      */
     public final static class MergeInfo
     // NOTE: need not be Serializable, not persisted
@@ -74,7 +70,7 @@ public class PropertyMetadata
 
     /**
      * Optional index of the property within containing Object.
-     *
+     * 
      * @since 2.4
      */
     protected final Integer _index;
@@ -94,7 +90,7 @@ public class PropertyMetadata
      * NOTE: transient since it is assumed that this information is only
      * relevant during initial setup and not needed after full initialization.
      * May be changed if this proves necessary.
-     *
+     * 
      * @since 2.9
      */
     protected final transient MergeInfo _mergeInfo;
@@ -103,7 +99,7 @@ public class PropertyMetadata
      * Settings regarding handling of incoming `null`s, both for value itself
      * and, for structured types, content values (array/Collection elements,
      * Map values).
-     *
+     * 
      * @since 2.9
      */
     protected Nulls _valueNulls, _contentNulls;
@@ -129,9 +125,6 @@ public class PropertyMetadata
         _contentNulls = contentNulls;
     }
 
-    /**
-     * @since 2.8.8
-     */
     public static PropertyMetadata construct(Boolean req, String desc, Integer index,
             String defaultValue) {
         if ((desc != null) || (index != null) || (defaultValue != null)) {
@@ -140,16 +133,6 @@ public class PropertyMetadata
         }
         if (req == null) {
             return STD_REQUIRED_OR_OPTIONAL;
-        }
-        return req ? STD_REQUIRED : STD_OPTIONAL;
-    }
-
-    @Deprecated // since 2.8.8
-    public static PropertyMetadata construct(boolean req, String desc, Integer index,
-            String defaultValue) {
-        if (desc != null || index != null || defaultValue != null) {
-            return new PropertyMetadata(req, desc, index, defaultValue,
-                    null, null, null);
         }
         return req ? STD_REQUIRED : STD_OPTIONAL;
     }
@@ -176,17 +159,11 @@ public class PropertyMetadata
                 _mergeInfo, _valueNulls, _contentNulls);
     }
 
-    /**
-     * @since 2.9
-     */
     public PropertyMetadata withMergeInfo(MergeInfo mergeInfo) {
         return new PropertyMetadata(_required, _description, _index, _defaultValue,
                 mergeInfo, _valueNulls, _contentNulls);
     }
 
-    /**
-     * @since 2.9
-     */
     public PropertyMetadata withNulls(Nulls valueNulls,
             Nulls contentNulls) {
         return new PropertyMetadata(_required, _description, _index, _defaultValue,
@@ -205,12 +182,12 @@ public class PropertyMetadata
         return new PropertyMetadata(_required, _description, _index, def,
                 _mergeInfo, _valueNulls, _contentNulls);
     }
-
+    
     public PropertyMetadata withIndex(Integer index) {
         return new PropertyMetadata(_required, _description, index, _defaultValue,
                 _mergeInfo, _valueNulls, _contentNulls);
     }
-
+    
     public PropertyMetadata withRequired(Boolean b) {
         if (b == null) {
             if (_required == null) {

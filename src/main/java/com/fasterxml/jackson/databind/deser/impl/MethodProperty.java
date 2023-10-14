@@ -23,7 +23,7 @@ public final class MethodProperty
     private static final long serialVersionUID = 1;
 
     protected final AnnotatedMethod _annotated;
-
+    
     /**
      * Setter method for modifying property value; used for
      * "regular" method-accessible properties.
@@ -34,7 +34,7 @@ public final class MethodProperty
      * @since 2.9
      */
     final protected boolean _skipNulls;
-
+    
     public MethodProperty(BeanPropertyDefinition propDef,
             JavaType type, TypeDeserializer typeDeser,
             Annotations contextAnnotations, AnnotatedMethod method)
@@ -74,15 +74,13 @@ public final class MethodProperty
     public SettableBeanProperty withName(PropertyName newName) {
         return new MethodProperty(this, newName);
     }
-
+    
     @Override
     public SettableBeanProperty withValueDeserializer(JsonDeserializer<?> deser) {
         if (_valueDeserializer == deser) {
             return this;
         }
-        // 07-May-2019, tatu: As per [databind#2303], must keep VD/NVP in-sync if they were
-        NullValueProvider nvp = (_valueDeserializer == _nullProvider) ? deser : _nullProvider;
-        return new MethodProperty(this, deser, nvp);
+        return new MethodProperty(this, deser, _nullProvider);
     }
 
     @Override
@@ -101,7 +99,7 @@ public final class MethodProperty
     /* BeanProperty impl
     /**********************************************************
      */
-
+    
     @Override
     public <A extends Annotation> A getAnnotation(Class<A> acls) {
         return (_annotated == null) ? null : _annotated.getAnnotation(acls);
@@ -127,13 +125,6 @@ public final class MethodProperty
             value = _nullProvider.getNullValue(ctxt);
         } else if (_valueTypeDeserializer == null) {
             value = _valueDeserializer.deserialize(p, ctxt);
-            // 04-May-2018, tatu: [databind#2023] Coercion from String (mostly) can give null
-            if (value == null) {
-                if (_skipNulls) {
-                    return;
-                }
-                value = _nullProvider.getNullValue(ctxt);
-            }
         } else {
             value = _valueDeserializer.deserializeWithType(p, ctxt, _valueTypeDeserializer);
         }
@@ -156,13 +147,6 @@ public final class MethodProperty
             value = _nullProvider.getNullValue(ctxt);
         } else if (_valueTypeDeserializer == null) {
             value = _valueDeserializer.deserialize(p, ctxt);
-            // 04-May-2018, tatu: [databind#2023] Coercion from String (mostly) can give null
-            if (value == null) {
-                if (_skipNulls) {
-                    return instance;
-                }
-                value = _nullProvider.getNullValue(ctxt);
-            }
         } else {
             value = _valueDeserializer.deserializeWithType(p, ctxt, _valueTypeDeserializer);
         }
@@ -181,7 +165,7 @@ public final class MethodProperty
         try {
             _setter.invoke(instance, value);
         } catch (Exception e) {
-            // 15-Sep-2015, tatu: How could we get a ref to JsonParser?
+            // 15-Sep-2015, tatu: How coud we get a ref to JsonParser?
             _throwAsIOE(e, value);
         }
     }
@@ -193,7 +177,7 @@ public final class MethodProperty
             Object result = _setter.invoke(instance, value);
             return (result == null) ? instance : result;
         } catch (Exception e) {
-            // 15-Sep-2015, tatu: How could we get a ref to JsonParser?
+            // 15-Sep-2015, tatu: How coud we get a ref to JsonParser?
             _throwAsIOE(e, value);
             return null;
         }

@@ -4,6 +4,7 @@ import java.util.*;
 
 import com.fasterxml.jackson.databind.BaseMapTest;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class TestFindMethods
     extends BaseMapTest
@@ -60,7 +61,7 @@ public class TestFindMethods
         assertEquals("3", values.get(0));
         assertEquals("42", values.get(1));
     }
-
+    
     private JsonNode _buildTree() throws Exception
     {
         final String SAMPLE = "{ \"a\" : { \"value\" : 3 },"

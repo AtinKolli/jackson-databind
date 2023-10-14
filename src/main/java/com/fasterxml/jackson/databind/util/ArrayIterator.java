@@ -7,18 +7,17 @@ import java.util.NoSuchElementException;
  * Iterator implementation used to efficiently expose contents of an
  * Array as read-only iterator.
  */
-@SuppressWarnings("IterableAndIterator") // only used internally, not exposed via API
-public class ArrayIterator<T> implements Iterator<T>, Iterable<T> // lgtm [java/iterator-implements-iterable]
+public class ArrayIterator<T> implements Iterator<T>, Iterable<T>
 {
     private final T[] _a;
-
+    
     private int _index;
 
     public ArrayIterator(T[] a) {
         _a = a;
         _index = 0;
     }
-
+    
     @Override
     public boolean hasNext() { return _index < _a.length; }
 

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.*;
 
 public class MapInclusionTest extends BaseMapTest
@@ -42,17 +41,6 @@ public class MapInclusionTest extends BaseMapTest
         }
     }
 
-    // [databind#2909]
-    static class Wrapper2909 {
-        @JsonValue
-        public Map<String, String> values = new HashMap<>();
-    }
-
-    static class TopLevel2099 {
-        @JsonInclude(JsonInclude.Include.NON_EMPTY)
-        public Wrapper2909 nested = new Wrapper2909();
-    }
-
     /*
     /**********************************************************
     /* Test methods
@@ -67,7 +55,7 @@ public class MapInclusionTest extends BaseMapTest
         String json = MAPPER.writeValueAsString(new NoEmptiesMapContainer()
             .add("a", null)
             .add("b", ""));
-        assertEquals(a2q("{}"), json);
+        assertEquals(aposToQuotes("{}"), json);
     }
 
     public void testNoNullsMap() throws IOException
@@ -76,7 +64,7 @@ public class MapInclusionTest extends BaseMapTest
                 .add("a", null)
                 .add("b", "");
         String json = MAPPER.writeValueAsString(input);
-        assertEquals(a2q("{'stuff':{'b':''}}"), json);
+        assertEquals(aposToQuotes("{'stuff':{'b':''}}"), json);
     }
 
     public void testNonEmptyNoNullsMap() throws IOException
@@ -85,17 +73,11 @@ public class MapInclusionTest extends BaseMapTest
                 .add("a", null)
                 .add("b", "");
         String json = MAPPER.writeValueAsString(input);
-        assertEquals(a2q("{'stuff':{'b':''}}"), json);
+        assertEquals(aposToQuotes("{'stuff':{'b':''}}"), json);
 
         json = MAPPER.writeValueAsString(new NoNullsNotEmptyMapContainer()
                 .add("a", null)
                 .add("b", null));
-        assertEquals(a2q("{}"), json);
-    }
-
-    // [databind#2909]
-    public void testMapViaJsonValue() throws Exception
-    {
-        assertEquals(a2q("{}"), MAPPER.writeValueAsString(new TopLevel2099()));
+        assertEquals(aposToQuotes("{}"), json);
     }
 }

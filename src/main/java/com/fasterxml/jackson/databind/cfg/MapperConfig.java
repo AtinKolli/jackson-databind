@@ -5,25 +5,20 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 import com.fasterxml.jackson.annotation.*;
-
 import com.fasterxml.jackson.core.Base64Variant;
 import com.fasterxml.jackson.core.SerializableString;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
 import com.fasterxml.jackson.databind.introspect.ClassIntrospector;
 import com.fasterxml.jackson.databind.introspect.NopAnnotationIntrospector;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
-import com.fasterxml.jackson.databind.jsontype.DefaultBaseTypeLimitingValidator;
-import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.jsontype.SubtypeResolver;
 import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 
@@ -43,26 +38,17 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     implements ClassIntrospector.MixInResolver,
         java.io.Serializable
 {
-    private static final long serialVersionUID = 2L; // since 2.9
+    private static final long serialVersionUID = 3L; // since 3.0
 
-    /**
-     * @since 2.7
-     */
     protected final static JsonInclude.Value EMPTY_INCLUDE = JsonInclude.Value.empty();
 
-    /**
-     * @since 2.7
-     */
     protected final static JsonFormat.Value EMPTY_FORMAT = JsonFormat.Value.empty();
 
     /**
      * Set of shared mapper features enabled.
-     *<p>
-     * NOTE: changed from {@code int} (in Jackson 2.12 and prior} to {@code long}
-     * (2.13 and later)
      */
-    protected final long _mapperFeatures;
-
+    protected final int _mapperFeatures;
+    
     /**
      * Immutable container object for simple configuration settings.
      */
@@ -74,13 +60,13 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     /**********************************************************
      */
 
-    protected MapperConfig(BaseSettings base, long mapperFeatures)
+    protected MapperConfig(BaseSettings base, int mapperFeatures)
     {
         _base = base;
         _mapperFeatures = mapperFeatures;
     }
 
-    protected MapperConfig(MapperConfig<T> src, long mapperFeatures)
+    protected MapperConfig(MapperConfig<T> src, int mapperFeatures)
     {
         _base = src._base;
         _mapperFeatures = mapperFeatures;
@@ -91,13 +77,13 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
         _base = base;
         _mapperFeatures = src._mapperFeatures;
     }
-
+    
     protected MapperConfig(MapperConfig<T> src)
     {
         _base = src._base;
         _mapperFeatures = src._mapperFeatures;
     }
-
+    
     /**
      * Method that calculates bit set (flags) of all features that
      * are enabled by default.
@@ -118,7 +104,7 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     /* Life-cycle: factory methods
     /**********************************************************
      */
-
+    
     /**
      * Method for constructing and returning a new instance with specified
      * mapper features enabled.
@@ -131,11 +117,8 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      */
     public abstract T without(MapperFeature... features);
 
-    /**
-     * @since 2.3
-     */
     public abstract T with(MapperFeature feature, boolean state);
-
+    
     /*
     /**********************************************************
     /* Configuration: simple features
@@ -147,43 +130,21 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * serialization, deserialization)
      */
     public final boolean isEnabled(MapperFeature f) {
-        return f.enabledIn(_mapperFeatures);
+        return (_mapperFeatures & f.getMask()) != 0;
     }
 
     /**
      * "Bulk" access method for checking that all features specified by
      * mask are enabled.
-     *
-     * @since 2.3
-     *
-     * @deprecated Since 2.13 -- no replacement
      */
-    @Deprecated
     public final boolean hasMapperFeatures(int featureMask) {
         return (_mapperFeatures & featureMask) == featureMask;
     }
-
-    /**
-     * Accessor for checking whether give {@link DatatypeFeature}
-     * is enabled or not.
-     *
-     * @param feature Feature to check
-     *
-     * @return True if feature is enabled; false otherwise
-     *
-     * @since 2.15
-     */
-    public abstract boolean isEnabled(DatatypeFeature feature);
-
-    /**
-     * @since 2.15
-     */
-    public abstract DatatypeFeatures getDatatypeFeatures();
-
+    
     /**
      * Method for determining whether annotation processing is enabled or not
      * (default settings are typically that it is enabled; must explicitly disable).
-     *
+     * 
      * @return True if annotation processing is enabled; false if not
      */
     public final boolean isAnnotationProcessingEnabled() {
@@ -196,7 +157,7 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * to invoke non-public Constructors, Methods; or to instantiate non-public
      * Classes. By default this is enabled, but on some platforms it needs to be
      * prevented since if this would violate security constraints and cause failures.
-     *
+     * 
      * @return True if access modifier overriding is allowed (and may be done for
      *   any Field, Method, Constructor or Class); false to prevent any attempts
      *   to override.
@@ -230,27 +191,25 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * Method for constructing a specialized textual object that can typically
      * be serialized faster than basic {@link java.lang.String} (depending
      * on escaping needed if any, char-to-byte encoding if needed).
-     *
+     * 
      * @param src Text to represent
-     *
+     * 
      * @return Optimized text object constructed
-     *
-     * @since 2.4
      */
     public SerializableString compileString(String src) {
         /* 20-Jan-2014, tatu: For now we will just construct it directly, but
-         *    in future should allow overriding to support non-standard extensions
+         *    for 2.4 need to allow overriding to support non-standard extensions
          *    to be used by extensions like Afterburner.
          */
         return new SerializedString(src);
     }
-
+    
     /*
     /**********************************************************
     /* Configuration: introspectors, mix-ins
     /**********************************************************
      */
-
+    
     public ClassIntrospector getClassIntrospector() {
         return _base.getClassIntrospector();
     }
@@ -272,11 +231,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
         return _base.getPropertyNamingStrategy();
     }
 
-    // @since 2.12
-    public final AccessorNamingStrategy.Provider getAccessorNaming() {
-        return _base.getAccessorNaming();
-    }
-
     public final HandlerInstantiator getHandlerInstantiator() {
         return _base.getHandlerInstantiator();
     }
@@ -296,30 +250,8 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     public final TypeResolverBuilder<?> getDefaultTyper(JavaType baseType) {
         return _base.getTypeResolverBuilder();
     }
-
+    
     public abstract SubtypeResolver getSubtypeResolver();
-
-    /**
-     * Simple accessor for default {@link PolymorphicTypeValidator} to use for
-     * legacy Default Typing methods ({@code ObjectMapper.enableDefaultTyping()})
-     * and annotation based enabling.
-     *<p>
-     * Since 2.11 will also check {@link MapperFeature#BLOCK_UNSAFE_POLYMORPHIC_BASE_TYPES}
-     * to possibly override default to more restrictive implementation, see
-     * {@link com.fasterxml.jackson.databind.jsontype.DefaultBaseTypeLimitingValidator}).
-     *
-     * @since 2.10
-     */
-    public PolymorphicTypeValidator getPolymorphicTypeValidator() {
-        PolymorphicTypeValidator ptv = _base.getPolymorphicTypeValidator();
-        // [databind#2587]: allow stricter default settings:
-        if (ptv == LaissezFaireSubTypeValidator.instance) {
-            if (isEnabled(MapperFeature.BLOCK_UNSAFE_POLYMORPHIC_BASE_TYPES)) {
-                ptv = new DefaultBaseTypeLimitingValidator();
-            }
-        }
-        return ptv;
-    }
 
     public final TypeFactory getTypeFactory() {
         return _base.getTypeFactory();
@@ -350,8 +282,7 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     }
 
     public JavaType constructSpecializedType(JavaType baseType, Class<?> subclass) {
-        // note: since 2.11 specify "strict" resolution
-        return getTypeFactory().constructSpecializedType(baseType, subclass, true);
+        return getTypeFactory().constructSpecializedType(baseType, subclass);
     }
 
     /*
@@ -406,9 +337,7 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      *<p>
      * Note that only directly associated override
      * is found; no type hierarchy traversal is performed.
-     *
-     * @since 2.8
-     *
+     * 
      * @return Override object to use for the type, if defined; null if none.
      */
     public abstract ConfigOverride findConfigOverride(Class<?> type);
@@ -420,9 +349,7 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      *<p>
      * Note that only directly associated override
      * is found; no type hierarchy traversal is performed.
-     *
-     * @since 2.9
-     *
+     * 
      * @return Override object to use for the type, never null (but may be empty)
      */
     public abstract ConfigOverride getConfigOverride(Class<?> type);
@@ -430,8 +357,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     /**
      * Accessor for default property inclusion to use for serialization,
      * used unless overridden by per-type or per-property overrides.
-     *
-     * @since 2.7
      */
     public abstract JsonInclude.Value getDefaultPropertyInclusion();
 
@@ -440,8 +365,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * considering possible per-type override for given base type.<br>
      * NOTE: if no override found, defaults to value returned by
      * {@link #getDefaultPropertyInclusion()}.
-     *
-     * @since 2.7
      */
     public abstract JsonInclude.Value getDefaultPropertyInclusion(Class<?> baseType);
 
@@ -451,8 +374,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * if none found, returning given <code>defaultIncl</code>
      *
      * @param defaultIncl Inclusion setting to return if no overrides found.
-     *
-     * @since 2.8.2
      */
     public JsonInclude.Value getDefaultPropertyInclusion(Class<?> baseType,
             JsonInclude.Value defaultIncl)
@@ -473,8 +394,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      *
      * @param baseType Type of the instance containing the targeted property.
      * @param propertyType Type of the property to look up inclusion setting for.
-     *
-     * @since 2.9
      */
     public abstract JsonInclude.Value getDefaultInclusion(Class<?> baseType,
             Class<?> propertyType);
@@ -488,8 +407,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * @param baseType Type of the instance containing the targeted property.
      * @param propertyType Type of the property to look up inclusion setting for.
      * @param defaultIncl Inclusion setting to return if no overrides found.
-     *
-     * @since 2.9
      */
     public JsonInclude.Value getDefaultInclusion(Class<?> baseType,
             Class<?> propertyType, JsonInclude.Value defaultIncl)
@@ -505,16 +422,12 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * Accessor for default format settings to use for serialization (and, to a degree
      * deserialization), considering baseline settings and per-type defaults
      * for given base type (if any).
-     *
-     * @since 2.7
      */
     public abstract JsonFormat.Value getDefaultPropertyFormat(Class<?> baseType);
 
     /**
      * Accessor for default property ignorals to use, if any, for given base type,
      * based on config overrides settings (see {@link #findConfigOverride(Class)}).
-     *
-     * @since 2.8
      */
     public abstract JsonIgnoreProperties.Value getDefaultPropertyIgnorals(Class<?> baseType);
 
@@ -523,21 +436,8 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * definitions from annotations (via {@link AnnotatedClass}) or through
      * "config overrides". If both exist, config overrides have precedence
      * over class annotations.
-     *
-     * @since 2.8
      */
     public abstract JsonIgnoreProperties.Value getDefaultPropertyIgnorals(Class<?> baseType,
-            AnnotatedClass actualClass);
-
-    /**
-     * Helper method that may be called to see if there are property inclusion
-     * definitions from annotations (via {@link AnnotatedClass}).
-     *
-     * TODO: config override.
-     *
-     * @since 2.12
-     */
-    public abstract JsonIncludeProperties.Value getDefaultPropertyInclusions(Class<?> baseType,
             AnnotatedClass actualClass);
 
     /**
@@ -558,8 +458,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * (as would be returned by {@link #getDefaultVisibilityChecker()}, but
      * then modified by possible class annotation (see {@link JsonAutoDetect})
      * and/or per-type config override (see {@link ConfigOverride#getVisibility()}).
-     *
-     * @since 2.9
      */
     public abstract VisibilityChecker<?> getDefaultVisibilityChecker(Class<?> baseType,
             AnnotatedClass actualClass);
@@ -569,8 +467,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * not considering possible per-type overrides.
      *
      * @return Global base settings; never null
-     *
-     * @since 2.9
      */
     public abstract JsonSetter.Value getDefaultSetterInfo();
 
@@ -579,8 +475,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * not considering possible per-type overrides.
      *
      * @return Global base settings, if any; `null` if none.
-     *
-     * @since 2.9
      */
     public abstract Boolean getDefaultMergeable();
 
@@ -591,8 +485,6 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * @return Type-specific settings (if any); global defaults (same as
      *    {@link #getDefaultMergeable()}) otherwise, if any defined; or `null`
      *    if neither defined
-     *
-     * @since 2.9
      */
     public abstract Boolean getDefaultMergeable(Class<?> baseType);
 
@@ -601,7 +493,7 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
     /* Configuration: other
     /**********************************************************
      */
-
+    
     /**
      * Method for accessing currently configured (textual) date format
      * that will be used for reading or writing date values (in case
@@ -626,29 +518,14 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
      * Initially set to {@link Locale#getDefault()}.
      */
     public final Locale getLocale() { return _base.getLocale(); }
-
+    
     /**
      * Method for accessing the default {@link java.util.TimeZone} to use
      * for formatting, unless overridden by local annotations.
      * Initially set to {@link TimeZone#getDefault()}.
      */
     public final TimeZone getTimeZone() { return _base.getTimeZone(); }
-
-    /**
-     * Method for checking whether a {@link java.util.TimeZone} has been explicitly
-     * set for this configuring during construction of {@code ObjectMapper}
-     * or if it still has the default timezone/offset (zero-offset, "zulu").
-     *
-     * @return {@code true} if this configuration has explicitly specified
-     *    {@link java.util.TimeZone}, or {@code false} if it uses the default
-     *    time zone
-     *
-     * @since 2.12
-     */
-    public boolean hasExplicitTimeZone() {
-        return _base.hasExplicitTimeZone();
-    }
-
+    
     /**
      * Accessor for finding currently active view, if any (null if none)
      */
@@ -665,31 +542,19 @@ public abstract class MapperConfig<T extends MapperConfig<T>>
         return _base.getBase64Variant();
     }
 
+    public final JsonNodeFactory getNodeFactory() {
+        return _base.getNodeFactory();
+    }
     /**
      * Method for accessing per-instance shared (baseline/default)
      * attribute values; these are used as the basis for per-call
      * attributes.
-     *
-     * @since 2.3
      */
     public abstract ContextAttributes getAttributes();
 
-    /**
-     * @since 2.6
-     */
     public abstract PropertyName findRootName(JavaType rootType);
 
-    /**
-     * @since 2.6
-     */
     public abstract PropertyName findRootName(Class<?> rawRootType);
-
-    /**
-     * @since 2.16
-     */
-    public CacheProvider getCacheProvider() {
-        return _base.getCacheProvider();
-    }
 
     /*
     /**********************************************************

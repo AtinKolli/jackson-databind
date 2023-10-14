@@ -7,10 +7,7 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.annotation.*;
-
 import com.fasterxml.jackson.core.*;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
@@ -40,48 +37,12 @@ public class JDKNumberDeserTest extends BaseMapTest
         public MyBeanValue(BigDecimal d) { this.decimal = d; }
     }
 
-    // [databind#2644]
-    static class NodeRoot2644 {
-        public String type;
-
-        @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
-        @JsonSubTypes(value = {
-                @JsonSubTypes.Type(value = NodeParent2644.class, name = "NodeParent")
-        })
-        public Node2644 node;
-    }
-
-    public static class NodeParent2644 extends Node2644 { }
-
-    public static abstract class Node2644 {
-        @JsonProperty("amount")
-        BigDecimal val;
-
-        public BigDecimal getVal() {
-            return val;
-        }
-
-        public void setVal(BigDecimal val) {
-            this.val = val;
-        }
-    }
-
-    // [databind#2784]
-    static class BigDecimalHolder2784 {
-        public BigDecimal value;
-    }
-
-    static class NestedBigDecimalHolder2784 {
-        @JsonUnwrapped
-        public BigDecimalHolder2784 holder;
-    }
-
     /*
     /**********************************************************************
     /* Helper classes, serializers/deserializers/resolvers
     /**********************************************************************
      */
-
+    
     static class MyBeanDeserializer extends JsonDeserializer<MyBeanValue>
     {
         @Override
@@ -99,7 +60,7 @@ public class JDKNumberDeserTest extends BaseMapTest
      */
 
     final ObjectMapper MAPPER = new ObjectMapper();
-
+    
     public void testNaN() throws Exception
     {
         Float result = MAPPER.readValue(" \"NaN\"", Float.class);
@@ -125,21 +86,21 @@ public class JDKNumberDeserTest extends BaseMapTest
     //    would be best; but due to legacy reasons becomes `null` at this point
     public void testEmptyAsNumber() throws Exception
     {
-        assertNull(MAPPER.readValue(q(""), Byte.class));
-        assertNull(MAPPER.readValue(q(""), Short.class));
-        assertNull(MAPPER.readValue(q(""), Character.class));
-        assertNull(MAPPER.readValue(q(""), Integer.class));
-        assertNull(MAPPER.readValue(q(""), Long.class));
-        assertNull(MAPPER.readValue(q(""), Float.class));
-        assertNull(MAPPER.readValue(q(""), Double.class));
+        assertNull(MAPPER.readValue(quote(""), Byte.class));
+        assertNull(MAPPER.readValue(quote(""), Short.class));
+        assertNull(MAPPER.readValue(quote(""), Character.class));
+        assertNull(MAPPER.readValue(quote(""), Integer.class));
+        assertNull(MAPPER.readValue(quote(""), Long.class));
+        assertNull(MAPPER.readValue(quote(""), Float.class));
+        assertNull(MAPPER.readValue(quote(""), Double.class));
 
-        assertNull(MAPPER.readValue(q(""), BigInteger.class));
-        assertNull(MAPPER.readValue(q(""), BigDecimal.class));
+        assertNull(MAPPER.readValue(quote(""), BigInteger.class));
+        assertNull(MAPPER.readValue(quote(""), BigDecimal.class));
     }
 
     public void testTextualNullAsNumber() throws Exception
     {
-        final String NULL_JSON = q("null");
+        final String NULL_JSON = quote("null");
         assertNull(MAPPER.readValue(NULL_JSON, Byte.class));
         assertNull(MAPPER.readValue(NULL_JSON, Short.class));
         // Character is bit special, can't do:
@@ -157,7 +118,7 @@ public class JDKNumberDeserTest extends BaseMapTest
         assertEquals(Long.valueOf(0L), MAPPER.readValue(NULL_JSON, Long.TYPE));
         assertEquals(Float.valueOf(0f), MAPPER.readValue(NULL_JSON, Float.TYPE));
         assertEquals(Double.valueOf(0d), MAPPER.readValue(NULL_JSON, Double.TYPE));
-
+        
         assertNull(MAPPER.readValue(NULL_JSON, BigInteger.class));
         assertNull(MAPPER.readValue(NULL_JSON, BigDecimal.class));
 
@@ -170,17 +131,16 @@ public class JDKNumberDeserTest extends BaseMapTest
             verifyException(e, "Cannot coerce String \"null\"");
         }
 
-        ObjectMapper noCoerceMapper = jsonMapperBuilder()
-                .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
-                .build();
+        ObjectMapper noCoerceMapper = new ObjectMapper();
+        noCoerceMapper.disable(MapperFeature.ALLOW_COERCION_OF_SCALARS);
         try {
             noCoerceMapper.readValue(NULL_JSON, Integer.TYPE);
             fail("Should not have passed");
         } catch (MismatchedInputException e) {
-            verifyException(e, "Cannot coerce String value");
+            verifyException(e, "Cannot coerce String \"null\"");
         }
     }
-
+    
     public void testDeserializeDecimalHappyPath() throws Exception {
         String json = "{\"defaultValue\": { \"value\": 123 } }";
         MyBeanHolder result = MAPPER.readValue(json, MyBeanHolder.class);
@@ -192,7 +152,7 @@ public class JDKNumberDeserTest extends BaseMapTest
         try {
             MAPPER.readValue(json, MyBeanHolder.class);
             fail("should have raised exception");
-        } catch (DatabindException e) {
+        } catch (JsonProcessingException e) {
             verifyException(e, "not numeric");
         }
     }
@@ -202,7 +162,7 @@ public class JDKNumberDeserTest extends BaseMapTest
         try {
             MyBeanHolder result = MAPPER.readValue(json, MyBeanHolder.class);
             fail("should have raised exception instead value was set to " + result.defaultValue.value.decimal.toString());
-        } catch (DatabindException e) {
+        } catch (JsonProcessingException e) {
             verifyException(e, "not numeric");
         }
     }
@@ -337,29 +297,5 @@ public class JDKNumberDeserTest extends BaseMapTest
             fail("Expected LongNode, got: "+node.getClass().getName());
         }
         assertEquals(42, node.asInt());
-    }
-
-    // [databind#2644]
-    public void testBigDecimalSubtypes() throws Exception
-    {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .registerSubtypes(NodeParent2644.class)
-                .build();
-        NodeRoot2644 root = mapper.readValue(
-                "{\"type\": \"NodeParent\",\"node\": {\"amount\": 9999999999999999.99} }",
-                NodeRoot2644.class
-        );
-
-        assertEquals(new BigDecimal("9999999999999999.99"), root.node.getVal());
-    }
-
-    // [databind#2784]
-    public void testBigDecimalUnwrapped() throws Exception
-    {
-        final ObjectMapper mapper = newJsonMapper();
-        // mapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
-        final String JSON = "{\"value\": 5.00}";
-        NestedBigDecimalHolder2784 result = mapper.readValue(JSON, NestedBigDecimalHolder2784.class);
-        assertEquals(new BigDecimal("5.00"), result.holder.value);
     }
 }

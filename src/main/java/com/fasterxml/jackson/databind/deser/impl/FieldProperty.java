@@ -89,9 +89,7 @@ public final class FieldProperty
         if (_valueDeserializer == deser) {
             return this;
         }
-        // 07-May-2019, tatu: As per [databind#2303], must keep VD/NVP in-sync if they were
-        NullValueProvider nvp = (_valueDeserializer == _nullProvider) ? deser : _nullProvider;
-        return new FieldProperty(this, deser, nvp);
+        return new FieldProperty(this, deser, _nullProvider);
     }
 
     @Override
@@ -110,7 +108,7 @@ public final class FieldProperty
     /* BeanProperty impl
     /**********************************************************
      */
-
+    
     @Override
     public <A extends Annotation> A getAnnotation(Class<A> acls) {
         return (_annotated == null) ? null : _annotated.getAnnotation(acls);
@@ -136,13 +134,6 @@ public final class FieldProperty
             value = _nullProvider.getNullValue(ctxt);
         } else if (_valueTypeDeserializer == null) {
             value = _valueDeserializer.deserialize(p, ctxt);
-            // 04-May-2018, tatu: [databind#2023] Coercion from String (mostly) can give null
-            if (value == null) {
-                if (_skipNulls) {
-                    return;
-                }
-                value = _nullProvider.getNullValue(ctxt);
-            }
         } else {
             value = _valueDeserializer.deserializeWithType(p, ctxt, _valueTypeDeserializer);
         }
@@ -165,13 +156,6 @@ public final class FieldProperty
             value = _nullProvider.getNullValue(ctxt);
         } else if (_valueTypeDeserializer == null) {
             value = _valueDeserializer.deserialize(p, ctxt);
-            // 04-May-2018, tatu: [databind#2023] Coercion from String (mostly) can give null
-            if (value == null) {
-                if (_skipNulls) {
-                    return instance;
-                }
-                value = _nullProvider.getNullValue(ctxt);
-            }
         } else {
             value = _valueDeserializer.deserializeWithType(p, ctxt, _valueTypeDeserializer);
         }

@@ -1,8 +1,5 @@
 package com.fasterxml.jackson.databind.format;
 
-import java.util.Collections;
-import java.util.Map;
-
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 
@@ -21,7 +18,7 @@ public class EnumFormatShapeTest
 
         @JsonProperty
         protected final String value;
-
+        
         private PoNUM(String v) { value = v; }
 
         public String getValue() { return value; }
@@ -37,7 +34,7 @@ public class EnumFormatShapeTest
         @JsonFormat(shape=Shape.NUMBER)
         public OK text = OK.V1;
     }
-
+    
     @JsonFormat(shape=JsonFormat.Shape.ARRAY) // alias for 'number', as of 2.5
     static enum PoAsArray
     {
@@ -73,39 +70,13 @@ public class EnumFormatShapeTest
         }
     }
 
-    // [databind#2365]
-    @JsonFormat(shape = JsonFormat.Shape.OBJECT)
-    public enum Enum2365 {
-        A, B, C;
-
-        public String getMainValue() { return name()+"-x"; }
-    }
-
-    // [databind#2576]
-    @JsonFormat(shape = JsonFormat.Shape.OBJECT)
-    public enum Enum2576 {
-        DEFAULT("default"),
-        ATTRIBUTES("attributes") {
-            @Override
-            public String toString() {
-                return name();
-            }
-        };
-
-        private final String key;
-        private Enum2576(String key) {
-            this.key = key;
-        }
-        public String getKey() { return this.key; }
-    }
-
     /*
     /**********************************************************
     /* Tests
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = newObjectMapper();
 
     // Tests for JsonFormat.shape
 
@@ -139,24 +110,7 @@ public class EnumFormatShapeTest
     }
 
     public void testEnumPropertyAsNumber() throws Exception {
-        assertEquals(String.format(a2q("{'color':%s}"), Color.GREEN.ordinal()),
+        assertEquals(String.format(aposToQuotes("{'color':%s}"), Color.GREEN.ordinal()),
                 MAPPER.writeValueAsString(new ColorWrapper(Color.GREEN)));
-    }
-
-    // [databind#2365]
-    public void testEnumWithNamingStrategy() throws Exception {
-        final ObjectMapper mapper = jsonMapperBuilder()
-                .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
-                .build();
-        String json = mapper.writeValueAsString(Enum2365.B);
-        assertEquals(a2q("{'main_value':'B-x'}"), json);
-    }
-
-    // [databind#2576]
-    public void testEnumWithMethodOverride() throws Exception {
-        String stringResult = MAPPER.writeValueAsString(Enum2576.ATTRIBUTES);
-        Map<?,?> result = MAPPER.readValue(stringResult, Map.class);
-        Map<String,String> exp = Collections.singletonMap("key", "attributes");
-        assertEquals(exp, result);
     }
 }

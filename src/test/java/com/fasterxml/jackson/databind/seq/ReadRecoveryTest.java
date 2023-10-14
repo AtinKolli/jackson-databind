@@ -24,7 +24,7 @@ public class ReadRecoveryTest extends BaseMapTest
 
     public void testRootBeans() throws Exception
     {
-        final String JSON = a2q("{'a':3} {'x':5}");
+        final String JSON = aposToQuotes("{'a':3} {'x':5}");
         MappingIterator<Bean> it = MAPPER.readerFor(Bean.class).readValues(JSON);
         // First one should be fine
         assertTrue(it.hasNextValue());
@@ -34,7 +34,7 @@ public class ReadRecoveryTest extends BaseMapTest
         try {
             bean = it.nextValue();
             fail("Should not have succeeded");
-        } catch (DatabindException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Unrecognized field \"x\"");
         }
         // 21-May-2015, tatu: With [databind#734], recovery, we now know there's no more data!
@@ -48,7 +48,7 @@ public class ReadRecoveryTest extends BaseMapTest
     // unknown structured value
     public void testSimpleRootRecovery() throws Exception
     {
-        final String JSON = a2q("{'a':3}{'a':27,'foo':[1,2],'b':{'x':3}}  {'a':1,'b':2} ");
+        final String JSON = aposToQuotes("{'a':3}{'a':27,'foo':[1,2],'b':{'x':3}}  {'a':1,'b':2} ");
 
         MappingIterator<Bean> it = MAPPER.readerFor(Bean.class).readValues(JSON);
         Bean bean = it.nextValue();
@@ -59,7 +59,7 @@ public class ReadRecoveryTest extends BaseMapTest
         // second one problematic
         try {
             it.nextValue();
-        } catch (DatabindException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Unrecognized field \"foo\"");
         }
 
@@ -70,14 +70,14 @@ public class ReadRecoveryTest extends BaseMapTest
         assertEquals(2, bean.b);
 
         assertFalse(it.hasNextValue());
-
+        
         it.close();
     }
 
     // Similar to "raw" root-level Object sequence, but in array
     public void testSimpleArrayRecovery() throws Exception
     {
-        final String JSON = a2q("[{'a':3},{'a':27,'foo':[1,2],'b':{'x':3}}  ,{'a':1,'b':2}  ]");
+        final String JSON = aposToQuotes("[{'a':3},{'a':27,'foo':[1,2],'b':{'x':3}}  ,{'a':1,'b':2}  ]");
 
         MappingIterator<Bean> it = MAPPER.readerFor(Bean.class).readValues(JSON);
         Bean bean = it.nextValue();
@@ -88,7 +88,7 @@ public class ReadRecoveryTest extends BaseMapTest
         // second one problematic
         try {
             it.nextValue();
-        } catch (DatabindException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Unrecognized field \"foo\"");
         }
 
@@ -99,7 +99,7 @@ public class ReadRecoveryTest extends BaseMapTest
         assertEquals(2, bean.b);
 
         assertFalse(it.hasNextValue());
-
+        
         it.close();
     }
 }

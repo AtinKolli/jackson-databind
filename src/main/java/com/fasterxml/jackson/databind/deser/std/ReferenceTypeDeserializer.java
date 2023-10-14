@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.deser.ValueInstantiator;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.type.ReferenceType;
 import com.fasterxml.jackson.databind.util.AccessPattern;
 
@@ -17,8 +16,6 @@ import com.fasterxml.jackson.databind.util.AccessPattern;
  * Base deserializer implementation for properties {@link ReferenceType} values.
  * Implements most of functionality, only leaving couple of abstract
  * methods for sub-classes to implement
- *
- * @since 2.8
  */
 public abstract class ReferenceTypeDeserializer<T>
     extends StdDeserializer<T>
@@ -54,13 +51,6 @@ public abstract class ReferenceTypeDeserializer<T>
         _valueTypeDeserializer = typeDeser;
     }
 
-    @Deprecated // since 2.9
-    public ReferenceTypeDeserializer(JavaType fullType,
-            TypeDeserializer typeDeser, JsonDeserializer<?> deser)
-    {
-        this(fullType, null, typeDeser, deser);
-    }
-
     @Override
     public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property)
             throws JsonMappingException
@@ -69,7 +59,7 @@ public abstract class ReferenceTypeDeserializer<T>
         if (deser == null) {
             deser = ctxt.findContextualValueDeserializer(_fullType.getReferencedType(), property);
         } else { // otherwise directly assigned, probably not contextual yet:
-            deser = ctxt.handleSecondaryContextualization(deser, property, _fullType.getReferencedType());
+            deser = ctxt.handleSecondaryContextualization(deser, property, _fullType.getReferencedType());            
         }
         TypeDeserializer typeDeser = _valueTypeDeserializer;
         if (typeDeser != null) {
@@ -107,7 +97,7 @@ public abstract class ReferenceTypeDeserializer<T>
     /* Abstract methods for sub-classes to implement
     /**********************************************************
      */
-
+    
     /**
      * Mutant factory method called when changes are needed; should construct
      * newly configured instance with new values as indicated.
@@ -119,19 +109,12 @@ public abstract class ReferenceTypeDeserializer<T>
             JsonDeserializer<?> valueDeser);
 
     @Override
-    public abstract T getNullValue(DeserializationContext ctxt) throws JsonMappingException;
+    public abstract T getNullValue(DeserializationContext ctxt);
 
     @Override
-    public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
+    public Object getEmptyValue(DeserializationContext ctxt) {
         return getNullValue(ctxt);
     }
-
-    // 02-Sep-2021, tatu: Related to [databind#3214] we may want to add this... but
-    //    with 2.13.0 so close will not yet do that, but wait for 2.14
-//    @Override
-//    public Object getAbsentValue(DeserializationContext ctxt) throws JsonMappingException {
-//        return null;
-//    }
 
     public abstract T referenceValue(Object contents);
 
@@ -153,7 +136,7 @@ public abstract class ReferenceTypeDeserializer<T>
      * @since 2.9
      */
     public abstract Object getReferenced(T reference);
-
+    
     /*
     /**********************************************************
     /* Overridden accessors
@@ -161,18 +144,7 @@ public abstract class ReferenceTypeDeserializer<T>
      */
 
     @Override
-    public ValueInstantiator getValueInstantiator() { return _valueInstantiator; }
-
-    @Override
     public JavaType getValueType() { return _fullType; }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        if (_valueDeserializer != null) {
-            return _valueDeserializer.logicalType();
-        }
-        return super.logicalType();
-    }
 
     /**
      * By default we assume that updateability mostly relies on value
@@ -237,7 +209,8 @@ public abstract class ReferenceTypeDeserializer<T>
     public Object deserializeWithType(JsonParser p, DeserializationContext ctxt,
             TypeDeserializer typeDeserializer) throws IOException
     {
-        if (p.hasToken(JsonToken.VALUE_NULL)) { // can this actually happen?
+        final JsonToken t = p.currentToken();
+        if (t == JsonToken.VALUE_NULL) { // can this actually happen?
             return getNullValue(ctxt);
         }
         // 22-Oct-2015, tatu: This handling is probably not needed (or is wrong), but

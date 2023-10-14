@@ -45,8 +45,9 @@ public class TestSimpleSerializationIgnore
     static class SubClassNonIgnore
         extends BaseClassIgnore
     {
-        // Annotations to disable ignorance, in sub-class; note that
-        // we must still get "JsonProperty" fro super class
+        /* Annotations to disable ignorance, in sub-class; note that
+         * we must still get "JsonProperty" fro super class
+         */
         @Override
         @JsonIgnore(false)
         public int x() { return 3; }
@@ -59,14 +60,14 @@ public class TestSimpleSerializationIgnore
     static class NonIgnoredType
     {
         public int value = 13;
-
+        
         public IgnoredType ignored = new IgnoredType();
     }
-
+    
     /*
-    /**********************************************************************
-    /* Test methods
-    /**********************************************************************
+    /**********************************************************
+    /* Unit tests
+    /**********************************************************
      */
 
     private final ObjectMapper MAPPER = new ObjectMapper();

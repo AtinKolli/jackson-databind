@@ -19,7 +19,7 @@ public class TestViewSerialization
     static class ViewAA extends ViewA { }
     static class ViewB { }
     static class ViewBB extends ViewB { }
-
+    
     static class Bean
     {
         @JsonView(ViewA.class)
@@ -57,10 +57,10 @@ public class TestViewSerialization
 
     static class VisibilityBean {
         @JsonProperty protected String id = "id";
-
+    
         @JsonView(ViewA.class)
         public String value = "x";
-    }
+    }   
 
     public static class WebView { }
     public static class OtherView { }
@@ -73,7 +73,7 @@ public class TestViewSerialization
     /**********************************************************
     /* Unit tests
     /**********************************************************
-     */
+     */    
 
     private final ObjectMapper MAPPER = objectMapper();
 
@@ -140,9 +140,8 @@ public class TestViewSerialization
         assertEquals("2", map.get("b"));
 
         // but can also change (but not necessarily on the fly...)
-        ObjectMapper mapper = jsonMapperBuilder()
-                .configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false);
 
         // with this setting, only explicit inclusions count:
         json = mapper.writerWithView(ViewA.class).writeValueAsString(bean);
@@ -185,5 +184,5 @@ public class TestViewSerialization
         mapper.setSerializationInclusion(JsonInclude.Include.NON_DEFAULT);
         String json = mapper.writerWithView(OtherView.class).writeValueAsString(new Foo());
         assertEquals(json, "{}");
-    }
+    }    
 }

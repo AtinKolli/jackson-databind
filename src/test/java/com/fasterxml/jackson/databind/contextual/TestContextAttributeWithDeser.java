@@ -5,13 +5,12 @@ import java.io.IOException;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.cfg.ContextAttributes;
 import com.fasterxml.jackson.databind.deser.std.StdScalarDeserializer;
 
 public class TestContextAttributeWithDeser extends BaseMapTest
 {
     final static String KEY = "foobar";
-
+    
     @SuppressWarnings("serial")
     static class PrefixStringDeserializer extends StdScalarDeserializer<String>
     {
@@ -39,18 +38,18 @@ public class TestContextAttributeWithDeser extends BaseMapTest
         @JsonDeserialize(using=PrefixStringDeserializer.class)
         public String value;
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    final ObjectMapper MAPPER = sharedMapper();
-
+    final ObjectMapper MAPPER = objectMapper();
+    
     public void testSimplePerCall() throws Exception
     {
-        final String INPUT = a2q("[{'value':'a'},{'value':'b'}]");
+        final String INPUT = aposToQuotes("[{'value':'a'},{'value':'b'}]");
         TestPOJO[] pojos = MAPPER.readerFor(TestPOJO[].class).readValue(INPUT);
         assertEquals(2, pojos.length);
         assertEquals("a/0", pojos[0].value);
@@ -65,7 +64,7 @@ public class TestContextAttributeWithDeser extends BaseMapTest
 
     public void testSimpleDefaults() throws Exception
     {
-        final String INPUT = a2q("{'value':'x'}");
+        final String INPUT = aposToQuotes("{'value':'x'}");
         TestPOJO pojo = MAPPER.readerFor(TestPOJO.class)
                 .withAttribute(KEY, Integer.valueOf(3))
                 .readValue(INPUT);
@@ -80,7 +79,7 @@ public class TestContextAttributeWithDeser extends BaseMapTest
 
     public void testHierarchic() throws Exception
     {
-        final String INPUT = a2q("[{'value':'x'},{'value':'y'}]");
+        final String INPUT = aposToQuotes("[{'value':'x'},{'value':'y'}]");
         ObjectReader r = MAPPER.readerFor(TestPOJO[].class).withAttribute(KEY, Integer.valueOf(2));
         TestPOJO[] pojos = r.readValue(INPUT);
         assertEquals(2, pojos.length);
@@ -92,30 +91,5 @@ public class TestContextAttributeWithDeser extends BaseMapTest
         assertEquals(2, pojos2.length);
         assertEquals("x/2", pojos2[0].value);
         assertEquals("y/3", pojos2[1].value);
-    }
-
-    // [databind#3001]
-    public void testDefaultsViaMapper() throws Exception
-    {
-        final String INPUT = a2q("{'value':'x'}");
-        ContextAttributes attrs = ContextAttributes.getEmpty()
-                .withSharedAttribute(KEY, Integer.valueOf(72));
-        ObjectMapper mapper = jsonMapperBuilder()
-                .defaultAttributes(attrs)
-                .build();
-        TestPOJO pojo = mapper.readerFor(TestPOJO.class)
-                .readValue(INPUT);
-        assertEquals("x/72", pojo.value);
-
-        // as above, should not carry on state
-        TestPOJO pojo2 = mapper.readerFor(TestPOJO.class)
-                .readValue(INPUT);
-        assertEquals("x/72", pojo2.value);
-
-        // And should be overridable too
-        TestPOJO pojo3 = mapper.readerFor(TestPOJO.class)
-                .withAttribute(KEY, Integer.valueOf(19))
-                .readValue(INPUT);
-        assertEquals("x/19", pojo3.value);
     }
 }

@@ -31,14 +31,6 @@ public abstract class ContainerDeserializerBase<T>
     protected final NullValueProvider _nullProvider;
 
     /**
-     * Marker flag set if the <code>_nullProvider</code> indicates that all null
-     * content values should be skipped (instead of being possibly converted).
-     *
-     * @since 2.9
-     */
-    protected final boolean _skipNullValues;
-
-    /**
      * Specific override for this instance (from proper, or global per-type overrides)
      * to indicate whether single value may be taken to mean an unwrapped one-element array
      * or not. If null, left to global defaults.
@@ -46,6 +38,14 @@ public abstract class ContainerDeserializerBase<T>
      * @since 2.9 (demoted from sub-classes where added in 2.7)
      */
     protected final Boolean _unwrapSingle;
+
+    /**
+     * Marker flag set if the <code>_nullProvider</code> indicates that all null
+     * content values should be skipped (instead of being possibly converted).
+     *
+     * @since 2.9
+     */
+    protected final boolean _skipNullValues;
 
     protected ContainerDeserializerBase(JavaType selfType,
             NullValueProvider nuller, Boolean unwrapSingle) {
@@ -87,7 +87,7 @@ public abstract class ContainerDeserializerBase<T>
 
     @Override // since 2.9
     public JavaType getValueType() { return _containerType; }
-
+    
     @Override // since 2.9
     public Boolean supportsUpdate(DeserializationConfig config) {
         return Boolean.TRUE;
@@ -126,13 +126,21 @@ public abstract class ContainerDeserializerBase<T>
      */
     public abstract JsonDeserializer<Object> getContentDeserializer();
 
+    /**
+     * @since 2.9
+     */
+    @Override
+    public ValueInstantiator getValueInstantiator() {
+        return null;
+    }
+
     @Override // since 2.9
     public AccessPattern getEmptyAccessPattern() {
         // 02-Feb-2017, tatu: Empty containers are usually constructed as needed
         //   and may not be shared; for some deserializers this may be further refined.
         return AccessPattern.DYNAMIC;
     }
-
+    
     @Override // since 2.9
     public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
         ValueInstantiator vi = getValueInstantiator();
@@ -142,7 +150,7 @@ public abstract class ContainerDeserializerBase<T>
                     String.format("Cannot create empty instance of %s, no default Creator", type));
         }
         try {
-            return vi.createUsingDefault(ctxt); // lgtm [java/dereferenced-value-may-be-null]
+            return vi.createUsingDefault(ctxt);
         } catch (IOException e) {
             return ClassUtil.throwAsMappingException(ctxt, e);
         }
@@ -155,33 +163,16 @@ public abstract class ContainerDeserializerBase<T>
      */
 
     /**
-     * @deprecated Since 2.12.2 (since it does not get context for accessing config)
+     * Helper method called by various Map(-like) deserializers.
      */
-    @Deprecated
     protected <BOGUS> BOGUS wrapAndThrow(Throwable t, Object ref, String key) throws IOException
-    {
-        return wrapAndThrow(null, t, ref, key);
-    }
-
-    /**
-     * Helper method called by various Map(-like) deserializers when encountering
-     * a processing problem (whether from underlying parser, i/o, or something else).
-     *
-     * @since 2.12.2
-     */
-    protected <BOGUS> BOGUS wrapAndThrow(DeserializationContext ctxt,
-            Throwable t, Object ref, String key) throws IOException
     {
         // to handle StackOverflow:
         while (t instanceof InvocationTargetException && t.getCause() != null) {
             t = t.getCause();
         }
-        // Errors and "plain" IOExceptions to be passed as-is
+        // Errors and "plain" IOExceptions to be passed as is
         ClassUtil.throwIfError(t);
-        // 25-Feb-2021, tatu: as per [databind#3068] need to obey WRAP_EXCEPTIONS setting
-        if ((ctxt != null) && !ctxt.isEnabled(DeserializationFeature.WRAP_EXCEPTIONS)) {
-            ClassUtil.throwIfRTE(t);
-        }
         // ... except for mapping exceptions
         if (t instanceof IOException && !(t instanceof JsonMappingException)) {
             throw (IOException) t;

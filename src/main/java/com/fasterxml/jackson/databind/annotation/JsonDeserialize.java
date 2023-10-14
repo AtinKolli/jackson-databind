@@ -49,7 +49,7 @@ public @interface JsonDeserialize
      * Depending on what is annotated,
      * value is either an instance of annotated class (used globablly
      * anywhere where class deserializer is needed); or only used for
-     * deserializing the value of the property annotated.
+     * deserializing property access via a setter method.
      */
     @SuppressWarnings("rawtypes") // to work around JDK8 bug wrt Class-valued annotation properties
     public Class<? extends JsonDeserializer> using()
@@ -58,10 +58,8 @@ public @interface JsonDeserialize
     /**
      * Deserializer class to use for deserializing contents (elements
      * of a Collection/array, values of Maps) of annotated property.
-     * Can only be used on accessors (methods, fields, constructors), to
-     * apply to values of {@link java.util.Map}-valued properties; not
-     * applicable for value types used as Array elements
-     * or {@link java.util.Collection} and {@link java.util.Map} values.
+     * Can only be used on instances (methods, fields, constructors),
+     * and not value classes themselves.
      */
     @SuppressWarnings("rawtypes") // to work around JDK8 bug wrt Class-valued annotation properties
     public Class<? extends JsonDeserializer> contentUsing()
@@ -69,11 +67,9 @@ public @interface JsonDeserialize
 
     /**
      * Deserializer class to use for deserializing Map keys
-     * of annotated property or Map keys of value type so annotated.
-     * Can be used both on accessors (methods, fields, constructors), to
-     * apply to values of {@link java.util.Map}-valued properties, and
-     * on "key" classes, to apply to use of annotated type as
-     * {@link java.util.Map} keys (latter starting with Jackson 2.11).
+     * of annotated property.
+     * Can only be used on instances (methods, fields, constructors),
+     * and not value classes themselves.
      */
     public Class<? extends KeyDeserializer> keyUsing()
         default KeyDeserializer.None.class;
@@ -89,7 +85,7 @@ public @interface JsonDeserialize
     public Class<?> builder() default Void.class;
 
     // // // Annotations for specifying intermediate Converters (2.2+)
-
+    
     /**
      * Which helper object (if any) is to be used to convert from Jackson-bound
      * intermediate type (source type of converter) into actual property type
@@ -111,8 +107,8 @@ public @interface JsonDeserialize
      */
     @SuppressWarnings("rawtypes") // to work around JDK8 bug wrt Class-valued annotation properties
     public Class<? extends Converter> contentConverter() default Converter.None.class;
-
-
+    
+    
     // // // Annotations for explicitly specifying deserialization type
     // // // (which is used for choosing deserializer, if not explicitly
     // // // specified

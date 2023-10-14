@@ -44,16 +44,16 @@ public class BigCreatorTest extends BaseMapTest
     }
 
     private final ObjectReader BIGGIE_READER = objectReader(Biggie.class);
-
+    
     public void testBigPartial() throws Exception
     {
-        Biggie value = BIGGIE_READER.readValue(a2q(
+        Biggie value = BIGGIE_READER.readValue(aposToQuotes(
                 "{'v7':7, 'v8':8,'v29':29, 'v35':35}"
                 ));
         int[] stuff = value.stuff;
         for (int i = 0; i < stuff.length; ++i) {
             int exp;
-
+            
             switch (i) {
             case 6: // These are off-by-one...
             case 7:

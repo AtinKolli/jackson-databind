@@ -6,6 +6,7 @@ import java.math.BigInteger;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.json.JsonFactory;
 import com.fasterxml.jackson.databind.*;
 
 /**
@@ -15,7 +16,7 @@ import com.fasterxml.jackson.databind.*;
 public class NumberNodesTest extends NodeTestBase
 {
     private final ObjectMapper MAPPER = objectMapper();
-
+    
     public void testShort()
     {
         ShortNode n = ShortNode.valueOf((short) 1);
@@ -55,10 +56,6 @@ public class NumberNodesTest extends NodeTestBase
         assertFalse(result.isTextual());
         assertFalse(result.isMissingNode());
 
-        assertTrue(result.canConvertToInt());
-        assertTrue(result.canConvertToLong());
-        assertTrue(result.canConvertToExactIntegral());
-
         assertEquals(value, result.numberValue().intValue());
         assertEquals(value, result.intValue());
         assertEquals(String.valueOf(value), result.asText());
@@ -83,7 +80,7 @@ public class NumberNodesTest extends NodeTestBase
         assertEquals("1", n.asText());
         // 2.4
         assertEquals("1", n.asText("foo"));
-
+        
         assertNodeNumbers(n, 1, 1.0);
 
         assertTrue(IntNode.valueOf(0).canConvertToInt());
@@ -126,7 +123,7 @@ public class NumberNodesTest extends NodeTestBase
 
     public void testLongViaMapper() throws Exception
     {
-        // need to use something beyond 32-bit value space
+        // need to use something being 32-bit value space
         long value = 12345678L << 32;
         JsonNode result = MAPPER.readTree(String.valueOf(value));
         assertTrue(result.isNumber());
@@ -144,10 +141,6 @@ public class NumberNodesTest extends NodeTestBase
         assertEquals(value, result.longValue());
         assertEquals(String.valueOf(value), result.asText());
         assertEquals((double) value, result.doubleValue());
-
-        assertFalse(result.canConvertToInt());
-        assertTrue(result.canConvertToLong());
-        assertTrue(result.canConvertToExactIntegral());
 
         // also, equality should work ok
         assertEquals(result, LongNode.valueOf(value));
@@ -193,8 +186,6 @@ public class NumberNodesTest extends NodeTestBase
         assertFalse(result.isNull());
         assertType(result, DoubleNode.class);
         assertTrue(result.isFloatingPointNumber());
-        assertFalse(result.isIntegralNumber());
-        assertFalse(result.canConvertToExactIntegral());
         assertTrue(result.isDouble());
         assertFalse(result.isInt());
         assertFalse(result.isLong());
@@ -221,10 +212,7 @@ public class NumberNodesTest extends NodeTestBase
         assertEquals(JsonToken.VALUE_NUMBER_FLOAT, n.asToken());
         assertEquals(JsonParser.NumberType.FLOAT, n.numberType());
         assertEquals(0, n.intValue());
-        assertTrue(n.isFloatingPointNumber());
-        assertFalse(n.isIntegralNumber());
-        assertFalse(n.canConvertToExactIntegral());
-
+        
         // NOTE: conversion to double NOT as simple as with exact numbers like 0.25:
         assertEquals(0.45f, n.floatValue());
         assertEquals("0.45", n.asText());
@@ -253,7 +241,7 @@ public class NumberNodesTest extends NodeTestBase
         assertTrue(FloatNode.valueOf(Integer.MAX_VALUE).canConvertToLong());
         assertTrue(FloatNode.valueOf(Integer.MIN_VALUE).canConvertToLong());
     }
-
+    
     public void testDecimalNode() throws Exception
     {
         DecimalNode n = DecimalNode.valueOf(BigDecimal.ONE);
@@ -300,17 +288,13 @@ public class NumberNodesTest extends NodeTestBase
         assertFalse(result.isTextual());
         assertFalse(result.isMissingNode());
 
-        assertFalse(result.canConvertToExactIntegral());
-        assertTrue(result.canConvertToInt());
-        assertTrue(result.canConvertToLong());
-
         assertEquals(value, result.numberValue());
         assertEquals(value.toString(), result.asText());
 
         // also, equality should work ok
         assertEquals(result, DecimalNode.valueOf(value));
     }
-
+    
     public void testDecimalNodeEqualsHashCode()
     {
         // We want DecimalNodes with equivalent _numeric_ values to be equal;
@@ -354,7 +338,7 @@ public class NumberNodesTest extends NodeTestBase
         assertNodeNumbers(n, 1, 1.0);
 
         BigInteger maxLong = BigInteger.valueOf(Long.MAX_VALUE);
-
+        
         n = BigIntegerNode.valueOf(maxLong);
         assertEquals(Long.MAX_VALUE, n.longValue());
 
@@ -380,9 +364,11 @@ public class NumberNodesTest extends NodeTestBase
 
     public void testBigDecimalAsPlain() throws Exception
     {
-        ObjectMapper mapper = new ObjectMapper()
-                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                .enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN);
+        ObjectMapper mapper = new ObjectMapper(JsonFactory.builder()
+                .with(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN)
+                .build());
+        mapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+
         final String INPUT = "{\"x\":1e2}";
         final JsonNode node = mapper.readTree(INPUT);
         String result = mapper.writeValueAsString(node);

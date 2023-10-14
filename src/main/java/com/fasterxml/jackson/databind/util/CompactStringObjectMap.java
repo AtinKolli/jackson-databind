@@ -24,7 +24,7 @@ public final class CompactStringObjectMap
      */
     private final static CompactStringObjectMap EMPTY = new CompactStringObjectMap(1, 0,
             new Object[4]);
-
+    
     private final int _hashMask, _spillCount;
 
     private final Object[] _hashArea;
@@ -52,11 +52,6 @@ public final class CompactStringObjectMap
 
         for (Map.Entry<String,T> entry : all.entrySet()) {
             String key = entry.getKey();
-
-            // 09-Sep-2019, tatu: [databind#2309] skip `null`s if any included
-            if (key == null) {
-                continue;
-            }
 
             int slot = key.hashCode() & mask;
             int ix = slot+slot;
@@ -112,7 +107,7 @@ public final class CompactStringObjectMap
             return null;
         }
         int hashSize = _hashMask+1;
-        int ix = (hashSize + (slot>>1)) << 1;
+        int ix = hashSize + (slot>>1) << 1;
         match = _hashArea[ix];
         if (key.equals(match)) {
             return _hashArea[ix+1];
@@ -129,20 +124,22 @@ public final class CompactStringObjectMap
         return null;
     }
 
-    // @since 2.9
+    /**
+     * @since 2.9
+     */
     public Object findCaseInsensitive(String key) {
         for (int i = 0, end = _hashArea.length; i < end; i += 2) {
             Object k2 = _hashArea[i];
             if (k2 != null) {
                 String s = (String) k2;
                 if (s.equalsIgnoreCase(key)) {
-                    return _hashArea[i+1]; // lgtm [java/index-out-of-bounds]
+                    return _hashArea[i+1];
                 }
             }
         }
         return null;
     }
-
+    
     public List<String> keys() {
         final int end = _hashArea.length;
         List<String> keys = new ArrayList<String>(end >> 2);

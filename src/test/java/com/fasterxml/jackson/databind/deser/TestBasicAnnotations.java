@@ -39,7 +39,7 @@ public class TestBasicAnnotations
         @JsonUnwrapped
         protected IntWrapper w = new IntWrapper(13);
     }
-
+    
     final static class SizeClassSetter2
     {
         int _x;
@@ -89,7 +89,7 @@ public class TestBasicAnnotations
 
     static class AnnoBean {
         int value = 3;
-
+        
         @JsonProperty("y")
         public void setX(int v) { value = v; }
     }
@@ -111,7 +111,7 @@ public class TestBasicAnnotations
         public IntsDeserializer() { super(int[].class); }
         @Override
         public int[] deserialize(JsonParser jp, DeserializationContext ctxt)
-            throws IOException
+            throws IOException, JsonProcessingException
         {
             return new int[] { jp.getIntValue() };
         }
@@ -124,13 +124,13 @@ public class TestBasicAnnotations
      */
 
     private final ObjectMapper MAPPER = new ObjectMapper();
-
+    
     public void testSimpleSetter() throws Exception
     {
         SizeClassSetter result = MAPPER.readValue
             ("{ \"other\":3, \"size\" : 2, \"length\" : -999 }",
              SizeClassSetter.class);
-
+                                             
         assertEquals(3, result._other);
         assertEquals(2, result._size);
         assertEquals(-999, result._length);
@@ -195,9 +195,8 @@ public class TestBasicAnnotations
         AnnoBean bean = MAPPER.readValue("{ \"y\" : 0 }", AnnoBean.class);
         assertEquals(0, bean.value);
 
-        ObjectMapper m = jsonMapperBuilder()
-                .configure(MapperFeature.USE_ANNOTATIONS, false)
-                .build();
+        ObjectMapper m = new ObjectMapper();
+        m.configure(MapperFeature.USE_ANNOTATIONS, false);
         // without annotations, should default to default bean-based name...
         bean = m.readValue("{ \"x\" : 0 }", AnnoBean.class);
         assertEquals(0, bean.value);
@@ -206,22 +205,20 @@ public class TestBasicAnnotations
     public void testEnumsWhenDisabled() throws Exception
     {
         ObjectMapper m = new ObjectMapper();
-        assertEquals(Alpha.B, m.readValue(q("B"), Alpha.class));
+        assertEquals(Alpha.B, m.readValue(quote("B"), Alpha.class));
 
-        m = jsonMapperBuilder()
-                .configure(MapperFeature.USE_ANNOTATIONS, false)
-                .build();
+        m = new ObjectMapper();
+        m.configure(MapperFeature.USE_ANNOTATIONS, false);
         // should still use the basic name handling here
-        assertEquals(Alpha.B, m.readValue(q("B"), Alpha.class));
+        assertEquals(Alpha.B, m.readValue(quote("B"), Alpha.class));
     }
 
     public void testNoAccessOverrides() throws Exception
     {
-        ObjectMapper m = jsonMapperBuilder()
-                .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
-                .build();
+        ObjectMapper m = new ObjectMapper();
+        m.disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS);
         SimpleBean bean = m.readValue("{\"x\":1,\"y\":2}", SimpleBean.class);
         assertEquals(1, bean.x);
         assertEquals(2, bean.y);
-    }
+    }    
 }

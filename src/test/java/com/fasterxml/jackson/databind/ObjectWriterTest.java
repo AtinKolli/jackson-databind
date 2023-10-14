@@ -11,7 +11,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.core.io.SerializedString;
-import com.fasterxml.jackson.core.json.JsonWriteFeature;
+import com.fasterxml.jackson.core.json.JsonFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
@@ -26,7 +26,7 @@ public class ObjectWriterTest
         public int x;
 
         public boolean closed;
-
+        
         @Override
         public void close() throws IOException {
             closed = true;
@@ -42,14 +42,14 @@ public class ObjectWriterTest
     @JsonTypeName("A")
     static class ImplA extends PolyBase {
         public int value;
-
+        
         public ImplA(int v) { value = v; }
     }
 
     @JsonTypeName("B")
     static class ImplB extends PolyBase {
         public int b;
-
+        
         public ImplB(int v) { b = v; }
     }
 
@@ -64,7 +64,7 @@ public class ObjectWriterTest
         ObjectWriter writer = MAPPER.writer();
         HashMap<String, Integer> data = new HashMap<String,Integer>();
         data.put("a", 1);
-
+        
         // default: no indentation
         assertEquals("{\"a\":1}", writer.writeValueAsString(data));
 
@@ -91,12 +91,12 @@ public class ObjectWriterTest
     public void testObjectWriterFeatures() throws Exception
     {
         ObjectWriter writer = MAPPER.writer()
-                .without(JsonWriteFeature.QUOTE_FIELD_NAMES);
+                .without(JsonGenerator.Feature.QUOTE_FIELD_NAMES);                
         Map<String,Integer> map = new HashMap<String,Integer>();
         map.put("a", 1);
         assertEquals("{a:1}", writer.writeValueAsString(map));
         // but can also reconfigure
-        assertEquals("{\"a\":1}", writer.with(JsonWriteFeature.QUOTE_FIELD_NAMES)
+        assertEquals("{\"a\":1}", writer.with(JsonGenerator.Feature.QUOTE_FIELD_NAMES)
                 .writeValueAsString(map));
     }
 
@@ -115,9 +115,9 @@ public class ObjectWriterTest
         String json;
 
         json = writer.writeValueAsString(new ImplA(3));
-        assertEquals(a2q("{'type':'A','value':3}"), json);
+        assertEquals(aposToQuotes("{'type':'A','value':3}"), json);
         json = writer.writeValueAsString(new ImplB(-5));
-        assertEquals(a2q("{'type':'B','b':-5}"), json);
+        assertEquals(aposToQuotes("{'type':'B','b':-5}"), json);
     }
 
     public void testCanSerialize() throws Exception
@@ -173,17 +173,17 @@ public class ObjectWriterTest
     public void testMiscSettings() throws Exception
     {
         ObjectWriter w = MAPPER.writer();
-        assertSame(MAPPER.getFactory(), w.getFactory());
+        assertSame(MAPPER.tokenStreamFactory(), w.generatorFactory());
         assertFalse(w.hasPrefetchedSerializer());
-        assertNotNull(w.getTypeFactory());
+        assertNotNull(w.typeFactory());
 
         JsonFactory f = new JsonFactory();
         w = w.with(f);
-        assertSame(f, w.getFactory());
+        assertSame(f, w.generatorFactory());
         ObjectWriter newW = w.with(Base64Variants.MODIFIED_FOR_URL);
         assertNotSame(w, newW);
         assertSame(newW, newW.with(Base64Variants.MODIFIED_FOR_URL));
-
+        
         w = w.withAttributes(Collections.emptyMap());
         w = w.withAttribute("a", "b");
         assertEquals("b", w.getAttributes().getAttribute("a"));
@@ -202,7 +202,7 @@ public class ObjectWriterTest
     public void testRootValueSettings() throws Exception
     {
         ObjectWriter w = MAPPER.writer();
-
+        
         // First, root name:
         ObjectWriter newW = w.withRootName("foo");
         assertNotSame(w, newW);
@@ -234,8 +234,6 @@ public class ObjectWriterTest
         ObjectWriter w = MAPPER.writer();
         assertFalse(w.isEnabled(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES));
         assertFalse(w.isEnabled(JsonGenerator.Feature.STRICT_DUPLICATE_DETECTION));
-        assertFalse(w.isEnabled(StreamWriteFeature.STRICT_DUPLICATE_DETECTION));
-
         ObjectWriter newW = w.with(SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS,
                 SerializationFeature.INDENT_OUTPUT);
         assertNotSame(w, newW);
@@ -263,17 +261,15 @@ public class ObjectWriterTest
     public void testGeneratorFeatures() throws Exception
     {
         ObjectWriter w = MAPPER.writer();
-        assertNotSame(w, w.with(JsonWriteFeature.ESCAPE_NON_ASCII));
-        assertNotSame(w, w.withFeatures(JsonWriteFeature.ESCAPE_NON_ASCII));
+        assertFalse(w.isEnabled(JsonGenerator.Feature.ESCAPE_NON_ASCII));
+        assertNotSame(w, w.with(JsonGenerator.Feature.ESCAPE_NON_ASCII));
+        assertNotSame(w, w.withFeatures(JsonGenerator.Feature.ESCAPE_NON_ASCII));
 
         assertTrue(w.isEnabled(JsonGenerator.Feature.AUTO_CLOSE_TARGET));
         assertNotSame(w, w.without(JsonGenerator.Feature.AUTO_CLOSE_TARGET));
         assertNotSame(w, w.withoutFeatures(JsonGenerator.Feature.AUTO_CLOSE_TARGET));
-
-        assertFalse(w.isEnabled(StreamWriteFeature.STRICT_DUPLICATE_DETECTION));
-        assertNotSame(w, w.with(StreamWriteFeature.STRICT_DUPLICATE_DETECTION));
     }
-
+    
     /*
     /**********************************************************
     /* Test methods, failures
@@ -287,7 +283,7 @@ public class ObjectWriterTest
             w.acceptJsonFormatVisitor((JavaType) null, null);
             fail("Should not pass");
         } catch (IllegalArgumentException e) {
-            verifyException(e, "argument \"type\" is null");
+            verifyException(e, "type must be provided");
         }
     }
 

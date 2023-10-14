@@ -19,9 +19,7 @@ import com.fasterxml.jackson.databind.util.NameTransformer;
 /**
  * Base implementation for values of {@link ReferenceType}.
  * Implements most of functionality, only leaving couple of abstract
- * methods for sub-classes to implement.
- *
- * @since 2.8
+ * methods for sub-classes to implement
  */
 public abstract class ReferenceTypeSerializer<T>
     extends StdSerializer<T>
@@ -33,7 +31,7 @@ public abstract class ReferenceTypeSerializer<T>
      * @since 2.9
      */
     public final static Object MARKER_FOR_EMPTY = JsonInclude.Include.NON_EMPTY;
-
+    
     /**
      * Value type
      */
@@ -116,8 +114,7 @@ public abstract class ReferenceTypeSerializer<T>
     {
         super(base);
         _referredType = base._referredType;
-        // [databind#2181]: may not be safe to reuse, start from empty
-        _dynamicSerializers = PropertySerializerMap.emptyForProperties();
+        _dynamicSerializers = base._dynamicSerializers;
         _property = property;
         _valueTypeSerializer = vts;
         _valueSerializer = (JsonSerializer<Object>) valueSer;
@@ -130,12 +127,7 @@ public abstract class ReferenceTypeSerializer<T>
     public JsonSerializer<T> unwrappingSerializer(NameTransformer transformer) {
         JsonSerializer<Object> valueSer = _valueSerializer;
         if (valueSer != null) {
-            // 09-Dec-2019, tatu: [databind#2565] Can not assume that serializer in
-            //    question actually can unwrap
             valueSer = valueSer.unwrappingSerializer(transformer);
-            if (valueSer == _valueSerializer) {
-                return this;
-            }
         }
         NameTransformer unwrapper = (_unwrapper == null) ? transformer
                 : NameTransformer.chainedTransformer(transformer, _unwrapper);
@@ -403,7 +395,7 @@ public abstract class ReferenceTypeSerializer<T>
         // 19-Apr-2016, tatu: In order to basically "skip" the whole wrapper level
         //    (which is what non-polymorphic serialization does too), we will need
         //    to simply delegate call, I think, and NOT try to use it here.
-
+        
         // Otherwise apply type-prefix/suffix, then std serialize:
         /*
         typeSer.writeTypePrefixForScalar(ref, g);
@@ -442,36 +434,32 @@ public abstract class ReferenceTypeSerializer<T>
     /* Helper methods
     /**********************************************************
      */
-
+    
     /**
      * Helper method that encapsulates logic of retrieving and caching required
      * serializer.
      */
     private final JsonSerializer<Object> _findCachedSerializer(SerializerProvider provider,
-            Class<?> rawType) throws JsonMappingException
+            Class<?> type) throws JsonMappingException
     {
-        JsonSerializer<Object> ser = _dynamicSerializers.serializerFor(rawType);
+        JsonSerializer<Object> ser = _dynamicSerializers.serializerFor(type);
         if (ser == null) {
-            // NOTE: call this instead of `map._findAndAddDynamic(...)` (which in turn calls
-            // `findAndAddSecondarySerializer`) since we may need to apply unwrapper
-            // too, before caching. But calls made are the same
-            if (_referredType.hasGenericTypes()) {
-                // [databind#1673] Must ensure we will resolve all available type information
-                //  so as not to miss generic declaration of, say, `List<GenericPojo>`...
-                JavaType fullType = provider.constructSpecializedType(_referredType, rawType);
-                // 23-Oct-2019, tatu: I _think_ we actually need to consider referenced
-                //    type as "primary" to allow applying various handlers -- done since 2.11
-
-                ser = provider.findPrimaryPropertySerializer(fullType, _property);
-            } else {
-                ser = provider.findPrimaryPropertySerializer(rawType, _property);
-            }
+            ser = _findSerializer(provider, type, _property);
             if (_unwrapper != null) {
                 ser = ser.unwrappingSerializer(_unwrapper);
             }
-            _dynamicSerializers = _dynamicSerializers.newWith(rawType, ser);
+            _dynamicSerializers = _dynamicSerializers.newWith(type, ser);
         }
         return ser;
+    }
+
+    private final JsonSerializer<Object> _findSerializer(SerializerProvider provider,
+            Class<?> type, BeanProperty prop) throws JsonMappingException
+    {
+        // 13-Mar-2017, tatu: Used to call `findTypeValueSerializer()`, but contextualization
+        //   not working for that case for some reason
+//        return provider.findTypedValueSerializer(type, true, prop);
+        return provider.findValueSerializer(type, prop);
     }
 
     private final JsonSerializer<Object> _findSerializer(SerializerProvider provider,
@@ -479,9 +467,7 @@ public abstract class ReferenceTypeSerializer<T>
     {
         // 13-Mar-2017, tatu: Used to call `findTypeValueSerializer()`, but contextualization
         //   not working for that case for some reason
-        // 15-Jan-2017, tatu: ... possibly because we need to access "secondary" serializer,
-        //   not primary (primary being one for Reference type itself, not value)
 //        return provider.findTypedValueSerializer(type, true, prop);
-        return provider.findPrimaryPropertySerializer(type, prop);
+        return provider.findValueSerializer(type, prop);
     }
 }

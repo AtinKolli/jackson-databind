@@ -1,11 +1,11 @@
 package com.fasterxml.jackson.databind.deser.creators;
 
-import java.util.*;
+import com.fasterxml.jackson.annotation.JsonCreator;
+
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JacksonException;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -19,43 +19,20 @@ public class TestCreatorsDelegating extends BaseMapTest
         protected Boolean value;
 
         public BooleanBean(Boolean v) { value = v; }
-
+        
         @JsonCreator
         protected static BooleanBean create(Boolean value) {
             return new BooleanBean(value);
         }
     }
 
-    static class IntegerBean
-    {
-        protected Integer value;
-
-        public IntegerBean(Integer v) { value = v; }
-
-        @JsonCreator
-        protected static IntegerBean create(Integer value) {
-            return new IntegerBean(value);
-        }
-    }
-
-    static class LongBean
-    {
-        protected Long value;
-
-        public LongBean(Long v) { value = v; }
-
-        @JsonCreator
-        protected static LongBean create(Long value) {
-            return new LongBean(value);
-        }
-    }
-
+    // for [JACKSON-711]; should allow delegate-based one(s) too
     static class CtorBean711
     {
         protected String name;
         protected int age;
 
-        @JsonCreator
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         public CtorBean711(@JacksonInject String n, int a)
         {
             name = n;
@@ -63,6 +40,7 @@ public class TestCreatorsDelegating extends BaseMapTest
         }
     }
 
+    // for [JACKSON-711]; should allow delegate-based one(s) too
     static class FactoryBean711
     {
         protected String name1;
@@ -75,7 +53,7 @@ public class TestCreatorsDelegating extends BaseMapTest
             name2 = n2;
         }
 
-        @JsonCreator
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         public static FactoryBean711 create(@JacksonInject String n1, int a, @JacksonInject String n2) {
             return new FactoryBean711(a, n1, n2);
         }
@@ -98,47 +76,21 @@ public class TestCreatorsDelegating extends BaseMapTest
     static class MapBean
     {
         protected Map<String,Long> map;
-
+        
         @JsonCreator
         public MapBean(Map<String, Long> map) {
             this.map = map;
         }
     }
-
-    // [databind#2353]: allow delegating and properties-based
-    static class SuperToken2353 {
-        public long time;
-        public String username;
-
-        @JsonCreator(mode=JsonCreator.Mode.DELEGATING) // invoked when a string is passed
-        public static SuperToken2353 from(String username) {
-            SuperToken2353 token = new SuperToken2353();
-            token.username = username;
-            token.time = System.currentTimeMillis();
-            return token;
-        }
-
-        @JsonCreator(mode=JsonCreator.Mode.PROPERTIES) // invoked when an object is passed, pre-validating property existence
-        public static SuperToken2353 create(
-                @JsonProperty("name") String username,
-                @JsonProperty("time") long time)
-        {
-            SuperToken2353 token = new SuperToken2353();
-            token.username = username;
-            token.time = time;
-
-            return token;
-        }
-    }
-
+    
     /*
     /**********************************************************
-    /* Test methods
+    /* Unit tests
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = new ObjectMapper();
+    
     public void testBooleanDelegate() throws Exception
     {
         // should obviously work with booleans...
@@ -146,31 +98,11 @@ public class TestCreatorsDelegating extends BaseMapTest
         assertEquals(Boolean.TRUE, bb.value);
 
         // but also with value conversion from String
-        bb = MAPPER.readValue(q("true"), BooleanBean.class);
+        bb = MAPPER.readValue(quote("true"), BooleanBean.class);
         assertEquals(Boolean.TRUE, bb.value);
     }
-
-    public void testIntegerDelegate() throws Exception
-    {
-        IntegerBean bb = MAPPER.readValue("-13", IntegerBean.class);
-        assertEquals(Integer.valueOf(-13), bb.value);
-
-        // but also with value conversion from String (unless blocked)
-        bb = MAPPER.readValue(q("127"), IntegerBean.class);
-        assertEquals(Integer.valueOf(127), bb.value);
-    }
-
-    public void testLongDelegate() throws Exception
-    {
-        LongBean bb = MAPPER.readValue("11", LongBean.class);
-        assertEquals(Long.valueOf(11L), bb.value);
-
-        // but also with value conversion from String (unless blocked)
-        bb = MAPPER.readValue(q("-99"), LongBean.class);
-        assertEquals(Long.valueOf(-99L), bb.value);
-    }
-
-    // should also work with delegate model (single non-annotated arg)
+    
+    // As per [JACKSON-711]: should also work with delegate model (single non-annotated arg)
     public void testWithCtorAndDelegate() throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
@@ -180,7 +112,7 @@ public class TestCreatorsDelegating extends BaseMapTest
         CtorBean711 bean = null;
         try {
             bean = mapper.readValue("38", CtorBean711.class);
-        } catch (JacksonException e) {
+        } catch (JsonMappingException e) {
             fail("Did not expect problems, got: "+e.getMessage());
         }
         assertEquals(38, bean.age);
@@ -196,7 +128,7 @@ public class TestCreatorsDelegating extends BaseMapTest
         FactoryBean711 bean = null;
         try {
             bean = mapper.readValue("38", FactoryBean711.class);
-        } catch (JacksonException e) {
+        } catch (JsonMappingException e) {
             fail("Did not expect problems, got: "+e.getMessage());
         }
         assertEquals(38, bean.age);
@@ -234,7 +166,7 @@ public class TestCreatorsDelegating extends BaseMapTest
         Map<String,Long> map = MAPPER.readValue(JSON, Map.class);
         assertEquals(1, map.size());
         assertEquals(Integer.valueOf(12), map.get("A"));
-
+        
         MapBean bean = MAPPER.readValue(JSON, MapBean.class);
         assertEquals(1, bean.map.size());
         assertEquals(Long.valueOf(12L), bean.map.get("A"));
@@ -244,21 +176,8 @@ public class TestCreatorsDelegating extends BaseMapTest
 
         map = MAPPER.readValue(EMPTY_JSON, Map.class);
         assertEquals(0, map.size());
-
+        
         bean = MAPPER.readValue(EMPTY_JSON, MapBean.class);
         assertEquals(0, bean.map.size());
-    }
-
-    // [databind#2353]: allow delegating and properties-based
-    public void testMultipleCreators2353() throws Exception
-    {
-        // first, test delegating
-        SuperToken2353 result = MAPPER.readValue(q("Bob"), SuperToken2353.class);
-        assertEquals("Bob", result.username);
-
-        // and then properties-based
-        result = MAPPER.readValue(a2q("{'name':'Billy', 'time':123}"), SuperToken2353.class);
-        assertEquals("Billy", result.username);
-        assertEquals(123L, result.time);
     }
 }

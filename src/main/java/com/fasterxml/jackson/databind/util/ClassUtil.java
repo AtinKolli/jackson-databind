@@ -6,13 +6,11 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 
-import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.core.JsonGenerator;
-
+import com.fasterxml.jackson.core.util.Named;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.PropertyName;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
 
 public final class ClassUtil
@@ -30,9 +28,6 @@ public final class ClassUtil
     /**********************************************************
      */
 
-    /**
-     * @since 2.7
-     */
     @SuppressWarnings("unchecked")
     public static <T> Iterator<T> emptyIterator() {
         return (Iterator<T>) EMPTY_ITERATOR;
@@ -55,8 +50,6 @@ public final class ClassUtil
      *
      * @param endBefore Super-type to NOT include in results, if any; when
      *    encountered, will be ignored (and no super types are checked).
-     *
-     * @since 2.7
      */
     public static List<JavaType> findSuperTypes(JavaType type, Class<?> endBefore,
             boolean addClassItself) {
@@ -84,15 +77,12 @@ public final class ClassUtil
      * Method for finding all super classes (but not super interfaces) of given class,
      * starting with the immediate super class and ending in the most distant one.
      * Class itself is included if <code>addClassItself</code> is true.
-     *<p>
-     * NOTE: mostly/only called to resolve mix-ins as that's where we do not care
-     * about fully-resolved types, just associated annotations.
      *
      * @since 2.7
      */
     public static List<Class<?>> findSuperClasses(Class<?> cls, Class<?> endBefore,
             boolean addClassItself) {
-        List<Class<?>> result = new ArrayList<Class<?>>(8);
+        List<Class<?>> result = new LinkedList<Class<?>>();
         if ((cls != null) && (cls != endBefore))  {
             if (addClassItself) {
                 result.add(cls);
@@ -104,17 +94,6 @@ public final class ClassUtil
                 result.add(cls);
             }
         }
-        return result;
-    }
-
-    @Deprecated // since 2.7
-    public static List<Class<?>> findSuperTypes(Class<?> cls, Class<?> endBefore) {
-        return findSuperTypes(cls, endBefore, new ArrayList<Class<?>>(8));
-    }
-
-    @Deprecated // since 2.7
-    public static List<Class<?>> findSuperTypes(Class<?> cls, Class<?> endBefore, List<Class<?>> result) {
-        _addRawSuperTypes(cls, endBefore, result, false);
         return result;
     }
 
@@ -171,7 +150,7 @@ public final class ClassUtil
         if (type.isArray()) {
             return "array";
         }
-        if (Enum.class.isAssignableFrom(type)) {
+        if (type.isEnum()) {
             return "enum";
         }
         if (type.isPrimitive()) {
@@ -181,29 +160,28 @@ public final class ClassUtil
         // Anything else? Seems valid, then
         return null;
     }
-
+    
     public static String isLocalType(Class<?> type, boolean allowNonStatic)
     {
         /* As per [JACKSON-187], GAE seems to throw SecurityExceptions
          * here and there... and GAE itself has a bug, too
-         * Bah. So we need to catch some wayward exceptions on GAE
+         * (see []). Bah. So we need to catch some wayward exceptions on GAE
          */
         try {
-            final boolean isStatic = Modifier.isStatic(type.getModifiers());
-
             // one more: method locals, anonymous, are not good:
-            // 23-Jun-2020, tatu: [databind#2758] With JDK14+ should allow
-            //    local Record types, however
-            if (!isStatic && hasEnclosingMethod(type)) {
+            if (hasEnclosingMethod(type)) {
                 return "local/anonymous";
             }
+            
             /* But how about non-static inner classes? Can't construct
              * easily (theoretically, we could try to check if parent
              * happens to be enclosing... but that gets convoluted)
              */
             if (!allowNonStatic) {
-                if (!isStatic && getEnclosingClass(type) != null) {
-                    return "non-static member class";
+                if (!Modifier.isStatic(type.getModifiers())) {
+                    if (getEnclosingClass(type) != null) {
+                        return "non-static member class";
+                    }
                 }
             }
         }
@@ -218,18 +196,19 @@ public final class ClassUtil
     public static Class<?> getOuterClass(Class<?> type)
     {
         // as above, GAE has some issues...
-        if (!Modifier.isStatic(type.getModifiers())) {
-            try {
-                // one more: method locals, anonymous, are not good:
-                if (hasEnclosingMethod(type)) {
-                    return null;
-                }
+        try {
+            // one more: method locals, anonymous, are not good:
+            if (hasEnclosingMethod(type)) {
+                return null;
+            }
+            if (!Modifier.isStatic(type.getModifiers())) {
                 return getEnclosingClass(type);
-            } catch (SecurityException e) { }
-        }
+            }
+        } catch (SecurityException e) { }
         return null;
     }
-
+    
+    
     /**
      * Helper method used to weed out dynamic Proxy types; types that do
      * not expose concrete method API that we could use to figure out
@@ -269,7 +248,7 @@ public final class ClassUtil
         int mod = member.getModifiers();
         return (mod & (Modifier.INTERFACE | Modifier.ABSTRACT)) == 0;
     }
-
+    
     public static boolean isCollectionMapOrArray(Class<?> type)
     {
         if (type.isArray()) return true;
@@ -279,39 +258,24 @@ public final class ClassUtil
     }
 
     public static boolean isBogusClass(Class<?> cls) {
-        return (cls == Void.class || cls == Void.TYPE
-                || cls == com.fasterxml.jackson.databind.annotation.NoClass.class);
+        return (cls == Void.class || cls == Void.TYPE);
     }
 
-    /**
-     * Helper method for detecting Java14-added new {@code Record} types
-     *
-     * @since 2.12
-     */
-    public static boolean isRecordType(Class<?> cls) {
-        Class<?> parent = cls.getSuperclass();
-        return (parent != null) && "java.lang.Record".equals(parent.getName());
+    public static boolean isNonStaticInnerClass(Class<?> cls) {
+        return !Modifier.isStatic(cls.getModifiers())
+                && (getEnclosingClass(cls) != null);
     }
 
-    /**
-     * @since 2.7
-     */
     public static boolean isObjectOrPrimitive(Class<?> cls) {
         return (cls == CLS_OBJECT) || cls.isPrimitive();
     }
 
-    /**
-     * @since 2.9
-     */
     public static boolean hasClass(Object inst, Class<?> raw) {
         // 10-Nov-2016, tatu: Could use `Class.isInstance()` if we didn't care
         //    about being exactly that type
         return (inst != null) && (inst.getClass() == raw);
     }
 
-    /**
-     * @since 2.9
-     */
     public static void verifyMustOverride(Class<?> expType, Object instance,
             String method)
     {
@@ -324,34 +288,6 @@ public final class ClassUtil
 
     /*
     /**********************************************************
-    /* Method type detection methods
-    /**********************************************************
-     */
-
-    /**
-     * @deprecated Since 2.6 not used; may be removed before 3.x
-     */
-    @Deprecated // since 2.6
-    public static boolean hasGetterSignature(Method m)
-    {
-        // First: static methods can't be getters
-        if (Modifier.isStatic(m.getModifiers())) {
-            return false;
-        }
-        // Must take no args
-        if (m.getParameterTypes().length != 0) {
-            return false;
-        }
-        // Can't be a void method
-        if (Void.TYPE == m.getReturnType()) {
-            return false;
-        }
-        // Otherwise looks ok:
-        return true;
-    }
-
-    /*
-    /**********************************************************
     /* Exception handling; simple re-throw
     /**********************************************************
      */
@@ -359,8 +295,6 @@ public final class ClassUtil
     /**
      * Helper method that will check if argument is an {@link Error},
      * and if so, (re)throw it; otherwise just return
-     *
-     * @since 2.9
      */
     public static Throwable throwIfError(Throwable t) {
         if (t instanceof Error) {
@@ -372,8 +306,6 @@ public final class ClassUtil
     /**
      * Helper method that will check if argument is an {@link RuntimeException},
      * and if so, (re)throw it; otherwise just return
-     *
-     * @since 2.9
      */
     public static Throwable throwIfRTE(Throwable t) {
         if (t instanceof RuntimeException) {
@@ -385,8 +317,6 @@ public final class ClassUtil
     /**
      * Helper method that will check if argument is an {@link IOException},
      * and if so, (re)throw it; otherwise just return
-     *
-     * @since 2.9
      */
     public static Throwable throwIfIOE(Throwable t) throws IOException {
         if (t instanceof IOException) {
@@ -400,7 +330,7 @@ public final class ClassUtil
     /* Exception handling; other
     /**********************************************************
      */
-
+    
     /**
      * Method that can be used to find the "root cause", innermost
      * of chained (wrapped) exceptions.
@@ -452,8 +382,9 @@ public final class ClassUtil
         if (e0 instanceof JsonMappingException) {
             throw (JsonMappingException) e0;
         }
-        throw JsonMappingException.from(ctxt, e0.getMessage())
-            .withCause(e0);
+        JsonMappingException e = JsonMappingException.from(ctxt, e0.getMessage());
+        e.initCause(e0);
+        throw e;
     }
 
     /**
@@ -482,15 +413,13 @@ public final class ClassUtil
      * error conditions tend to be hard to diagnose. However, it is often the
      * case that output state may be corrupt so we need to be prepared for
      * secondary exception without masking original one.
-     *
-     * @since 2.8
      */
     public static void closeOnFailAndThrowAsIOE(JsonGenerator g, Exception fail)
         throws IOException
     {
         // 04-Mar-2014, tatu: Let's try to prevent auto-closing of
         //    structures, which typically causes more damage.
-        g.disable(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT);
+        g.disable(JsonGenerator.Feature.AUTO_CLOSE_CONTENT);
         try {
             g.close();
         } catch (Exception e) {
@@ -507,15 +436,13 @@ public final class ClassUtil
      * error conditions tend to be hard to diagnose. However, it is often the
      * case that output state may be corrupt so we need to be prepared for
      * secondary exception without masking original one.
-     *
-     * @since 2.8
      */
     public static void closeOnFailAndThrowAsIOE(JsonGenerator g,
             Closeable toClose, Exception fail)
         throws IOException
     {
         if (g != null) {
-            g.disable(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT);
+            g.disable(JsonGenerator.Feature.AUTO_CLOSE_CONTENT);
             try {
                 g.close();
             } catch (Exception e) {
@@ -605,7 +532,7 @@ public final class ClassUtil
         }
         return inst.getClass();
     }
-
+    
     /**
      * @since 2.9
      */
@@ -661,7 +588,7 @@ public final class ClassUtil
     /* Type name, name, desc handling methods
     /**********************************************************
      */
-
+    
     /**
      * Helper method used to construct appropriate description
      * when passed either type (Class) or an instance; in latter
@@ -678,27 +605,6 @@ public final class ClassUtil
     }
 
     /**
-     * Helper method to create and return "backticked" description of given
-     * resolved type (or, {@code "null"} if {@code null} passed), similar
-     * to return vaue of {@link #getClassDescription(Object)}.
-     *
-     * @param fullType Fully resolved type or null
-     * @return String description of type including generic type parameters, surrounded
-     *   by backticks, if type passed; or string "null" if {code null} passed
-     *
-     * @since 2.10
-     */
-    public static String getTypeDescription(JavaType fullType)
-    {
-        if (fullType == null) {
-            return "[null]";
-        }
-        StringBuilder sb = new StringBuilder(80).append('`');
-        sb.append(fullType.toCanonical());
-        return sb.append('`').toString();
-    }
-
-    /**
      * Helper method used to construct appropriate description
      * when passed either type (Class) or an instance; in latter
      * case, class of instance is to be used.
@@ -709,8 +615,7 @@ public final class ClassUtil
         if (inst == null) {
             return "[null]";
         }
-        Class<?> raw = (inst instanceof Class<?>) ? (Class<?>) inst : inst.getClass();
-        return nameOf(raw);
+        return nameOf(inst.getClass());
     }
 
     /**
@@ -740,58 +645,18 @@ public final class ClassUtil
     }
 
     /**
-     * Returns either single-quoted (apostrophe) {@code 'named.getName()'} (if {@code named} not null),
-     * or "[null]" if {@code named} is null.
-     *<p>
-     * NOTE: before 2.12 returned "backticked" version instead of single-quoted name; changed
-     * to be compatible with most existing quoting usage within databind
-     *
-     * @since 2.9
+     * Returns either backtick-quoted `named.getName()` (if `named` not null),
+     * or "[null]" if `named` is null.
      */
     public static String nameOf(Named named) {
         if (named == null) {
             return "[null]";
         }
-        return apostrophed(named.getName());
+        return backticked(named.getName());
     }
 
     /**
-     * Returns either single-quoted (apostrophe) {@code 'name'} (if {@code name} not null),
-     * or "[null]" if {@code name} is null.
-     *
-     * @since 2.12
-     */
-    public static String name(String name) {
-        if (name == null) {
-            return "[null]";
-        }
-        return apostrophed(name);
-    }
-
-    /**
-     * Returns either single-quoted (apostrophe) {@code 'name'} (if {@code name} not null),
-     * or "[null]" if {@code name} is null.
-     *
-     * @since 2.12
-     */
-    public static String name(PropertyName name) {
-        if (name == null) {
-            return "[null]";
-        }
-        // 26-Aug-2020, tatu: Should we consider namespace somehow?
-        return apostrophed(name.getSimpleName());
-    }
-
-    /*
-    /**********************************************************
-    /* Other escaping, description access
-    /**********************************************************
-     */
-
-    /**
-     * Returns either {@code `text`} (backtick-quoted) or {@code [null]}.
-     *
-     * @since 2.9
+     * Returns either `text` or [null].
      */
     public static String backticked(String text) {
         if (text == null) {
@@ -800,44 +665,12 @@ public final class ClassUtil
         return new StringBuilder(text.length()+2).append('`').append(text).append('`').toString();
     }
 
-    /**
-     * Returns either {@code 'text'} (single-quoted) or {@code [null]}.
-     *
-     * @since 2.9
-     */
-    public static String apostrophed(String text) {
-        if (text == null) {
-            return "[null]";
-        }
-        return new StringBuilder(text.length()+2).append('\'').append(text).append('\'').toString();
-    }
-
-    /**
-     * Helper method that returns {@link Throwable#getMessage()} for all other exceptions
-     * except for (a) {@link JacksonException}, for which {@code getOriginalMessage()} is
-     * returned, and (b) {@link InvocationTargetException}, for which the cause's message
-     * is returned, if available.
-     * Method is used to avoid accidentally including trailing location information twice
-     * in message when wrapping exceptions.
-     *
-     * @since 2.9.7
-     */
-    public static String exceptionMessage(Throwable t) {
-        if (t instanceof JacksonException) {
-            return ((JacksonException) t).getOriginalMessage();
-        }
-        if (t instanceof InvocationTargetException && t.getCause() != null) {
-            return t.getCause().getMessage();
-        }
-        return t.getMessage();
-    }
-
     /*
     /**********************************************************
     /* Primitive type support
     /**********************************************************
      */
-
+    
     /**
      * Helper method used to get default value for wrappers used for primitive types
      * (0 for Integer etc)
@@ -873,9 +706,7 @@ public final class ClassUtil
 
     /**
      * Helper method for finding wrapper type for given primitive type (why isn't
-     * there one in JDK?).
-     * NOTE: throws {@link IllegalArgumentException} if given type is NOT primitive
-     * type (caller has to check).
+     * there one in JDK?)
      */
     public static Class<?> wrapperType(Class<?> primitiveType)
     {
@@ -908,7 +739,7 @@ public final class ClassUtil
 
     /**
      * Method that can be used to find primitive type for given class if (but only if)
-     * it is either wrapper type or primitive type; returns {@code null} if type is neither.
+     * it is either wrapper type or primitive type; returns `null` if type is neither.
      *
      * @since 2.7
      */
@@ -917,7 +748,7 @@ public final class ClassUtil
         if (type.isPrimitive()) {
             return type;
         }
-
+        
         if (type == Integer.class) {
             return Integer.TYPE;
         }
@@ -952,66 +783,36 @@ public final class ClassUtil
      */
 
     /**
-     * Equivalent to call:
-     *<pre>
-     *   checkAndFixAccess(member, false);
-     *</pre>
-     *
-     * @deprecated Since 2.7 call variant that takes boolean flag.
-     */
-    @Deprecated
-    public static void checkAndFixAccess(Member member) {
-        checkAndFixAccess(member, false);
-    }
-
-    /**
      * Method that is called if a {@link Member} may need forced access,
      * to force a field, method or constructor to be accessible: this
      * is done by calling {@link AccessibleObject#setAccessible(boolean)}.
-     *
+     * 
      * @param member Accessor to call <code>setAccessible()</code> on.
-     * @param evenIfAlreadyPublic Whether to always try to make accessor
-     *   accessible, even if {@code public} (true),
-     *   or only if needed to force by-pass of non-{@code public} access (false)
-     *
-     * @since 2.7
+     * @param force Whether to always try to make accessor accessible (true),
+     *   or only if needed as per access rights (false)
      */
-    public static void checkAndFixAccess(Member member, boolean evenIfAlreadyPublic)
+    public static void checkAndFixAccess(Member member, boolean force)
     {
         // We know all members are also accessible objects...
         AccessibleObject ao = (AccessibleObject) member;
 
-        // 14-Jan-2009, tatu: It seems safe and potentially beneficial to
-        //   always to make it accessible (latter because it will force
-        //   skipping checks we have no use for...), so let's always call it.
+        /* 14-Jan-2009, tatu: It seems safe and potentially beneficial to
+         *   always to make it accessible (latter because it will force
+         *   skipping checks we have no use for...), so let's always call it.
+         */
         try {
-            // 15-Apr-2021, tatu: With JDK 14+ we will be hitting access limitations
-            //    esp. wrt JDK types so let's change a bit
-            final Class<?> declaringClass = member.getDeclaringClass();
-            boolean isPublic = Modifier.isPublic(member.getModifiers())
-                    && Modifier.isPublic(declaringClass.getModifiers());
-            if (!isPublic || (evenIfAlreadyPublic && !isJDKClass(declaringClass))) {
+            if (force || 
+                    (!Modifier.isPublic(member.getModifiers())
+                            || !Modifier.isPublic(member.getDeclaringClass().getModifiers()))) {
                 ao.setAccessible(true);
             }
         } catch (SecurityException se) {
-            // 17-Apr-2009, tatu: This can fail on platforms like
+            // 17-Apr-2009, tatu: Related to [JACKSON-101]: this can fail on platforms like
             // Google App Engine); so let's only fail if we really needed it...
             if (!ao.isAccessible()) {
                 Class<?> declClass = member.getDeclaringClass();
                 throw new IllegalArgumentException("Cannot access "+member+" (from class "+declClass.getName()+"; failed to set access: "+se.getMessage());
             }
-            // 14-Apr-2021, tatu: [databind#3118] Java 9/JPMS causes new fails...
-            //    But while our baseline is Java 8, must check name
-        } catch (RuntimeException se) {
-            if ("InaccessibleObjectException".equals(se.getClass().getSimpleName())) {
-                throw new IllegalArgumentException(String.format(
-"Failed to call `setAccess()` on %s '%s' (of class %s) due to `%s`, problem: %s",
-member.getClass().getSimpleName(), member.getName(),
-nameOf(member.getDeclaringClass()),
-se.getClass().getName(), se.getMessage()),
-                        se);
-            }
-            throw se;
         }
     }
 
@@ -1020,16 +821,6 @@ se.getClass().getName(), se.getMessage()),
     /* Enum type detection
     /**********************************************************
      */
-
-    /**
-     * Helper method that encapsulates reliable check on whether
-     * given raw type "is an Enum", that is, is or extends {@link java.lang.Enum}.
-     *
-     * @since 2.10.1
-     */
-    public static boolean isEnumType(Class<?> rawType) {
-        return Enum.class.isAssignableFrom(rawType);
-    }
 
     /**
      * Helper method that can be used to dynamically figure out
@@ -1068,10 +859,15 @@ se.getClass().getName(), se.getMessage()),
      * class of enum instance (for "simple" enumerations), or its
      * superclass (for enums with instance fields or methods)
      */
+    @SuppressWarnings("unchecked")
     public static Class<? extends Enum<?>> findEnumType(Enum<?> en)
     {
         // enums with "body" are sub-classes of the formal type
-        return en.getDeclaringClass();
+    	Class<?> ec = en.getClass();
+    	if (ec.getSuperclass() != Enum.class) {
+    	    ec = ec.getSuperclass();
+    	}
+    	return (Class<? extends Enum<?>>) ec;
     }
 
     /**
@@ -1103,7 +899,7 @@ se.getClass().getName(), se.getMessage()),
      */
     public static <T extends Annotation> Enum<?> findFirstAnnotatedEnumValue(Class<Enum<?>> enumClass, Class<T> annotationClass)
     {
-        Field[] fields = enumClass.getDeclaredFields();
+        Field[] fields = getDeclaredFields(enumClass);
         for (Field field : fields) {
             if (field.isEnumConstant()) {
                 Annotation defaultValueAnnotation = field.getAnnotation(annotationClass);
@@ -1121,9 +917,9 @@ se.getClass().getName(), se.getMessage()),
     }
 
     /*
-    /**********************************************************************
-    /* Methods for detecting special class categories
-    /**********************************************************************
+    /**********************************************************
+    /* Jackson-specific stuff
+    /**********************************************************
      */
 
     /**
@@ -1144,76 +940,6 @@ se.getClass().getName(), se.getMessage()),
         return (implClass.getAnnotation(JacksonStdImpl.class) != null);
     }
 
-    /**
-     * Accessor for checking whether given {@code Class} is under Java package
-     * of {@code java.*} or {@code javax.*} (including all sub-packages).
-     *<p>
-     * Added since some aspects of handling need to be changed for JDK types (and
-     * possibly some extensions under {@code javax.}?): for example, forcing of access
-     * will not work well for future JDKs (12 and later).
-     *<p>
-     * Note: in Jackson 2.11 only returned true for {@code java.*} (and not {@code javax.*});
-     * was changed in 2.12.
-     *
-     * @since 2.11
-     */
-    public static boolean isJDKClass(Class<?> rawType) {
-        final String clsName = rawType.getName();
-        return clsName.startsWith("java.") || clsName.startsWith("javax.");
-    }
-
-    /**
-     * Convenience method for:
-     *<pre>
-     *   return getJDKMajorVersion() &gt;= 17
-     *</pre>
-     * that also catches any possible exceptions so it is safe to call
-     * from static contexts.
-     *
-     * @return {@code True} if we can determine that the code is running on
-     *    JDK 17 or above; {@code false} otherwise.
-     *
-     * @since 2.15
-     */
-    public static boolean isJDK17OrAbove() {
-        try {
-            return getJDKMajorVersion() >= 17;
-        } catch (Throwable t) {
-            ExceptionUtil.rethrowIfFatal(t);
-            System.err.println("Failed to determine JDK major version, assuming pre-JDK-17; problem: "+t);
-            return false;
-        }
-    }
-
-    /**
-     * @return Major version of JDK we are running on
-     *
-     * @throws IllegalStateException If JDK version information cannot be determined
-     *
-     * @since 2.15
-     */
-    public static int getJDKMajorVersion() {
-        String version;
-
-        try {
-            version = System.getProperty("java.version");
-        } catch (SecurityException e) {
-            throw new IllegalStateException("Could not access 'java.version': cannot determine JDK major version");
-        }
-        if (version.startsWith("1.")) {
-            // 25-Nov-2022, tatu: We'll consider JDK 8 to be the baseline since
-            //    Jackson 2.15+ only runs on 8 and above
-            return 8;
-        }
-        int dotIndex = version.indexOf(".");
-        String cleaned = (dotIndex < 0) ? version : version.substring(0, dotIndex);
-        try {
-            return Integer.parseInt(cleaned);
-        } catch (NumberFormatException e) {
-            throw new IllegalStateException("Invalid JDK version String '"+version+"' cannot determine JDK major version");
-        }
-    }
-
     /*
     /**********************************************************
     /* Access to various Class definition aspects; possibly
@@ -1223,17 +949,9 @@ se.getClass().getName(), se.getMessage()),
     /**********************************************************
      */
 
-    public static boolean isNonStaticInnerClass(Class<?> cls) {
-        return !Modifier.isStatic(cls.getModifiers())
-                && (getEnclosingClass(cls) != null);
-    }
-
     /**
      * @since 2.7
-     *
-     * @deprecated Since 2.12 (just call methods directly or check class name)
      */
-    @Deprecated // since 2.12
     public static String getPackageName(Class<?> cls) {
         Package pkg = cls.getPackage();
         return (pkg == null) ? null : pkg.getName();
@@ -1247,17 +965,15 @@ se.getClass().getName(), se.getMessage()),
     }
 
     /**
-     * @deprecated since 2.11 (just call Class method directly)
+     * @since 2.7
      */
-    @Deprecated
     public static Field[] getDeclaredFields(Class<?> cls) {
         return cls.getDeclaredFields();
     }
 
     /**
-     * @deprecated since 2.11 (just call Class method directly)
+     * @since 2.7
      */
-    @Deprecated
     public static Method[] getDeclaredMethods(Class<?> cls) {
         return cls.getDeclaredMethods();
     }
@@ -1282,42 +998,26 @@ se.getClass().getName(), se.getMessage()),
     public static Method[] getClassMethods(Class<?> cls)
     {
         try {
-            return cls.getDeclaredMethods();
+            return ClassUtil.getDeclaredMethods(cls);
         } catch (final NoClassDefFoundError ex) {
             // One of the methods had a class that was not found in the cls.getClassLoader.
             // Maybe the developer was nice and has a different class loader for this context.
             final ClassLoader loader = Thread.currentThread().getContextClassLoader();
             if (loader == null){
                 // Nope... this is going to end poorly
-                return _failGetClassMethods(cls, ex);
+                throw ex;
             }
             final Class<?> contextClass;
             try {
                 contextClass = loader.loadClass(cls.getName());
             } catch (ClassNotFoundException e) {
                 ex.addSuppressed(e);
-                return _failGetClassMethods(cls, ex);
+                throw ex;
             }
-            try {
-                return contextClass.getDeclaredMethods(); // Cross fingers
-            } catch (Exception t) {
-                return _failGetClassMethods(cls, t);
-            }
-        } catch (Exception t) {
-            return _failGetClassMethods(cls, t);
+            return contextClass.getDeclaredMethods(); // Cross fingers
         }
     }
-
-    // @since 2.11.4 (see [databind#2807])
-    private static Method[] _failGetClassMethods(Class<?> cls, Throwable rootCause)
-            throws IllegalArgumentException
-    {
-        throw new IllegalArgumentException(String.format(
-"Failed on call to `getDeclaredMethods()` on class `%s`, problem: (%s) %s",
-cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
-                rootCause);
-    }
-
+    
     /**
      * @since 2.7
      */
@@ -1388,34 +1088,12 @@ cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
 
         private final Field enumSetTypeField;
         private final Field enumMapTypeField;
-
-        private final String failForEnumSet;
-        private final String failForEnumMap;
-
+    	
         private EnumTypeLocator() {
             //JDK uses following fields to store information about actual Enumeration
             // type for EnumSets, EnumMaps...
-
-            Field f = null;
-            String msg = null;
-
-            try {
-                f = locateField(EnumSet.class, "elementType", Class.class);
-            } catch (Exception e) {
-                msg = e.toString();
-            }
-            enumSetTypeField = f;
-            failForEnumSet = msg;
-
-            f = null;
-            msg = null;
-            try {
-                f = locateField(EnumMap.class, "keyType", Class.class);
-            } catch (Exception e) {
-                msg  = e.toString();
-            }
-            enumMapTypeField = f;
-            failForEnumMap = msg;
+    	        enumSetTypeField = locateField(EnumSet.class, "elementType", Class.class);
+    	        enumMapTypeField = locateField(EnumMap.class, "elementType", Class.class);
         }
 
         @SuppressWarnings("unchecked")
@@ -1424,8 +1102,7 @@ cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
             if (enumSetTypeField != null) {
                 return (Class<? extends Enum<?>>) get(set, enumSetTypeField);
             }
-            throw new IllegalStateException(
-"Cannot figure out type parameter for `EnumSet` (odd JDK platform?), problem: "+failForEnumSet);
+            throw new IllegalStateException("Cannot figure out type for EnumSet (odd JDK platform?)");
         }
 
         @SuppressWarnings("unchecked")
@@ -1434,10 +1111,9 @@ cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
             if (enumMapTypeField != null) {
                 return (Class<? extends Enum<?>>) get(set, enumMapTypeField);
             }
-            throw new IllegalStateException(
-"Cannot figure out type parameter for `EnumMap` (odd JDK platform?), problem: "+failForEnumMap);
+            throw new IllegalStateException("Cannot figure out type for EnumMap (odd JDK platform?)");
         }
-
+    	
         private Object get(Object bean, Field field)
         {
             try {
@@ -1446,22 +1122,34 @@ cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
                 throw new IllegalArgumentException(e);
             }
         }
-
+    	
         private static Field locateField(Class<?> fromClass, String expectedName, Class<?> type)
-            throws Exception
         {
+            Field found = null;
     	        // First: let's see if we can find exact match:
-            Field[] fields = fromClass.getDeclaredFields();
-            for (Field f : fields) {
-                if (!expectedName.equals(f.getName()) || f.getType() != type) {
-                    continue;
-                }
-                f.setAccessible(true);
-                return f;
-            }
-            // If not found, indicate with exception
-            throw new IllegalStateException(String.format(
-"No field named '%s' in class '%s'", expectedName, fromClass.getName()));
+            Field[] fields = getDeclaredFields(fromClass);
+    	        for (Field f : fields) {
+    	            if (expectedName.equals(f.getName()) && f.getType() == type) {
+    	                found = f;
+    	                break;
+    	            }
+    	        }
+    	        // And if not, if there is just one field with the type, that field
+    	        if (found == null) {
+    	            for (Field f : fields) {
+    	                if (f.getType() == type) {
+    	                    // If more than one, can't choose
+    	                    if (found != null) return null;
+    	                    found = f;
+    	                }
+    	            }
+    	        }
+    	        if (found != null) { // it's non-public, need to force accessible
+    	            try {
+    	                found.setAccessible(true);
+    	            } catch (Throwable t) { }
+    	        }
+    	        return found;
         }
     }
 
@@ -1481,12 +1169,12 @@ cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
     {
         public final Constructor<?> _ctor;
 
-        private transient Annotation[] _annotations;
+        private Annotation[] _annotations;
 
-        private transient Annotation[][] _paramAnnotations;
-
+        private  Annotation[][] _paramAnnotations;
+        
         private int _paramCount = -1;
-
+        
         public Ctor(Constructor<?> ctor) {
             _ctor = ctor;
         }
@@ -1498,7 +1186,7 @@ cls.getName(), rootCause.getClass().getName(), rootCause.getMessage()),
         public int getParamCount() {
             int c = _paramCount;
             if (c < 0) {
-                c = _ctor.getParameterCount();
+                c = _ctor.getParameterTypes().length;
                 _paramCount = c;
             }
             return c;

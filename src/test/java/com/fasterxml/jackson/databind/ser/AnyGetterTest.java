@@ -6,7 +6,6 @@ import java.util.*;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.ser.impl.*;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdScalarSerializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
@@ -19,7 +18,7 @@ public class AnyGetterTest extends BaseMapTest
         static {
             extra.put("a", Boolean.TRUE);
         }
-
+        
         public int getX() { return 3; }
 
         @JsonAnyGetter
@@ -47,11 +46,11 @@ public class AnyGetterTest extends BaseMapTest
 
         public int getValue() { return 42; }
     }
-
+    
     static class MapAsAny
     {
         protected Map<String,Object> stuff = new LinkedHashMap<String,Object>();
-
+        
         @JsonAnyGetter
         public Map<String,Object> any() {
             return stuff;
@@ -70,7 +69,7 @@ public class AnyGetterTest extends BaseMapTest
             stuff = new LinkedHashMap<String,String>();
             stuff.put(key, value);
         }
-
+        
         @JsonSerialize(using = Issue705Serializer.class)
 //    @JsonSerialize(converter = MyConverter.class)
         @JsonAnyGetter
@@ -109,7 +108,7 @@ public class AnyGetterTest extends BaseMapTest
             }
             additionalProperties.put(key,value);
         }
-
+        
         public void setAdditionalProperties(Map<String, String> additionalProperties) {
             this.additionalProperties = additionalProperties;
         }
@@ -132,75 +131,14 @@ public class AnyGetterTest extends BaseMapTest
         }
     }
 
-    static class Bean2592NoAnnotations
-    {
-        protected Map<String, String> properties = new LinkedHashMap<>();
-
-        @JsonAnyGetter
-        public Map<String, String> getProperties() {
-            return properties;
-        }
-
-        public void setProperties(Map<String, String> properties) {
-            this.properties = properties;
-        }
-
-        public void add(String key, String value) {
-            properties.put(key, value);
-        }
-    }
-
-    static class Bean2592PropertyIncludeNonEmpty extends Bean2592NoAnnotations
-    {
-        @JsonInclude(content = JsonInclude.Include.NON_EMPTY)
-        @JsonAnyGetter
-        @Override
-        public Map<String, String> getProperties() {
-            return properties;
-        }
-    }
-
-    @JsonFilter("Bean2592")
-    static class Bean2592WithFilter extends Bean2592NoAnnotations {}
-
-    // [databind#1458]: Allow `@JsonAnyGetter` on fields too
-    static class DynaFieldBean {
-        public int id;
-
-        @JsonAnyGetter
-        @JsonAnySetter
-        protected HashMap<String,String> other = new HashMap<String,String>();
-
-        public Map<String,String> any() {
-            return other;
-        }
-
-        public void set(String name, String value) {
-            other.put(name, value);
-        }
-    }
-
-    // [databind#1458]: Allow `@JsonAnyGetter` on fields too
-    public void testDynaFieldBean() throws Exception
-    {
-        DynaFieldBean b = new DynaFieldBean();
-        b.id = 123;
-        b.set("name", "Billy");
-        assertEquals("{\"id\":123,\"name\":\"Billy\"}", MAPPER.writeValueAsString(b));
-
-        DynaFieldBean result = MAPPER.readValue("{\"id\":2,\"name\":\"Joe\"}", DynaFieldBean.class);
-        assertEquals(2, result.id);
-        assertEquals("Joe", result.other.get("name"));
-    }
-
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = new ObjectMapper();
+    
     public void testSimpleAnyBean() throws Exception
     {
         String json = MAPPER.writeValueAsString(new Bean());
@@ -230,7 +168,7 @@ public class AnyGetterTest extends BaseMapTest
     public void testAnyDisabling() throws Exception
     {
         String json = MAPPER.writeValueAsString(new NotEvenAnyBean());
-        assertEquals(a2q("{'value':42}"), json);
+        assertEquals(aposToQuotes("{'value':42}"), json);
     }
 
     // Trying to repro [databind#577]
@@ -238,13 +176,13 @@ public class AnyGetterTest extends BaseMapTest
     {
         MapAsAny input = new MapAsAny();
         input.add("bar", null);
-        assertEquals(a2q("{'bar':null}"),
+        assertEquals(aposToQuotes("{'bar':null}"),
                 MAPPER.writeValueAsString(input));
     }
 
     public void testIssue705() throws Exception
     {
-        Issue705Bean input = new Issue705Bean("key", "value");
+        Issue705Bean input = new Issue705Bean("key", "value");        
         String json = MAPPER.writeValueAsString(input);
         assertEquals("{\"stuff\":\"[key/value]\"}", json);
     }
@@ -257,63 +195,5 @@ public class AnyGetterTest extends BaseMapTest
         input.addAdditionalProperty("key", "value");
         String json = mapper.writeValueAsString(input);
         assertEquals("{\"key\":\"VALUE\"}", json);
-    }
-
-    // [databind#2592]
-    public void testAnyGetterWithMapperDefaultIncludeNonEmpty() throws Exception
-    {
-        ObjectMapper mapper = new ObjectMapper()
-                .setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
-        Bean2592NoAnnotations input = new Bean2592NoAnnotations();
-        input.add("non-empty", "property");
-        input.add("empty", "");
-        input.add("null", null);
-        String json = mapper.writeValueAsString(input);
-        assertEquals("{\"non-empty\":\"property\"}", json);
-    }
-
-    // [databind#2592]
-    public void testAnyGetterWithMapperDefaultIncludeNonEmptyAndFilterOnBean() throws Exception
-    {
-        FilterProvider filters = new SimpleFilterProvider()
-                .addFilter("Bean2592", SimpleBeanPropertyFilter.serializeAllExcept("something"));
-        ObjectMapper mapper = new ObjectMapper()
-                .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
-                .setFilterProvider(filters);
-        Bean2592WithFilter input = new Bean2592WithFilter();
-        input.add("non-empty", "property");
-        input.add("empty", "");
-        input.add("null", null);
-        String json = mapper.writeValueAsString(input);
-        // Unfortunately path for bean with filter is different. It still skips nulls.
-        assertEquals("{\"non-empty\":\"property\",\"empty\":\"\"}", json);
-    }
-
-    // [databind#2592]
-    public void testAnyGetterWithPropertyIncludeNonEmpty() throws Exception
-    {
-        ObjectMapper mapper = new ObjectMapper();
-        Bean2592PropertyIncludeNonEmpty input = new Bean2592PropertyIncludeNonEmpty();
-        input.add("non-empty", "property");
-        input.add("empty", "");
-        input.add("null", null);
-        String json = mapper.writeValueAsString(input);
-        assertEquals("{\"non-empty\":\"property\"}", json);
-    }
-
-    // [databind#2592]
-    public void testAnyGetterConfigIncludeNonEmpty() throws Exception
-    {
-        final ObjectMapper mapper = jsonMapperBuilder()
-                .withConfigOverride(Map.class, incl -> incl.setInclude(
-                    JsonInclude.Value.construct(JsonInclude.Include.USE_DEFAULTS,
-                    JsonInclude.Include.NON_EMPTY)))
-                .build();
-        Bean2592NoAnnotations input = new Bean2592NoAnnotations();
-        input.add("non-empty", "property");
-        input.add("empty", "");
-        input.add("null", null);
-        String json = mapper.writeValueAsString(input);
-        assertEquals("{\"non-empty\":\"property\"}", json);
     }
 }

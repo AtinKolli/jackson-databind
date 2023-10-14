@@ -1,7 +1,5 @@
 package com.fasterxml.jackson.databind.type;
 
-import java.util.Objects;
-
 import com.fasterxml.jackson.databind.JavaType;
 
 /**
@@ -9,8 +7,6 @@ import com.fasterxml.jackson.databind.JavaType;
  * that is, values that can be dereferenced to another value (or null),
  * of different type.
  * Referenced type is accessible using {@link #getContentType()}.
- *
- * @since 2.6
  */
 public class ReferenceType extends SimpleType
 {
@@ -23,12 +19,7 @@ public class ReferenceType extends SimpleType
      * referencing type with polymorphic handling. Typically initialized when
      * a {@link SimpleType} is upgraded into reference type, but NOT changed
      * if being sub-classed.
-     *
-     * @since 2.8
-     *
-     * @deprecated Since 2.16
      */
-    @Deprecated
     protected final JavaType _anchorType;
 
     protected ReferenceType(Class<?> cls, TypeBindings bindings,
@@ -36,7 +27,7 @@ public class ReferenceType extends SimpleType
             JavaType anchorType,
             Object valueHandler, Object typeHandler, boolean asStatic)
     {
-        super(cls, bindings, superClass, superInts, Objects.hashCode(refType),
+        super(cls, bindings, superClass, superInts, refType.hashCode(),
                 valueHandler, typeHandler, asStatic);
         _referencedType = refType;
         _anchorType = (anchorType == null) ? this : anchorType;
@@ -46,8 +37,6 @@ public class ReferenceType extends SimpleType
      * Constructor used when upgrading into this type (via {@link #upgradeFrom},
      * the usual way for {@link ReferenceType}s to come into existence.
      * Sets up what is considered the "base" reference type
-     *
-     * @since 2.7
      */
     protected ReferenceType(TypeBase base, JavaType refType)
     {
@@ -60,7 +49,7 @@ public class ReferenceType extends SimpleType
     /**
      * Factory method that can be used to "upgrade" a basic type into collection-like
      * one; usually done via {@link TypeModifier}
-     *
+     * 
      * @param baseType Resolved non-reference type (usually {@link SimpleType}) that is being upgraded
      * @param refdType Referenced type; usually the first and only type parameter, but not necessarily
      *
@@ -78,21 +67,11 @@ public class ReferenceType extends SimpleType
         throw new IllegalArgumentException("Cannot upgrade from an instance of "+baseType.getClass());
     }
 
-    /**
-     * @since 2.7
-     */
     public static ReferenceType construct(Class<?> cls, TypeBindings bindings,
             JavaType superClass, JavaType[] superInts, JavaType refType)
     {
         return new ReferenceType(cls, bindings, superClass, superInts,
                 refType, null, null, null, false);
-    }
-
-    @Deprecated // since 2.7
-    public static ReferenceType construct(Class<?> cls, JavaType refType) {
-        return new ReferenceType(cls, TypeBindings.emptyBindings(),
-                // !!! TODO: missing supertypes
-                null, null, null, refType, null, null, false);
     }
 
     @Override
@@ -140,9 +119,10 @@ public class ReferenceType extends SimpleType
         if (h == _referencedType.<Object>getValueHandler()) {
             return this;
         }
+        JavaType refdType = _referencedType.withValueHandler(h);
         return new ReferenceType(_class, _bindings,
-                _superClass, _superInterfaces, _referencedType.withValueHandler(h),
-                _anchorType, _valueHandler, _typeHandler, _asStatic);
+                _superClass, _superInterfaces, refdType, _anchorType,
+                _valueHandler, _typeHandler, _asStatic);
     }
 
     @Override
@@ -168,11 +148,8 @@ public class ReferenceType extends SimpleType
     {
         StringBuilder sb = new StringBuilder();
         sb.append(_class.getName());
-        if ((_referencedType != null) && _hasNTypeParameters(1)) {
-            sb.append('<');
-            sb.append(_referencedType.toCanonical());
-            sb.append('>');
-        }
+        sb.append('<');
+        sb.append(_referencedType.toCanonical());
         return sb.toString();
     }
 
@@ -206,7 +183,7 @@ public class ReferenceType extends SimpleType
     public StringBuilder getErasedSignature(StringBuilder sb) {
         return _classSignature(_class, sb, true);
     }
-
+    
     @Override
     public StringBuilder getGenericSignature(StringBuilder sb)
     {
@@ -223,10 +200,6 @@ public class ReferenceType extends SimpleType
     /**********************************************************
      */
 
-    /**
-     * @deprecated Since 2.16
-     */
-    @Deprecated
     public JavaType getAnchorType() {
         return _anchorType;
     }
@@ -234,10 +207,7 @@ public class ReferenceType extends SimpleType
     /**
      * Convenience accessor that allows checking whether this is the anchor type
      * itself; if not, it must be one of supertypes that is also a {@link ReferenceType}
-     *
-     * @deprecated Since 2.16
      */
-    @Deprecated
     public boolean isAnchorType() {
         return (_anchorType == this);
     }
@@ -271,7 +241,7 @@ public class ReferenceType extends SimpleType
         ReferenceType other = (ReferenceType) o;
 
         if (other._class != _class) return false;
-
+        
         // Otherwise actually mostly worry about referenced type
         return _referencedType.equals(other._referencedType);
     }

@@ -1,6 +1,5 @@
 package com.fasterxml.jackson.databind.type;
 
-import java.lang.reflect.TypeVariable;
 import java.util.Collection;
 
 import com.fasterxml.jackson.databind.JavaType;
@@ -45,9 +44,6 @@ public class CollectionLikeType extends TypeBase
         _elementType = elemT;
     }
 
-    /**
-     * @since 2.7
-     */
     public static CollectionLikeType construct(Class<?> rawType, TypeBindings bindings,
             JavaType superClass, JavaType[] superInts, JavaType elemT) {
         return new CollectionLikeType(rawType, bindings, superClass, superInts, elemT,
@@ -55,30 +51,8 @@ public class CollectionLikeType extends TypeBase
     }
 
     /**
-     * @deprecated Since 2.7, use {@link #upgradeFrom} for constructing instances, given
-     *    pre-resolved {@link SimpleType}.
-     */
-    @Deprecated // since 2.7
-    public static CollectionLikeType construct(Class<?> rawType, JavaType elemT) {
-        // First: may need to fabricate TypeBindings (needed for refining into
-        // concrete collection types, as per [databind#1102])
-        TypeVariable<?>[] vars = rawType.getTypeParameters();
-        TypeBindings bindings;
-        if ((vars == null) || (vars.length != 1)) {
-            bindings = TypeBindings.emptyBindings();
-        } else {
-            bindings = TypeBindings.create(rawType, elemT);
-        }
-        return new CollectionLikeType(rawType, bindings,
-                _bogusSuperClass(rawType), null,
-                elemT, null, null, false);
-    }
-
-    /**
      * Factory method that can be used to "upgrade" a basic type into collection-like
      * one; usually done via {@link TypeModifier}
-     *
-     * @since 2.7
      */
     public static CollectionLikeType upgradeFrom(JavaType baseType, JavaType elementType) {
         // 19-Oct-2015, tatu: Not sure if and how other types could be used as base;
@@ -97,7 +71,7 @@ public class CollectionLikeType extends TypeBase
         return new CollectionLikeType(_class, _bindings, _superClass, _superInterfaces,
                 contentType, _valueHandler, _typeHandler, _asStatic);
     }
-
+    
     @Override
     public CollectionLikeType withTypeHandler(Object h) {
         return new CollectionLikeType(_class, _bindings,
@@ -137,7 +111,7 @@ public class CollectionLikeType extends TypeBase
         }
         return type;
     }
-
+    
     @Override
     public CollectionLikeType withStaticTyping() {
         if (_asStatic) {
@@ -155,7 +129,7 @@ public class CollectionLikeType extends TypeBase
                 superClass, superInterfaces, _elementType,
                 _valueHandler, _typeHandler, _asStatic);
     }
-
+    
     /*
     /**********************************************************
     /* Public API
@@ -179,7 +153,7 @@ public class CollectionLikeType extends TypeBase
     @Override
     public Object getContentTypeHandler() {
         return _elementType.getTypeHandler();
-    }
+    }    
 
     @Override
     public boolean hasHandlers() {
@@ -190,7 +164,7 @@ public class CollectionLikeType extends TypeBase
     public StringBuilder getErasedSignature(StringBuilder sb) {
         return _classSignature(_class, sb, true);
     }
-
+    
     @Override
     public StringBuilder getGenericSignature(StringBuilder sb) {
         _classSignature(_class, sb, false);
@@ -199,14 +173,12 @@ public class CollectionLikeType extends TypeBase
         sb.append(">;");
         return sb;
     }
-
+    
     @Override
     protected String buildCanonicalName() {
         StringBuilder sb = new StringBuilder();
         sb.append(_class.getName());
-        // 10-Apr-2021, tatu: [databind#3108] Ensure we have at least nominally
-        //   compatible type declaration (weak guarantee but better than nothing)
-        if ((_elementType != null) && _hasNTypeParameters(1)) {
+        if (_elementType != null) {
             sb.append('<');
             sb.append(_elementType.toCanonical());
             sb.append('>');
@@ -225,10 +197,7 @@ public class CollectionLikeType extends TypeBase
      * "real" Collection type; meaning whether it represents a parameterized
      * subtype of {@link java.util.Collection} or just something that acts
      * like one.
-     *
-     * @deprecated Since 2.12 just use instanceof
      */
-    @Deprecated // since 2.12 use assignment checks
     public boolean isTrueCollectionType() {
         return Collection.class.isAssignableFrom(_class);
     }

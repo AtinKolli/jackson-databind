@@ -2,6 +2,7 @@ package com.fasterxml.jackson.databind.deser.std;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.sql.Timestamp;
 import java.text.*;
 import java.util.*;
 
@@ -12,9 +13,7 @@ import com.fasterxml.jackson.core.JsonToken;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
-import com.fasterxml.jackson.databind.cfg.CoercionAction;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 import com.fasterxml.jackson.databind.util.StdDateFormat;
 
@@ -24,33 +23,41 @@ import com.fasterxml.jackson.databind.util.StdDateFormat;
 @SuppressWarnings("serial")
 public class DateDeserializers
 {
-    private final static HashSet<String> _utilClasses = new HashSet<String>();
+    private final static HashSet<String> _classNames = new HashSet<String>();
     static {
-        _utilClasses.add("java.util.Calendar");
-        _utilClasses.add("java.util.GregorianCalendar");
-        _utilClasses.add("java.util.Date");
+        Class<?>[] numberTypes = new Class<?>[] {
+            Calendar.class,
+            GregorianCalendar.class,
+            java.sql.Date.class,
+            java.util.Date.class,
+            Timestamp.class,
+        };
+        for (Class<?> cls : numberTypes) {
+            _classNames.add(cls.getName());
+        }
     }
 
     public static JsonDeserializer<?> find(Class<?> rawType, String clsName)
     {
-        if (_utilClasses.contains(clsName)) {
+        if (_classNames.contains(clsName)) {
             // Start with the most common type
-            if (rawType == java.util.Calendar.class) {
+            if (rawType == Calendar.class) {
                 return new CalendarDeserializer();
             }
             if (rawType == java.util.Date.class) {
                 return DateDeserializer.instance;
             }
-            if (rawType == java.util.GregorianCalendar.class) {
+            if (rawType == java.sql.Date.class) {
+                return new SqlDateDeserializer();
+            }
+            if (rawType == Timestamp.class) {
+                return new TimestampDeserializer();
+            }
+            if (rawType == GregorianCalendar.class) {
                 return new CalendarDeserializer(GregorianCalendar.class);
             }
         }
         return null;
-    }
-
-    // @since 2.11
-    public static boolean hasDeserializerFor(Class<?> rawType) {
-        return _utilClasses.contains(rawType.getName());
     }
 
     /*
@@ -88,11 +95,6 @@ public class DateDeserializers
         }
 
         protected abstract DateBasedDeserializer<T> withDateFormat(DateFormat df, String formatStr);
-
-        @Override // since 2.12
-        public LogicalType logicalType() {
-            return LogicalType.DateTime;
-        }
 
         @Override
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt,
@@ -177,16 +179,8 @@ public class DateDeserializers
             if (_customFormat != null) {
                 if (p.hasToken(JsonToken.VALUE_STRING)) {
                     String str = p.getText().trim();
-                    if (str.isEmpty()) {
-                        final CoercionAction act = _checkFromStringCoercion(ctxt, str);
-                        switch (act) { // note: Fail handled above
-                        case AsEmpty:
-                            return new java.util.Date(0L);
-                        case AsNull:
-                        case TryConvert:
-                        default:
-                        }
-                        return null;
+                    if (str.length() == 0) {
+                        return (Date) getEmptyValue(ctxt);
                     }
                     synchronized (_customFormat) {
                         try {
@@ -240,13 +234,6 @@ public class DateDeserializers
             return new CalendarDeserializer(this, df, formatString);
         }
 
-        @Override // since 2.12
-        public Object getEmptyValue(DeserializationContext ctxt) {
-            GregorianCalendar cal = new GregorianCalendar();
-            cal.setTimeInMillis(0L);
-            return cal;
-        }
-
         @Override
         public Calendar deserialize(JsonParser p, DeserializationContext ctxt) throws IOException
         {
@@ -258,7 +245,7 @@ public class DateDeserializers
                 return ctxt.constructCalendar(d);
             }
             try {
-                Calendar c = _defaultCtor.newInstance();
+                Calendar c = _defaultCtor.newInstance();            
                 c.setTimeInMillis(d.getTime());
                 TimeZone tz = ctxt.getTimeZone();
                 if (tz != null) {
@@ -292,12 +279,7 @@ public class DateDeserializers
         protected DateDeserializer withDateFormat(DateFormat df, String formatString) {
             return new DateDeserializer(this, df, formatString);
         }
-
-        @Override // since 2.12
-        public Object getEmptyValue(DeserializationContext ctxt) {
-            return new Date(0L);
-        }
-
+        
         @Override
         public java.util.Date deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
             return _parseDate(p, ctxt);
@@ -320,12 +302,7 @@ public class DateDeserializers
         protected SqlDateDeserializer withDateFormat(DateFormat df, String formatString) {
             return new SqlDateDeserializer(this, df, formatString);
         }
-
-        @Override // since 2.12
-        public Object getEmptyValue(DeserializationContext ctxt) {
-            return new java.sql.Date(0L);
-        }
-
+        
         @Override
         public java.sql.Date deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
             Date d = _parseDate(p, ctxt);
@@ -340,9 +317,9 @@ public class DateDeserializers
      * {@link DeserializationContext#parseDate} that this basic
      * deserializer calls.
      */
-    public static class TimestampDeserializer extends DateBasedDeserializer<java.sql.Timestamp>
+    public static class TimestampDeserializer extends DateBasedDeserializer<Timestamp>
     {
-        public TimestampDeserializer() { super(java.sql.Timestamp.class); }
+        public TimestampDeserializer() { super(Timestamp.class); }
         public TimestampDeserializer(TimestampDeserializer src, DateFormat df, String formatString) {
             super(src, df, formatString);
         }
@@ -351,17 +328,12 @@ public class DateDeserializers
         protected TimestampDeserializer withDateFormat(DateFormat df, String formatString) {
             return new TimestampDeserializer(this, df, formatString);
         }
-
-        @Override // since 2.12
-        public Object getEmptyValue(DeserializationContext ctxt) {
-            return new java.sql.Timestamp(0L);
-        }
-
+        
         @Override
         public java.sql.Timestamp deserialize(JsonParser p, DeserializationContext ctxt) throws IOException
         {
             Date d = _parseDate(p, ctxt);
-            return (d == null) ? null : new java.sql.Timestamp(d.getTime());
+            return (d == null) ? null : new Timestamp(d.getTime());
         }
     }
 }

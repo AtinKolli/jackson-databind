@@ -6,7 +6,6 @@ import java.util.Date;
 
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
 import com.fasterxml.jackson.databind.ser.impl.PropertySerializerMap;
 import com.fasterxml.jackson.databind.util.ClassUtil;
@@ -15,9 +14,6 @@ import com.fasterxml.jackson.databind.util.EnumValues;
 @SuppressWarnings("serial")
 public abstract class StdKeySerializers
 {
-    @SuppressWarnings("deprecation")
-    protected final static JsonSerializer<Object> DEFAULT_KEY_SERIALIZER = new StdKeySerializer();
-
     protected final static JsonSerializer<Object> DEFAULT_STRING_SERIALIZER = new StringKeySerializer();
 
     /**
@@ -81,13 +77,13 @@ public abstract class StdKeySerializers
 
     /**
      * Method called if no specified key serializer was located; will return a
-     * "default" key serializer initialized by {@link EnumKeySerializer#construct(Class, EnumValues, EnumValues)}
+     * "default" key serializer.
      *
-     * @since 2.15
+     * @since 2.7
      */
     @SuppressWarnings("unchecked")
     public static JsonSerializer<Object> getFallbackKeySerializer(SerializationConfig config,
-            Class<?> rawKeyType, AnnotatedClass annotatedClass)
+            Class<?> rawKeyType)
     {
         if (rawKeyType != null) {
             // 29-Sep-2015, tatu: Odd case here, of `Enum`, which we may get for `EnumMap`; not sure
@@ -99,24 +95,13 @@ public abstract class StdKeySerializers
             if (rawKeyType == Enum.class) {
                 return new Dynamic();
             }
-            // 29-Sep-2019, tatu: [databind#2457] can not use 'rawKeyType.isEnum()`, won't work
-            //    for subtypes.
-            if (ClassUtil.isEnumType(rawKeyType)) {
+            if (rawKeyType.isEnum()) {
                 return EnumKeySerializer.construct(rawKeyType,
-                    EnumValues.constructFromName(config, annotatedClass),
-                    EnumSerializer.constructEnumNamingStrategyValues(config, (Class<Enum<?>>) rawKeyType, annotatedClass));
+                        EnumValues.constructFromName(config, (Class<Enum<?>>) rawKeyType));
             }
         }
         // 19-Oct-2016, tatu: Used to just return DEFAULT_KEY_SERIALIZER but why not:
         return new Default(Default.TYPE_TO_STRING, rawKeyType);
-    }
-
-    /**
-     * @deprecated since 2.7
-     */
-    @Deprecated
-    public static JsonSerializer<Object> getDefault() {
-        return DEFAULT_KEY_SERIALIZER;
     }
 
     /*
@@ -144,7 +129,7 @@ public abstract class StdKeySerializers
         final static int TYPE_TO_STRING = 8;
 
         protected final int _typeId;
-
+        
         public Default(int typeId, Class<?> type) {
             super(type, false);
             _typeId = typeId;
@@ -170,8 +155,7 @@ public abstract class StdKeySerializers
                         key = value.toString();
                     } else {
                         Enum<?> e = (Enum<?>) value;
-                        // 14-Sep-2019, tatu: [databind#2129] Use this specific feature
-                        if (provider.isEnabled(SerializationFeature.WRITE_ENUM_KEYS_USING_INDEX)) {
+                        if (provider.isEnabled(SerializationFeature.WRITE_ENUMS_USING_INDEX)) {
                             key = String.valueOf(e.ordinal());
                         } else {
                             key = e.name();
@@ -205,7 +189,7 @@ public abstract class StdKeySerializers
     {
         // Important: MUST be transient, to allow serialization of key serializer itself
         protected transient PropertySerializerMap _dynamicSerializers;
-
+        
         public Dynamic() {
             super(String.class, false);
             _dynamicSerializers = PropertySerializerMap.emptyForProperties();
@@ -278,27 +262,9 @@ public abstract class StdKeySerializers
     {
         protected final EnumValues _values;
 
-        /**
-         * Map with key as converted property class defined implementation of {@link EnumNamingStrategy}
-         * and with value as Enum names collected using <code>Enum.name()</code>.
-         *
-         * @since 2.15
-         */
-        protected final EnumValues _valuesByEnumNaming;
-
         protected EnumKeySerializer(Class<?> enumType, EnumValues values) {
             super(enumType, false);
             _values = values;
-            _valuesByEnumNaming = null;
-        }
-
-        /**
-         * @since 2.15
-         */
-        protected EnumKeySerializer(Class<?> enumType, EnumValues values, EnumValues valuesByEnumNaming) {
-            super(enumType, false);
-            _values = values;
-            _valuesByEnumNaming = valuesByEnumNaming;
         }
 
         public static EnumKeySerializer construct(Class<?> enumType,
@@ -306,13 +272,7 @@ public abstract class StdKeySerializers
         {
             return new EnumKeySerializer(enumType, enumValues);
         }
-
-        public static EnumKeySerializer construct(Class<?> enumType,
-                EnumValues enumValues, EnumValues valuesByEnumNaming)
-        {
-            return new EnumKeySerializer(enumType, enumValues, valuesByEnumNaming);
-        }
-
+        
         @Override
         public void serialize(Object value, JsonGenerator g, SerializerProvider serializers)
                 throws IOException
@@ -322,12 +282,7 @@ public abstract class StdKeySerializers
                 return;
             }
             Enum<?> en = (Enum<?>) value;
-            if (_valuesByEnumNaming != null) {
-                g.writeFieldName(_valuesByEnumNaming.serializedValueFor(en));
-                return;
-            }
-            // 14-Sep-2019, tatu: [databind#2129] Use this specific feature
-            if (serializers.isEnabled(SerializationFeature.WRITE_ENUM_KEYS_USING_INDEX)) {
+            if (serializers.isEnabled(SerializationFeature.WRITE_ENUMS_USING_INDEX)) {
                 g.writeFieldName(String.valueOf(en.ordinal()));
                 return;
             }

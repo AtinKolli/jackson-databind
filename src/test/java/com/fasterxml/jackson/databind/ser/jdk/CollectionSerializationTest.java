@@ -8,7 +8,6 @@ import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 
 public class CollectionSerializationTest
     extends BaseMapTest
@@ -40,7 +39,7 @@ public class CollectionSerializationTest
      * Class needed for testing [JACKSON-220]
      */
     @SuppressWarnings("serial")
-    @JsonSerialize(using=ListSerializer.class)
+    @JsonSerialize(using=ListSerializer.class)    
     static class PseudoList extends ArrayList<String>
     {
         public PseudoList(String... values) {
@@ -75,7 +74,7 @@ public class CollectionSerializationTest
             list = new ArrayList<String>(Arrays.asList(v));
         }
         protected StaticListWrapper() { }
-
+        
         public List<String> getList( ) { return list; }
         public void setList(List<String> l) { list = l; }
     }
@@ -122,16 +121,16 @@ public class CollectionSerializationTest
                 value = c;
             }
             String json = MAPPER.writeValueAsString(value);
-
+            
             // and then need to verify:
-            JsonParser jp = new JsonFactory().createParser(json);
-            assertToken(JsonToken.START_ARRAY, jp.nextToken());
+            JsonParser p = MAPPER.createParser(json);
+            assertToken(JsonToken.START_ARRAY, p.nextToken());
             for (int i = 0; i < entryLen; ++i) {
-                assertToken(JsonToken.VALUE_NUMBER_INT, jp.nextToken());
-                assertEquals(i, jp.getIntValue());
+                assertToken(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+                assertEquals(i, p.getIntValue());
             }
-            assertToken(JsonToken.END_ARRAY, jp.nextToken());
-            jp.close();
+            assertToken(JsonToken.END_ARRAY, p.nextToken());
+            p.close();
         }
     }
 
@@ -145,37 +144,37 @@ public class CollectionSerializationTest
         }
         // Let's test using 3 main variants...
         for (int mode = 0; mode < 3; ++mode) {
-            JsonParser jp = null;
+            JsonParser p = null;
             switch (mode) {
             case 0:
                 {
                     byte[] data = MAPPER.writeValueAsBytes(value);
-                    jp = new JsonFactory().createParser(data);
+                    p = MAPPER.createParser(data);
                 }
                 break;
             case 1:
                 {
                     StringWriter sw = new StringWriter(value.size());
                     MAPPER.writeValue(sw, value);
-                    jp = createParserUsingReader(sw.toString());
+                    p = createParserUsingReader(sw.toString());
                 }
                 break;
             case 2:
                 {
                     String str = MAPPER.writeValueAsString(value);
-                    jp = createParserUsingReader(str);
+                    p = createParserUsingReader(str);
                 }
                 break;
             }
 
             // and verify
-            assertToken(JsonToken.START_ARRAY, jp.nextToken());
+            assertToken(JsonToken.START_ARRAY, p.nextToken());
             for (int i = 0; i <= COUNT; ++i) {
-                assertEquals(JsonToken.VALUE_NUMBER_INT, jp.nextToken());
-                assertEquals(i, jp.getIntValue());
+                assertEquals(JsonToken.VALUE_NUMBER_INT, p.nextToken());
+                assertEquals(i, p.getIntValue());
             }
-            assertToken(JsonToken.END_ARRAY, jp.nextToken());
-            jp.close();
+            assertToken(JsonToken.END_ARRAY, p.nextToken());
+            p.close();
         }
     }
 
@@ -243,9 +242,9 @@ public class CollectionSerializationTest
 
     public void testListSerializer() throws IOException
     {
-        assertEquals(q("[ab, cd, ef]"),
+        assertEquals(quote("[ab, cd, ef]"),
                 MAPPER.writeValueAsString(new PseudoList("ab", "cd", "ef")));
-        assertEquals(q("[]"),
+        assertEquals(quote("[]"),
                 MAPPER.writeValueAsString(new PseudoList()));
     }
 
@@ -271,14 +270,13 @@ public class CollectionSerializationTest
         // First: au naturel
         StaticListWrapper w = new StaticListWrapper("a", "b", "c");
         String json = MAPPER.writeValueAsString(w);
-        assertEquals(a2q("{'list':['a','b','c']}"), json);
+        assertEquals(aposToQuotes("{'list':['a','b','c']}"), json);
 
         // but then with default typing
-        ObjectMapper mapper = jsonMapperBuilder()
-                .activateDefaultTyping(NoCheckSubTypeValidator.instance, DefaultTyping.NON_FINAL)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enableDefaultTyping(DefaultTyping.NON_FINAL);
         json = mapper.writeValueAsString(w);
-        assertEquals(a2q(String.format("['%s',{'list':['%s',['a','b','c']]}]",
+        assertEquals(aposToQuotes(String.format("['%s',{'list':['%s',['a','b','c']]}]",
                 w.getClass().getName(), w.list.getClass().getName())), json);
     }
 }

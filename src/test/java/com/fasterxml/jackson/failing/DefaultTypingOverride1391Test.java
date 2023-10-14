@@ -4,8 +4,6 @@ import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 
 // for [databind#1391]: should allow disabling of default typing
 // via explicit {@link JsonTypeInfo}
@@ -22,12 +20,10 @@ public class DefaultTypingOverride1391Test extends BaseMapTest
 
     public void testCollectionWithOverride() throws Exception
     {
-        final ObjectMapper mapper = JsonMapper.builder()
-            .activateDefaultTypingAsProperty(NoCheckSubTypeValidator.instance,
-                    ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE,
-                    "$type")
-            .build();
+        final ObjectMapper mapper = new ObjectMapper()
+            .enableDefaultTypingAsProperty(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE,
+                    "$type");
         String json = mapper.writeValueAsString(new ListWrapper());
-        assertEquals(a2q("{'stuff':[]}"), json);
+        assertEquals(aposToQuotes("{'stuff':[]}"), json);
     }
 }

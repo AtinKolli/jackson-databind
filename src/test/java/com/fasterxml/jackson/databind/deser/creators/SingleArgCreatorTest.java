@@ -1,10 +1,6 @@
 package com.fasterxml.jackson.databind.deser.creators;
 
-import java.util.Arrays;
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.*;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.AnnotatedParameter;
@@ -13,12 +9,11 @@ import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 public class SingleArgCreatorTest extends BaseMapTest
 {
     // [databind#430]: single arg BUT named; should not delegate
-
     static class SingleNamedStringBean {
         final String _ss;
 
         @JsonCreator
-        public SingleNamedStringBean(@JsonProperty("") String ss){
+        public SingleNamedStringBean(@JsonProperty("value") String ss){
             this._ss = ss;
         }
 
@@ -30,19 +25,20 @@ public class SingleArgCreatorTest extends BaseMapTest
         protected final String value;
 
         @JsonCreator(mode=JsonCreator.Mode.DELEGATING)
-        public SingleNamedButStillDelegating(@JsonProperty("foobar") String v) {
+        public SingleNamedButStillDelegating(@JsonProperty("foobar") String v){
             value = v;
         }
 
         public String getFoobar() { return "x"; }
     }
-
-    // For [databind#557]
+    
+    // [databind#557]
+    
     static class StringyBean
     {
         public final String value;
 
-        private StringyBean(String value) { this.value = value; }
+        protected StringyBean(String value) { this.value = value; }
 
         public String getValue() {
             return value;
@@ -65,9 +61,9 @@ public class SingleArgCreatorTest extends BaseMapTest
     static class MyParamIntrospector extends JacksonAnnotationIntrospector
     {
         private final String name;
-
+        
         public MyParamIntrospector(String n) { name = n; }
-
+        
         @Override
         public String findImplicitPropertyName(AnnotatedMember param) {
             if (param instanceof AnnotatedParameter) {
@@ -122,7 +118,7 @@ public class SingleArgCreatorTest extends BaseMapTest
     static class XY {
         public int x, y;
     }
-
+    
     // [databind#1383]
     static class SingleArgWithImplicit {
         protected XY _value;
@@ -142,29 +138,17 @@ public class SingleArgCreatorTest extends BaseMapTest
         public XY getFoobar() { return _value; }
     }
 
-    // [databind#3062]
-    static class DecVector3062 {
-        List<Double> elems;
-
-        public DecVector3062() { super(); }
-        public DecVector3062(List<Double> e) { elems = e; }
-        public DecVector3062(double elem) { elems = Arrays.asList(elem); }
-        public DecVector3062(Double elem) { elems = Arrays.asList(elem); }
-
-        public List<Double> getElems() { return elems; }
-    }
-
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Test methods
-    /**********************************************************************
+    /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = objectMapper();
 
     public void testNamedSingleArg() throws Exception
     {
-        SingleNamedStringBean bean = MAPPER.readValue(q("foobar"),
+        SingleNamedStringBean bean = MAPPER.readValue(aposToQuotes("{'value':'foobar'}"),
                 SingleNamedStringBean.class);
         assertEquals("foobar", bean._ss);
     }
@@ -173,9 +157,9 @@ public class SingleArgCreatorTest extends BaseMapTest
     {
         final ObjectMapper mapper = new ObjectMapper();
         mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
-        StringyBean bean = mapper.readValue(q("foobar"), StringyBean.class);
+        StringyBean bean = mapper.readValue(quote("foobar"), StringyBean.class);
         assertEquals("foobar", bean.getValue());
-    }
+    }    
 
     // [databind#714]
     public void testSingleImplicitlyNamedNotDelegating() throws Exception
@@ -184,12 +168,12 @@ public class SingleArgCreatorTest extends BaseMapTest
         mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
         StringyBeanWithProps bean = mapper.readValue("{\"value\":\"x\"}", StringyBeanWithProps.class);
         assertEquals("x", bean.getValue());
-    }
+    }    
 
     // [databind#714]
     public void testSingleExplicitlyNamedButDelegating() throws Exception
     {
-        SingleNamedButStillDelegating bean = MAPPER.readValue(q("xyz"),
+        SingleNamedButStillDelegating bean = MAPPER.readValue(quote("xyz"),
                 SingleNamedButStillDelegating.class);
         assertEquals("xyz", bean.value);
     }
@@ -197,7 +181,7 @@ public class SingleArgCreatorTest extends BaseMapTest
     public void testExplicitFactory660a() throws Exception
     {
         // First, explicit override for factory
-        ExplicitFactoryBeanA bean = MAPPER.readValue(q("abc"), ExplicitFactoryBeanA.class);
+        ExplicitFactoryBeanA bean = MAPPER.readValue(quote("abc"), ExplicitFactoryBeanA.class);
         assertNotNull(bean);
         assertEquals("abc", bean.value());
     }
@@ -205,7 +189,7 @@ public class SingleArgCreatorTest extends BaseMapTest
     public void testExplicitFactory660b() throws Exception
     {
         // and then one for private constructor
-        ExplicitFactoryBeanB bean2 = MAPPER.readValue(q("def"), ExplicitFactoryBeanB.class);
+        ExplicitFactoryBeanB bean2 = MAPPER.readValue(quote("def"), ExplicitFactoryBeanB.class);
         assertNotNull(bean2);
         assertEquals("def", bean2.value());
     }
@@ -215,20 +199,11 @@ public class SingleArgCreatorTest extends BaseMapTest
     {
         final ObjectMapper mapper = new ObjectMapper();
         mapper.setAnnotationIntrospector(new MyParamIntrospector("value"));
-        SingleArgWithImplicit bean = mapper.readValue(a2q("{'x':1,'y':2}"),
+        SingleArgWithImplicit bean = mapper.readValue(aposToQuotes("{'x':1,'y':2}"),
                 SingleArgWithImplicit.class);
         XY v = bean.getFoobar();
         assertNotNull(v);
         assertEquals(1, v.x);
         assertEquals(2, v.y);
-    }
-
-    // [databind#3062]
-    public void testMultipleDoubleCreators3062() throws Exception
-    {
-        DecVector3062 vector = new DecVector3062(Arrays.asList(1.0, 2.0, 3.0));
-        String result = MAPPER.writeValueAsString(vector);
-        DecVector3062 deser = MAPPER.readValue(result, DecVector3062.class);
-        assertEquals(vector.elems, deser.elems);
     }
 }

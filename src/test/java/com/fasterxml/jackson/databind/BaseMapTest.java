@@ -3,14 +3,12 @@ package com.fasterxml.jackson.databind;
 import java.io.*;
 import java.util.*;
 
-import static org.junit.Assert.*;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import com.fasterxml.jackson.core.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.std.StdScalarDeserializer;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.ser.std.StdScalarSerializer;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
@@ -18,7 +16,7 @@ public abstract class BaseMapTest
     extends BaseTest
 {
     private final static Object SINGLETON_OBJECT = new Object();
-
+    
     /*
     /**********************************************************
     /* Shared helper classes
@@ -57,20 +55,13 @@ public abstract class BaseMapTest
         public LongWrapper(long value) { l = value; }
     }
 
-    protected static class FloatWrapper {
-        public float f;
-
-        public FloatWrapper() { }
-        public FloatWrapper(float value) { f = value; }
-    }
-
     protected static class DoubleWrapper {
         public double d;
 
         public DoubleWrapper() { }
         public DoubleWrapper(double value) { d = value; }
     }
-
+    
     /**
      * Simple wrapper around String type, usually to test value
      * conversions or wrapping
@@ -90,7 +81,8 @@ public abstract class BaseMapTest
             this.object = object;
         }
         public Object getObject() { return object; }
-        @JsonCreator
+
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         static ObjectWrapper jsonValue(final Object object) {
             return new ObjectWrapper(object);
         }
@@ -121,7 +113,7 @@ public abstract class BaseMapTest
             map.put(key, value);
         }
     }
-
+    
     protected static class ArrayWrapper<T>
     {
         public T[] array;
@@ -130,7 +122,7 @@ public abstract class BaseMapTest
             array = v;
         }
     }
-
+    
     /**
      * Enumeration type with sub-classes per value.
      */
@@ -153,7 +145,7 @@ public abstract class BaseMapTest
             x = x0;
             y = y0;
         }
-
+    
         @Override
         public boolean equals(Object o) {
             if (!(o instanceof Point)) {
@@ -194,7 +186,7 @@ public abstract class BaseMapTest
 
         @Override
         public String deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException {
+                throws IOException, JsonProcessingException {
             return p.getText().toLowerCase();
         }
     }
@@ -204,7 +196,7 @@ public abstract class BaseMapTest
     /* Construction
     /**********************************************************
      */
-
+    
     protected BaseMapTest() { super(); }
 
     /*
@@ -212,50 +204,13 @@ public abstract class BaseMapTest
     /* Factory methods
     /**********************************************************
      */
-
-    private static ObjectMapper SHARED_MAPPER;
-
-    protected ObjectMapper sharedMapper() {
-        if (SHARED_MAPPER == null) {
-            SHARED_MAPPER = newJsonMapper();
-        }
-        return SHARED_MAPPER;
-    }
-
-    protected ObjectMapper objectMapper() {
-        return sharedMapper();
-    }
-
-    protected ObjectWriter objectWriter() {
-        return sharedMapper().writer();
-    }
-
-    protected ObjectReader objectReader() {
-        return sharedMapper().reader();
-    }
-
-    protected ObjectReader objectReader(Class<?> cls) {
-        return sharedMapper().readerFor(cls);
-    }
-
-    // `public` since 2.16, was only `protected` before then.
-    // @since 2.10
-    public static ObjectMapper newJsonMapper() {
-        return new JsonMapper();
-    }
-
-    // `public` since 2.16, was only `protected` before then.
-    // @since 2.10
-    public static JsonMapper.Builder jsonMapperBuilder() {
-        return JsonMapper.builder();
-    }
-
+    
     // @since 2.7
     protected TypeFactory newTypeFactory() {
         // this is a work-around; no null modifier added
         return TypeFactory.defaultInstance().withModifier(null);
     }
-
+    
     /*
     /**********************************************************
     /* Additional assert methods
@@ -297,9 +252,9 @@ public abstract class BaseMapTest
         throws IOException
     {
         String str = m.writeValueAsString(value);
-        return (Map<String,Object>) m.readValue(str, LinkedHashMap.class);
+        return (Map<String,Object>) m.readValue(str, Map.class);
     }
-
+    
     protected String serializeAsString(ObjectMapper m, Object value)
         throws IOException
     {
@@ -309,13 +264,13 @@ public abstract class BaseMapTest
     protected String serializeAsString(Object value)
         throws IOException
     {
-        return serializeAsString(sharedMapper(), value);
+        return serializeAsString(objectMapper(), value);
     }
 
     protected String asJSONObjectValueString(Object... args)
         throws IOException
     {
-        return asJSONObjectValueString(sharedMapper(), args);
+        return asJSONObjectValueString(objectMapper(), args);
     }
 
     protected String asJSONObjectValueString(ObjectMapper m, Object... args)
@@ -333,11 +288,11 @@ public abstract class BaseMapTest
     /* Helper methods, deserialization
     /**********************************************************
      */
-
+    
     protected <T> T readAndMapFromString(String input, Class<T> cls)
         throws IOException
     {
-        return readAndMapFromString(sharedMapper(), input, cls);
+        return readAndMapFromString(objectMapper(), input, cls);
     }
 
     protected <T> T readAndMapFromString(ObjectMapper m, String input, Class<T> cls) throws IOException
@@ -361,5 +316,13 @@ public abstract class BaseMapTest
         } catch (IOException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    protected static String aposToQuotes(String json) {
+        return json.replace("'", "\"");
+    }
+
+    protected static String quotesToApos(String json) {
+        return json.replace("\"", "'");
     }
 }

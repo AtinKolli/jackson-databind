@@ -20,7 +20,7 @@ public class TestMapConversions
     }
 
     // [Issue#287]
-
+    
     @JsonSerialize(converter=RequestConverter.class)
     static class Request {
         public int x() {
@@ -38,7 +38,7 @@ public class TestMapConversions
             return test;
         }
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
@@ -70,11 +70,11 @@ public class TestMapConversions
     public void testMapToBean()
     {
         EnumMap<AB,String> map = new EnumMap<AB,String>(AB.class);
-        map.put(AB.A, "17");
-        map.put(AB.B, "-1");
+        map.put(AB.A, "   17");
+        map.put(AB.B, " -1");
         Bean bean = MAPPER.convertValue(map, Bean.class);
         assertEquals(Integer.valueOf(17), bean.A);
-        assertEquals("-1", bean.B);
+        assertEquals(" -1", bean.B);
     }
 
     public void testBeanToMap()

@@ -36,17 +36,17 @@ public class MapMerge1844Test extends BaseMapTest
     // for [databind#1844]
     public void testMap1844() throws Exception
     {
-        final ObjectMapper mapper = newJsonMapper();
+        final ObjectMapper mapper = newObjectMapper();
         mapper.setDefaultMergeable(true);
 
-        final String f1 = a2q(
+        final String f1 = aposToQuotes(
 "{ 'key1' : {\n"
 +"  '1': 1, '2': 2, '3': 3\n"
 +"}, 'key2': {\n"
 +"  '1': 1, '2': 2, '3': 3\n"
 +"} }"
 );
-        final String f2 = a2q(
+        final String f2 = aposToQuotes(
 "{ 'key1' : {\n"
 +"  '1': 2, '2': 3, '4': 5\n"
 +"}, 'key2': {\n"

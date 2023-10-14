@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.type.TypeBindings;
 import com.fasterxml.jackson.databind.util.Annotations;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 import com.fasterxml.jackson.databind.util.Converter;
@@ -27,7 +26,6 @@ import com.fasterxml.jackson.databind.util.Converter;
  */
 public class BasicBeanDescription extends BeanDescription
 {
-    // since 2.9
     private final static Class<?>[] NO_VIEWS = new Class<?>[0];
 
     /*
@@ -42,7 +40,7 @@ public class BasicBeanDescription extends BeanDescription
      * are only accessed when they are actually needed.
      */
     final protected POJOPropertiesCollector _propCollector;
-
+    
     final protected MapperConfig<?> _config;
 
     final protected AnnotationIntrospector _annotationIntrospector;
@@ -52,20 +50,14 @@ public class BasicBeanDescription extends BeanDescription
     /* Information about type itself
     /**********************************************************
      */
-
+    
     /**
      * Information collected about the class introspected.
      */
     final protected AnnotatedClass _classInfo;
 
-    /**
-     * @since 2.9
-     */
     protected Class<?>[] _defaultViews;
 
-    /**
-     * @since 2.9
-     */
     protected boolean _defaultViewsResolved;
 
     /*
@@ -124,7 +116,7 @@ public class BasicBeanDescription extends BeanDescription
         _classInfo = classDef;
         _properties = props;
     }
-
+    
     protected BasicBeanDescription(POJOPropertiesCollector coll)
     {
         this(coll, coll.getType(), coll.getClassDef());
@@ -176,7 +168,7 @@ public class BasicBeanDescription extends BeanDescription
      * Method that can be used to prune unwanted properties, during
      * construction of serializers and deserializers.
      * Use with utmost care, if at all...
-     *
+     * 
      * @since 2.1
      */
     public boolean removeProperty(String propName)
@@ -201,14 +193,14 @@ public class BasicBeanDescription extends BeanDescription
         _properties().add(def);
         return true;
     }
-
+    
     /**
      * @since 2.6
      */
     public boolean hasProperty(PropertyName name) {
         return findProperty(name) != null;
     }
-
+    
     /**
      * @since 2.6
      */
@@ -221,7 +213,7 @@ public class BasicBeanDescription extends BeanDescription
         }
         return null;
     }
-
+    
     /*
     /**********************************************************
     /* Simple accessors from BeanDescription
@@ -239,25 +231,12 @@ public class BasicBeanDescription extends BeanDescription
         return _properties();
     }
 
-    @Override // since 2.12
-    public AnnotatedMember findJsonKeyAccessor() {
-        return (_propCollector == null) ? null
-                : _propCollector.getJsonKeyAccessor();
-    }
-
-    @Override
-    @Deprecated // since 2.9
-    public AnnotatedMethod findJsonValueMethod() {
-        return (_propCollector == null) ? null
-                : _propCollector.getJsonValueMethod();
-    }
-
     @Override // since 2.9
     public AnnotatedMember findJsonValueAccessor() {
         return (_propCollector == null) ? null
                 : _propCollector.getJsonValueAccessor();
     }
-
+ 
     @Override
     public Set<String> getIgnoredPropertyNames() {
         Set<String> ign = (_propCollector == null) ? null
@@ -279,20 +258,6 @@ public class BasicBeanDescription extends BeanDescription
     }
 
     @Override
-    @Deprecated // since 2.7
-    public TypeBindings bindingsForBeanType() {
-        return _type.getBindings();
-    }
-
-    @Override
-    @Deprecated // since 2.8
-    public JavaType resolveType(java.lang.reflect.Type jdkType) {
-        // 06-Sep-2020, tatu: Careful wrt [databind#2846][databind#2821],
-        //     call new method added in 2.12
-        return _config.getTypeFactory().resolveMemberType(jdkType, _type.getBindings());
-    }
-
-    @Override
     public AnnotatedConstructor findDefaultConstructor() {
         return _classInfo.getDefaultConstructor();
     }
@@ -305,7 +270,7 @@ public class BasicBeanDescription extends BeanDescription
             if (anyMethod != null) {
                 // Also, let's be somewhat strict on how field name is to be
                 // passed; String, Object make sense, others not so much.
-
+    
                 /* !!! 18-May-2009, tatu: how about enums? Can add support if
                  *  requested; easy enough for devs to add support within method.
                  */
@@ -322,10 +287,9 @@ anyMethod.getName(), type.getName()));
                 // For now let's require a Map; in future can add support for other
                 // types like perhaps Iterable<Map.Entry>?
                 Class<?> type = anyField.getRawType();
-                if (!Map.class.isAssignableFrom(type)
-                        && !JsonNode.class.isAssignableFrom(type)) {
+                if (!Map.class.isAssignableFrom(type)) {
                     throw new IllegalArgumentException(String.format(
-"Invalid 'any-setter' annotation on field '%s': type is not instance of `java.util.Map` or `JsonNode`",
+"Invalid 'any-setter' annotation on field '%s': type is not instance of java.util.Map",
 anyField.getName()));
                 }
                 return anyField;
@@ -348,23 +312,6 @@ anyField.getName()));
     }
 
     @Override
-    public List<AnnotatedAndMetadata<AnnotatedConstructor, JsonCreator.Mode>> getConstructorsWithMode() {
-        List<AnnotatedConstructor> allCtors = _classInfo.getConstructors();
-        if (allCtors.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<AnnotatedAndMetadata<AnnotatedConstructor, JsonCreator.Mode>> result = new ArrayList<>();
-        for (AnnotatedConstructor ctor : allCtors) {
-            JsonCreator.Mode mode = _annotationIntrospector.findCreatorAnnotation(_config, ctor);
-            if (mode == JsonCreator.Mode.DISABLED) {
-                continue;
-            }
-            result.add(AnnotatedAndMetadata.of(ctor, mode));
-        }
-        return result;
-    }
-
-    @Override
     public Object instantiateBean(boolean fixAccess) {
         AnnotatedConstructor ac = _classInfo.getDefaultConstructor();
         if (ac == null) {
@@ -374,7 +321,7 @@ anyField.getName()));
             ac.fixAccess(_config.isEnabled(MapperFeature.OVERRIDE_PUBLIC_ACCESS_MODIFIERS));
         }
         try {
-            return ac.call();
+            return ac.getAnnotated().newInstance();
         } catch (Exception e) {
             Throwable t = e;
             while (t.getCause() != null) {
@@ -382,9 +329,7 @@ anyField.getName()));
             }
             ClassUtil.throwIfError(t);
             ClassUtil.throwIfRTE(t);
-            throw new IllegalArgumentException("Failed to instantiate bean of type "
-                    +_classInfo.getAnnotated().getName()+": ("+t.getClass().getName()+") "
-                    +ClassUtil.exceptionMessage(t), t);
+            throw new IllegalArgumentException("Failed to instantiate bean of type "+_classInfo.getAnnotated().getName()+": ("+t.getClass().getName()+") "+t.getMessage(), t);
         }
     }
 
@@ -490,34 +435,18 @@ anyField.getName()));
     @Override
     public AnnotatedMember findAnyGetter() throws IllegalArgumentException
     {
-        if (_propCollector != null) {
-            AnnotatedMember anyGetter = _propCollector.getAnyGetterMethod();
-            if (anyGetter != null) {
-                // For now let's require a Map; in future can add support for other
-                // types like perhaps Iterable<Map.Entry>?
-                Class<?> type = anyGetter.getRawType();
-                if (!Map.class.isAssignableFrom(type)) {
-                    throw new IllegalArgumentException(String.format(
-                            "Invalid 'any-getter' annotation on method %s(): return type is not instance of java.util.Map",
-                            anyGetter.getName()));
-                }
-                return anyGetter;
-            }
-
-            AnnotatedMember anyField = _propCollector.getAnyGetterField();
-            if (anyField != null) {
-                // For now let's require a Map; in future can add support for other
-                // types like perhaps Iterable<Map.Entry>?
-                Class<?> type = anyField.getRawType();
-                if (!Map.class.isAssignableFrom(type)) {
-                    throw new IllegalArgumentException(String.format(
-                            "Invalid 'any-getter' annotation on field '%s': type is not instance of java.util.Map",
-                            anyField.getName()));
-                }
-                return anyField;
+        AnnotatedMember anyGetter = (_propCollector == null) ? null
+                : _propCollector.getAnyGetter();
+        if (anyGetter != null) {
+            /* For now let's require a Map; in future can add support for other
+             * types like perhaps Iterable<Map.Entry>?
+             */
+            Class<?> type = anyGetter.getRawType();
+            if (!Map.class.isAssignableFrom(type)) {
+                throw new IllegalArgumentException("Invalid 'any-getter' annotation on method "+anyGetter.getName()+"(): return type is not instance of java.util.Map");
             }
         }
-        return null;
+        return anyGetter;
     }
 
     @Override
@@ -537,25 +466,10 @@ anyField.getName()));
                 names.add(refName);
             } else {
                 if (!names.add(refName)) {
-                    throw new IllegalArgumentException("Multiple back-reference properties with name "+ClassUtil.name(refName));
+                    throw new IllegalArgumentException("Multiple back-reference properties with name '"+refName+"'");
                 }
             }
             result.add(property);
-        }
-        return result;
-    }
-
-    @Deprecated // since 2.9
-    @Override
-    public Map<String,AnnotatedMember> findBackReferenceProperties()
-    {
-        List<BeanPropertyDefinition> props = findBackReferences();
-        if (props == null) {
-            return null;
-        }
-        Map<String,AnnotatedMember> result = new HashMap<>();
-        for (BeanPropertyDefinition prop : props) {
-            result.put(prop.getName(), prop.getMutator());
         }
         return result;
     }
@@ -589,36 +503,14 @@ anyField.getName()));
         return result;
     }
 
-    @Override // since 2.13
-    public List<AnnotatedAndMetadata<AnnotatedMethod, JsonCreator.Mode>> getFactoryMethodsWithMode()
-    {
-        List<AnnotatedMethod> candidates = _classInfo.getFactoryMethods();
-        if (candidates.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<AnnotatedAndMetadata<AnnotatedMethod, JsonCreator.Mode>> result = null;
-        for (AnnotatedMethod am : candidates) {
-            AnnotatedAndMetadata<AnnotatedMethod, JsonCreator.Mode> match
-                = findFactoryMethodMetadata(am);
-            if (match != null) {
-                if (result == null) {
-                    result = new ArrayList<>();
-                }
-                result.add(match);
-            }
-        }
-        if (result == null) {
-            return Collections.emptyList();
-        }
-        return result;
-    }
-
     @Override
-    @Deprecated // since 2.13
     public Constructor<?> findSingleArgConstructor(Class<?>... argTypes)
     {
         for (AnnotatedConstructor ac : _classInfo.getConstructors()) {
             // This list is already filtered to only include accessible
+            /* (note: for now this is a redundant check; but in future
+             * that may change; thus leaving here for now)
+             */
             if (ac.getParameterCount() == 1) {
                 Class<?> actArg = ac.getRawParameterType(0);
                 for (Class<?> expArg : argTypes) {
@@ -632,7 +524,6 @@ anyField.getName()));
     }
 
     @Override
-    @Deprecated // since 2.13
     public Method findFactoryMethod(Class<?>... expArgTypes)
     {
         // So, of all single-arg static methods:
@@ -662,8 +553,7 @@ anyField.getName()));
         }
         /* Also: must be a recognized factory method, meaning:
          * (a) marked with @JsonCreator annotation, or
-         * (b) 1-argument "valueOf" (at this point, need not be public), or
-         * (c) 1-argument "fromString()" AND takes {@code String} as the argument
+         * (b) "valueOf" (at this point, need not be public)
          */
         JsonCreator.Mode mode = _annotationIntrospector.findCreatorAnnotation(_config, am);
         if ((mode != null) && (mode != JsonCreator.Mode.DISABLED)) {
@@ -686,61 +576,6 @@ anyField.getName()));
             }
         }
         return false;
-    }
-
-    // @since 2.13
-    protected AnnotatedAndMetadata<AnnotatedMethod, JsonCreator.Mode> findFactoryMethodMetadata(AnnotatedMethod am)
-    {
-        // First: return type must be compatible with the introspected class
-        // (i.e. allowed to be sub-class, although usually is the same class)
-        Class<?> rt = am.getRawReturnType();
-        if (!getBeanClass().isAssignableFrom(rt)) {
-            return null;
-        }
-        // Also: must be a recognized factory method, meaning:
-        // (a) marked with @JsonCreator annotation, or
-        // (b) 1-argument "valueOf" (at this point, need not be public), or
-        // (c) 1-argument "fromString()" AND takes {@code String} as the argument
-        JsonCreator.Mode mode = _annotationIntrospector.findCreatorAnnotation(_config, am);
-        if (mode != null) {
-            if (mode == JsonCreator.Mode.DISABLED) {
-                return null;
-            }
-            return AnnotatedAndMetadata.of(am, mode);
-        }
-        final String name = am.getName();
-        // 24-Oct-2016, tatu: As per [databind#1429] must ensure takes exactly one arg
-        if ("valueOf".equals(name)) {
-            if (am.getParameterCount() == 1) {
-                return AnnotatedAndMetadata.of(am, mode);
-            }
-        }
-        // [databind#208] Also accept "fromString()", if takes String or CharSequence
-        if ("fromString".equals(name)) {
-            if (am.getParameterCount() == 1) {
-                Class<?> cls = am.getRawParameterType(0);
-                if (cls == String.class || CharSequence.class.isAssignableFrom(cls)) {
-                    return AnnotatedAndMetadata.of(am, mode);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * @deprecated since 2.8
-     */
-    @Deprecated // since 2.8, not used at least since 2.7
-    protected PropertyName _findCreatorPropertyName(AnnotatedParameter param)
-    {
-        PropertyName name = _annotationIntrospector.findNameForDeserialization(param);
-        if (name == null || name.isEmpty()) {
-            String str = _annotationIntrospector.findImplicitPropertyName(param);
-            if (str != null && !str.isEmpty()) {
-                name = PropertyName.construct(str);
-            }
-        }
-        return name;
     }
 
     /*
@@ -779,48 +614,10 @@ anyField.getName()));
 
     /*
     /**********************************************************
-    /* Helper methods for field introspection
-    /**********************************************************
-     */
-
-    /**
-     * @param ignoredProperties (optional) names of properties to ignore;
-     *   any fields that would be recognized as one of these properties
-     *   is ignored.
-     * @param forSerialization If true, will collect serializable property
-     *    fields; if false, deserializable
-     *
-     * @return Ordered Map with logical property name as key, and
-     *    matching field as value.
-     *
-     * @deprecated Since 2.7.2, does not seem to be used?
-     */
-    @Deprecated
-    public LinkedHashMap<String,AnnotatedField> _findPropertyFields(
-            Collection<String> ignoredProperties, boolean forSerialization)
-    {
-        LinkedHashMap<String,AnnotatedField> results = new LinkedHashMap<String,AnnotatedField>();
-        for (BeanPropertyDefinition property : _properties()) {
-            AnnotatedField f = property.getField();
-            if (f != null) {
-                String name = property.getName();
-                if (ignoredProperties != null) {
-                    if (ignoredProperties.contains(name)) {
-                        continue;
-                    }
-                }
-                results.put(name, f);
-            }
-        }
-        return results;
-    }
-
-    /*
-    /**********************************************************
     /* Helper methods, other
     /**********************************************************
      */
-
+    
     @SuppressWarnings("unchecked")
     protected Converter<Object,Object> _createConverter(Object converterDef)
     {

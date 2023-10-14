@@ -38,7 +38,7 @@ public enum JsonValueFormat
      * This SHOULD be a host-name.
      */
     HOST_NAME("host-name"),
-
+     
     /**
      * This SHOULD be an ip version 4 address.
      */
@@ -74,7 +74,7 @@ public enum JsonValueFormat
     TIME("time"),
 
     /**
-     * This value SHOULD be a URI.
+     * This value SHOULD be a URI..
      */
     URI("uri"),
 
@@ -85,13 +85,6 @@ public enum JsonValueFormat
       float).
      */
     UTC_MILLISEC("utc-millisec"),
-
-    /**
-     * Value should be valid <a href="https://en.wikipedia.org/wiki/Universally_unique_identifier">UUID</a>
-     *
-     * @since 2.10
-     */
-    UUID("uuid")
     ;
 
     private final String _desc;

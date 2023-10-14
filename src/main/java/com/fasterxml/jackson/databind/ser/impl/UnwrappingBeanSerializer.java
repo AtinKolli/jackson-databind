@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.ser.impl;
 
 import com.fasterxml.jackson.core.JsonGenerator;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
@@ -22,7 +21,7 @@ public class UnwrappingBeanSerializer
      * of unwrapped POJO.
      */
     protected final NameTransformer _nameTransformer;
-
+    
     /*
     /**********************************************************
     /* Life-cycle: constructors
@@ -51,18 +50,7 @@ public class UnwrappingBeanSerializer
     }
 
     protected UnwrappingBeanSerializer(UnwrappingBeanSerializer src, Set<String> toIgnore) {
-        this(src, toIgnore, null);
-    }
-
-    protected UnwrappingBeanSerializer(UnwrappingBeanSerializer src, Set<String> toIgnore, Set<String> toInclude) {
-        super(src, toIgnore, toInclude);
-        _nameTransformer = src._nameTransformer;
-    }
-
-    // @since 2.11.1
-    protected UnwrappingBeanSerializer(UnwrappingBeanSerializer src,
-            BeanPropertyWriter[] properties, BeanPropertyWriter[] filteredProperties) {
-        super(src, properties, filteredProperties);
+        super(src, toIgnore);
         _nameTransformer = src._nameTransformer;
     }
 
@@ -93,15 +81,9 @@ public class UnwrappingBeanSerializer
         return new UnwrappingBeanSerializer(this, _objectIdWriter, filterId);
     }
 
-    @Override // @since 2.12
-    protected BeanSerializerBase withByNameInclusion(Set<String> toIgnore, Set<String> toInclude) {
-        return new UnwrappingBeanSerializer(this, toIgnore, toInclude);
-    }
-
-    @Override // @since 2.11.1
-    protected BeanSerializerBase withProperties(BeanPropertyWriter[] properties,
-            BeanPropertyWriter[] filteredProperties) {
-        return new UnwrappingBeanSerializer(this, properties, filteredProperties);
+    @Override
+    protected BeanSerializerBase withIgnorals(Set<String> toIgnore) {
+        return new UnwrappingBeanSerializer(this, toIgnore);
     }
 
     /**
@@ -112,7 +94,7 @@ public class UnwrappingBeanSerializer
     protected BeanSerializerBase asArraySerializer() {
         return this;
     }
-
+    
     /*
     /**********************************************************
     /* JsonSerializer implementation that differs between impls
@@ -127,16 +109,23 @@ public class UnwrappingBeanSerializer
     @Override
     public final void serialize(Object bean, JsonGenerator gen, SerializerProvider provider) throws IOException
     {
-        gen.setCurrentValue(bean); // [databind#631]
         if (_objectIdWriter != null) {
             _serializeWithObjectId(bean, gen, provider, false);
             return;
         }
+        // Because we do not write start-object need to call this explicitly:
+        // (although... is that a problem, overwriting it now?)
+        gen.setCurrentValue(bean); // [databind#631]
         if (_propertyFilterId != null) {
-            serializeFieldsFiltered(bean, gen, provider);
-        } else {
-            serializeFields(bean, gen, provider);
+            _serializeFieldsFiltered(bean, gen, provider, _propertyFilterId);
+            return;
         }
+        BeanPropertyWriter[] fProps = _filteredProps;
+        if ((fProps != null) && (provider.getActiveView() != null)) {
+            _serializeFieldsMaybeView(bean, gen, provider, fProps);
+            return;
+        }
+        _serializeFieldsNoView(bean, gen, provider, _props);
     }
 
     @Override
@@ -147,16 +136,22 @@ public class UnwrappingBeanSerializer
             provider.reportBadDefinition(handledType(),
                     "Unwrapped property requires use of type information: cannot serialize without disabling `SerializationFeature.FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS`");
         }
-        gen.setCurrentValue(bean); // [databind#631]
         if (_objectIdWriter != null) {
             _serializeWithObjectId(bean, gen, provider, typeSer);
             return;
         }
+        // Because we do not write start-object need to call this explicitly:
+        gen.setCurrentValue(bean);
         if (_propertyFilterId != null) {
-            serializeFieldsFiltered(bean, gen, provider);
-        } else {
-            serializeFields(bean, gen, provider);
+            _serializeFieldsFiltered(bean, gen, provider, _propertyFilterId);
+            return;
         }
+        BeanPropertyWriter[] fProps = _filteredProps;
+        if ((fProps != null) && (provider.getActiveView() != null)) {
+            _serializeFieldsMaybeView(bean, gen, provider, fProps);
+            return;
+        }
+        _serializeFieldsNoView(bean, gen, provider, _props);
     }
 
     /*

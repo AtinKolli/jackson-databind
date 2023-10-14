@@ -5,8 +5,6 @@ import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 
@@ -20,28 +18,8 @@ public class ClassNameIdResolver
 {
     private final static String JAVA_UTIL_PKG = "java.util.";
 
-    protected final PolymorphicTypeValidator _subTypeValidator;
-
-    /**
-     * @deprecated Since 2.10 use variant that takes {@link PolymorphicTypeValidator}
-     */
-    @Deprecated
-    protected ClassNameIdResolver(JavaType baseType, TypeFactory typeFactory) {
-        this(baseType, typeFactory, LaissezFaireSubTypeValidator.instance);
-    }
-
-    /**
-     * @since 2.10
-     */
-    public ClassNameIdResolver(JavaType baseType, TypeFactory typeFactory,
-            PolymorphicTypeValidator ptv) {
+    public ClassNameIdResolver(JavaType baseType, TypeFactory typeFactory) {
         super(baseType, typeFactory);
-        _subTypeValidator = ptv;
-    }
-
-    public static ClassNameIdResolver construct(JavaType baseType, MapperConfig<?> config,
-            PolymorphicTypeValidator ptv) {
-        return new ClassNameIdResolver(baseType, config.getTypeFactory(), ptv);
     }
 
     @Override
@@ -68,8 +46,7 @@ public class ClassNameIdResolver
 
     protected JavaType _typeFromId(String id, DatabindContext ctxt) throws IOException
     {
-        // 24-Apr-2019, tatu: [databind#2195] validate as well as resolve:
-        JavaType t = ctxt.resolveAndValidateSubType(_baseType, id, _subTypeValidator);
+        JavaType t = ctxt.resolveSubType(_baseType, id);
         if (t == null) {
             if (ctxt instanceof DeserializationContext) {
                 // First: we may have problem handlers that can deal with it?
@@ -89,13 +66,8 @@ public class ClassNameIdResolver
     protected String _idFrom(Object value, Class<?> cls, TypeFactory typeFactory)
     {
         // Need to ensure that "enum subtypes" work too
-        if (ClassUtil.isEnumType(cls)) {
-            // 29-Sep-2019, tatu: `Class.isEnum()` only returns true for main declaration,
-            //   but NOT from sub-class thereof (extending individual values). This
-            //   is why additional resolution is needed: we want class that contains
-            //   enumeration instances.
-            if (!cls.isEnum()) {
-                // and this parent would then have `Enum.class` as its parent:
+        if (Enum.class.isAssignableFrom(cls)) {
+            if (!cls.isEnum()) { // means that it's sub-class of base enum, so:
                 cls = cls.getSuperclass();
             }
         }

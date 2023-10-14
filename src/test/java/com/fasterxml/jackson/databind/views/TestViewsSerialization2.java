@@ -19,7 +19,7 @@ public class TestViewsSerialization2 extends BaseMapTest
         public interface View { }
         public interface ExtendedView  extends View { }
     }
-
+  
   static class ComplexTestData
   {
     String nameNull = null;
@@ -116,11 +116,11 @@ public class TestViewsSerialization2 extends BaseMapTest
     }
 
     /*
-    /************************************************************************
+    /************************************************************************ 
     /* Tests
-    /************************************************************************
+    /************************************************************************ 
      */
-
+  
     public void testDataBindingUsage( ) throws Exception
     {
         ObjectMapper mapper = createMapper();
@@ -143,11 +143,10 @@ public class TestViewsSerialization2 extends BaseMapTest
 
     private ObjectMapper createMapper()
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .configure( SerializationFeature.FAIL_ON_EMPTY_BEANS, false )
-                .serializationInclusion(JsonInclude.Include.NON_NULL )
-                .configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false )
-                .build();
+        ObjectMapper mapper = newObjectMapper();
+        mapper.configure( SerializationFeature.FAIL_ON_EMPTY_BEANS, false );
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL );
+        mapper.configure(MapperFeature.DEFAULT_VIEW_INCLUSION, false );
         return mapper;
     }
 

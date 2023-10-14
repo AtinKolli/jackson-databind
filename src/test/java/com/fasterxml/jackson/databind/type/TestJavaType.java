@@ -3,12 +3,7 @@ package com.fasterxml.jackson.databind.type;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.DoubleStream;
-import java.util.stream.IntStream;
-import java.util.stream.LongStream;
-import java.util.stream.Stream;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.BaseMapTest;
 import com.fasterxml.jackson.databind.JavaType;
 
@@ -22,28 +17,12 @@ public class TestJavaType
     static class BaseType { }
 
     static class SubType extends BaseType { }
-
+    
     static enum MyEnum { A, B; }
     static enum MyEnum2 {
         A(1), B(2);
 
         private MyEnum2(int value) { }
-    }
-
-    static enum MyEnumSub {
-        A(1) {
-            @Override public String toString() {
-                return "a";
-            }
-        },
-        B(2) {
-            @Override public String toString() {
-                return "b";
-            }
-        }
-        ;
-
-        private MyEnumSub(int value) { }
     }
 
     // [databind#728]
@@ -59,16 +38,13 @@ public class TestJavaType
 
     @SuppressWarnings("serial")
     static class AtomicStringReference extends AtomicReference<String> { }
-
-    static interface StringStream extends Stream<String> { }
-    static interface StringIterator extends Iterator<String> { }
-
+    
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
-
+    
     public void testLocalType728() throws Exception
     {
         TypeFactory tf = TypeFactory.defaultInstance();
@@ -102,7 +78,6 @@ public class TestJavaType
         assertFalse(baseType.isContainerType());
         assertFalse(baseType.isEnumType());
         assertFalse(baseType.isInterface());
-        assertFalse(baseType.isIterationType());
         assertFalse(baseType.isPrimitive());
         assertFalse(baseType.isReferenceType());
         assertFalse(baseType.hasContentType());
@@ -115,26 +90,12 @@ public class TestJavaType
         assertEquals("Lcom/fasterxml/jackson/databind/type/TestJavaType$BaseType;", baseType.getErasedSignature());
     }
 
-    @SuppressWarnings("deprecation")
-    public void testDeprecated()
-    {
-        TypeFactory tf = TypeFactory.defaultInstance();
-        JavaType baseType = tf.constructType(BaseType.class);
-        assertTrue(baseType.hasRawClass(BaseType.class));
-        assertNull(baseType.getParameterSource());
-        assertNull(baseType.getContentTypeHandler());
-        assertNull(baseType.getContentValueHandler());
-        assertFalse(baseType.hasValueHandler());
-        assertFalse(baseType.hasHandlers());
-    }
-
     public void testArrayType()
     {
         TypeFactory tf = TypeFactory.defaultInstance();
         JavaType arrayT = ArrayType.construct(tf.constructType(String.class), null);
         assertNotNull(arrayT);
         assertTrue(arrayT.isContainerType());
-        assertFalse(arrayT.isIterationType());
         assertFalse(arrayT.isReferenceType());
         assertTrue(arrayT.hasContentType());
 
@@ -144,8 +105,7 @@ public class TestJavaType
 
         assertTrue(arrayT.equals(arrayT));
         assertFalse(arrayT.equals(null));
-        final Object bogus = "xyz";
-        assertFalse(arrayT.equals(bogus));
+        assertFalse(arrayT.equals("xyz"));
 
         assertTrue(arrayT.equals(ArrayType.construct(tf.constructType(String.class), null)));
         assertFalse(arrayT.equals(ArrayType.construct(tf.constructType(Integer.class), null)));
@@ -156,7 +116,6 @@ public class TestJavaType
         TypeFactory tf = TypeFactory.defaultInstance();
         JavaType mapT = tf.constructType(HashMap.class);
         assertTrue(mapT.isContainerType());
-        assertFalse(mapT.isIterationType());
         assertFalse(mapT.isReferenceType());
         assertTrue(mapT.hasContentType());
 
@@ -166,23 +125,17 @@ public class TestJavaType
 
         assertEquals("Ljava/util/HashMap<Ljava/lang/Object;Ljava/lang/Object;>;", mapT.getGenericSignature());
         assertEquals("Ljava/util/HashMap;", mapT.getErasedSignature());
-
+        
         assertTrue(mapT.equals(mapT));
         assertFalse(mapT.equals(null));
-        Object bogus = "xyz";
-        assertFalse(mapT.equals(bogus));
+        assertFalse(mapT.equals("xyz"));
     }
-
+    
     public void testEnumType()
     {
         TypeFactory tf = TypeFactory.defaultInstance();
         JavaType enumT = tf.constructType(MyEnum.class);
-        // JDK actually works fine with "basic" Enum types...
-        assertTrue(enumT.getRawClass().isEnum());
         assertTrue(enumT.isEnumType());
-        assertTrue(enumT.isEnumImplType());
-        assertFalse(enumT.isIterationType());
-
         assertFalse(enumT.hasHandlers());
         assertTrue(enumT.isTypeOrSubTypeOf(MyEnum.class));
         assertTrue(enumT.isTypeOrSubTypeOf(Object.class));
@@ -195,20 +148,8 @@ public class TestJavaType
         assertTrue(tf.constructType(MyEnum2.class).isEnumType());
         assertTrue(tf.constructType(MyEnum.A.getClass()).isEnumType());
         assertTrue(tf.constructType(MyEnum2.A.getClass()).isEnumType());
-
-        // [databind#2480]
-        assertFalse(tf.constructType(Enum.class).isEnumImplType());
-        JavaType enumSubT = tf.constructType(MyEnumSub.B.getClass());
-        assertTrue(enumSubT.isEnumType());
-        assertTrue(enumSubT.isEnumImplType());
-
-        // and this is kind of odd twist by JDK: one might except this to return true,
-        // but no, sub-classes (when Enum values have overrides, and require sub-class)
-        // are NOT considered enums for whatever reason
-        assertFalse(enumSubT.getRawClass().isEnum());
     }
 
-    @SuppressWarnings("SelfComparison")
     public void testClassKey()
     {
         ClassKey key = new ClassKey(String.class);
@@ -241,7 +182,7 @@ public class TestJavaType
         t  = tf.constructType(m.getGenericReturnType());
         assertEquals("Ljava/util/List<Ljava/lang/String;>;", t.getGenericSignature());
         assertEquals("Ljava/util/List;", t.getErasedSignature());
-
+        
         m = Generic1194.class.getMethod("getMap");
         t  = tf.constructType(m.getGenericReturnType());
         assertEquals("Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;",
@@ -252,16 +193,12 @@ public class TestJavaType
         assertEquals("Ljava/util/concurrent/atomic/AtomicReference<Ljava/lang/String;>;", t.getGenericSignature());
     }
 
-    @Deprecated
     public void testAnchorTypeForRefTypes() throws Exception
     {
         TypeFactory tf = TypeFactory.defaultInstance();
         JavaType t  = tf.constructType(AtomicStringReference.class);
         assertTrue(t.isReferenceType());
         assertTrue(t.hasContentType());
-        JavaType ct = t.getContentType();
-        assertEquals(String.class, ct.getRawClass());
-        assertSame(ct, t.containedType(0));
         ReferenceType rt = (ReferenceType) t;
         assertFalse(rt.isAnchorType());
         assertEquals(AtomicReference.class, rt.getAnchorType().getRawClass());
@@ -277,87 +214,5 @@ public class TestJavaType
         JavaType sub = tf.constructSpecializedType(base, AtomicReference.class);
         assertEquals(AtomicReference.class, sub.getRawClass());
         assertTrue(sub.isReferenceType());
-    }
-
-    // for [databind#2091]
-    public void testConstructReferenceType() throws Exception
-    {
-        TypeFactory tf = TypeFactory.defaultInstance();
-        // do AtomicReference<Long>
-        final JavaType refdType = tf.constructType(Long.class);
-        JavaType t  = tf.constructReferenceType(AtomicReference.class, refdType);
-        assertTrue(t.isReferenceType());
-        assertTrue(t.hasContentType());
-        assertEquals(Long.class, t.getContentType().getRawClass());
-
-        // 26-Mar-2020, tatu: [databind#2019] made this work
-        assertEquals(1, t.containedTypeCount());
-        TypeBindings bindings = t.getBindings();
-        assertEquals(1, bindings.size());
-        assertEquals(refdType, bindings.getBoundType(0));
-        // Should we even verify this or not?
-        assertEquals("V", bindings.getBoundName(0));
-    }
-
-    // for [databind#3950]: resolve `Iterator`, `Stream`
-    public void testIterationTypesDirect() throws Exception
-    {
-        TypeFactory tf = TypeFactory.defaultInstance();
-
-        // First, type-erased types
-        _verifyIteratorType(tf.constructType(Iterator.class),
-                Iterator.class, Object.class);
-        _verifyIteratorType(tf.constructType(Stream.class),
-                Stream.class, Object.class);
-
-        // Then generic but direct
-        JavaType t = _verifyIteratorType(tf.constructType(new TypeReference<Iterator<String>>() { }),
-                Iterator.class, String.class);
-        assertEquals("java.util.Iterator<java.lang.String>", t.toCanonical());
-        assertEquals("Ljava/util/Iterator;", t.getErasedSignature());
-        assertEquals("Ljava/util/Iterator<Ljava/lang/String;>;", t.getGenericSignature());
-        _verifyIteratorType(tf.constructType(new TypeReference<Stream<Long>>() { }),
-                Stream.class, Long.class);
-
-        // Then primitive stream:
-        _verifyIteratorType(tf.constructType(DoubleStream.class),
-                DoubleStream.class, Double.TYPE);
-        _verifyIteratorType(tf.constructType(IntStream.class),
-                IntStream.class, Integer.TYPE);
-        _verifyIteratorType(tf.constructType(LongStream.class),
-                LongStream.class, Long.TYPE);
-    }
-
-    // for [databind#3950]: resolve `Iterator`, `Stream`
-    public void testIterationTypesFromValues() throws Exception
-    {
-        TypeFactory tf = TypeFactory.defaultInstance();
-        List<String> strings = Arrays.asList("foo", "bar");
-        // We will get type-erased, alas, so:
-        Iterator<String> stringIT = strings.iterator();
-        _verifyIteratorType(tf.constructType(stringIT.getClass()),
-                stringIT.getClass(), Object.class);
-        Stream<String> stringStream = strings.stream();
-        _verifyIteratorType(tf.constructType(stringStream.getClass()),
-                stringStream.getClass(), Object.class);
-    }
-
-    // for [databind#3950]: resolve `Iterator`, `Stream`
-    public void testIterationSubTypes() throws Exception
-    {
-        TypeFactory tf = TypeFactory.defaultInstance();
-        _verifyIteratorType(tf.constructType(StringIterator.class),
-                StringIterator.class, String.class);
-        _verifyIteratorType(tf.constructType(StringStream.class),
-                StringStream.class, String.class);
-    }
-
-    private JavaType _verifyIteratorType(JavaType type,
-            Class<?> expType, Class<?> expContentType) {
-        assertTrue(type.isIterationType());
-        assertEquals(IterationType.class, type.getClass());
-        assertEquals(expType, type.getRawClass());
-        assertEquals(expContentType, type.getContentType().getRawClass());
-        return type;
     }
 }

@@ -2,15 +2,14 @@ package perf;
 
 import java.util.Map;
 
-import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.core.json.JsonFactory;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 public class ManualReadPerfUntyped extends ObjectReaderTestBase
 {
     @Override
     protected int targetSizeMegs() { return 10; }
-
+    
     public static void main(String[] args) throws Exception
     {
         if (args.length != 1) {
@@ -20,16 +19,17 @@ public class ManualReadPerfUntyped extends ObjectReaderTestBase
         byte[] data = readAll(args[0]);
 
         boolean doIntern = true;
+
         JsonFactory f = JsonFactory.builder()
-                .configure(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES, doIntern)
-                .configure(JsonFactory.Feature.INTERN_FIELD_NAMES, doIntern)
-                .build();
-
-        JsonMapper m = new JsonMapper(f);
-
+            .set(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES, doIntern)
+            .set(JsonFactory.Feature.INTERN_FIELD_NAMES, doIntern)
+            .build();
+        
+        ObjectMapper m = new ObjectMapper(f);
+        
         // Either Object or Map
         final Class<?> UNTYPED = Map.class;
-
+        
         Object input1 = m.readValue(data, UNTYPED);
         JsonNode input2 = m.readTree(data);
 

@@ -3,7 +3,6 @@ package com.fasterxml.jackson.databind.node;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -30,16 +29,22 @@ public class ObjectNodeTest
         public DataImpl(JsonNode n) {
             root = n;
         }
-
+        
         @JsonValue
         public JsonNode value() { return root; }
+        
+        /*
+        public Wrapper(ObjectNode n) { root = n; }
+        
+        @JsonValue
+        public ObjectNode value() { return root; }
+        */
     }
 
     static class ObNodeWrapper {
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         public ObjectNode node;
 
-        protected ObNodeWrapper() { }
         public ObNodeWrapper(ObjectNode n) {
             node = n;
         }
@@ -63,7 +68,7 @@ public class ObjectNodeTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = objectMapper();
 
     public void testSimpleObject() throws Exception
     {
@@ -76,14 +81,6 @@ public class ObjectNodeTest
         assertFalse(root.isArray());
         assertTrue(root.isObject());
         assertEquals(2, root.size());
-        assertFalse(root.isEmpty());
-
-        assertFalse(root.isBoolean());
-        assertFalse(root.isTextual());
-        assertFalse(root.isNumber());
-        assertFalse(root.canConvertToInt());
-        assertFalse(root.canConvertToLong());
-        assertFalse(root.canConvertToExactIntegral());
 
         Iterator<JsonNode> it = root.iterator();
         assertNotNull(it);
@@ -118,20 +115,18 @@ public class ObjectNodeTest
         assertEquals(1, obNode.size());
         assertEquals(IntNode.valueOf(1), root.get("key"));
         assertNull(root.get("b"));
-    }
-
+    }    
     // for [databind#346]
     public void testEmptyNodeAsValue() throws Exception
     {
         Data w = MAPPER.readValue("{}", Data.class);
         assertNotNull(w);
     }
-
+    
     public void testBasics()
     {
         ObjectNode n = new ObjectNode(JsonNodeFactory.instance);
         assertStandardEquals(n);
-        assertTrue(n.isEmpty());
 
         assertFalse(n.elements().hasNext());
         assertFalse(n.fields().hasNext());
@@ -141,7 +136,7 @@ public class ObjectNodeTest
 
         TextNode text = TextNode.valueOf("x");
         assertSame(n, n.set("a", text));
-
+        
         assertEquals(1, n.size());
         assertTrue(n.elements().hasNext());
         assertTrue(n.fields().hasNext());
@@ -162,7 +157,7 @@ public class ObjectNodeTest
         n2.put("b", 13);
         assertFalse(n.equals(n2));
         n.setAll(n2);
-
+        
         assertEquals(2, n.size());
         n.set("null", (JsonNode)null);
         assertEquals(3, n.size());
@@ -182,24 +177,6 @@ public class ObjectNodeTest
 
         n.removeAll();
         assertEquals(0, n.size());
-    }
-
-    public void testBasicsPutSet()
-    {
-        final JsonNodeFactory f = JsonNodeFactory.instance;
-        ObjectNode root = f.objectNode();
-        JsonNode old;
-        old = root.putIfAbsent("key", f.textNode("foobar"));
-        assertNull(old);
-        assertEquals(1, root.size());
-        old = root.putIfAbsent("key", f.numberNode(3));
-        assertEquals(1, root.size());
-        assertSame(old, root.get("key"));
-
-        // but can replace with straight set
-        old = root.replace("key", f.numberNode(72));
-        assertNotNull(old);
-        assertEquals("foobar", old.textValue());
     }
 
     public void testBigNumbers()
@@ -293,43 +270,41 @@ public class ObjectNodeTest
         assertEquals("c", ob.get("c").textValue());
     }
 
-    public void testValidWithObject() throws Exception
+    public void testValidWith() throws Exception
     {
         ObjectNode root = MAPPER.createObjectNode();
         assertEquals("{}", MAPPER.writeValueAsString(root));
-        JsonNode child = root.withObject("/prop");
+        JsonNode child = root.with("prop");
         assertTrue(child instanceof ObjectNode);
         assertEquals("{\"prop\":{}}", MAPPER.writeValueAsString(root));
     }
 
     public void testValidWithArray() throws Exception
     {
-        JsonNode root = MAPPER.createObjectNode();
+        ObjectNode root = MAPPER.createObjectNode();
         assertEquals("{}", MAPPER.writeValueAsString(root));
-        ArrayNode child = root.withArray("arr");
+        JsonNode child = root.withArray("arr");
         assertTrue(child instanceof ArrayNode);
         assertEquals("{\"arr\":[]}", MAPPER.writeValueAsString(root));
     }
 
-    public void testInvalidWithObject() throws Exception
+    public void testInvalidWith() throws Exception
     {
         JsonNode root = MAPPER.createArrayNode();
         try { // should not work for non-ObjectNode nodes:
-            root.withObject("/prop");
+            root.with("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "`withObject(String)` not implemented");
-            verifyException(e, "ArrayNode");
+            verifyException(e, "not of type ObjectNode");
         }
         // also: should fail of we already have non-object property
         ObjectNode root2 = MAPPER.createObjectNode();
         root2.put("prop", 13);
         try { // should not work for non-ObjectNode nodes:
-            root2.withObject("/prop");
+            root2.with("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "Cannot replace `JsonNode` of type ");
-            verifyException(e, "IntNode");
+            verifyException(e, "has value that is not");
         }
     }
 
@@ -337,33 +312,10 @@ public class ObjectNodeTest
     {
         JsonNode root = MAPPER.createArrayNode();
         try { // should not work for non-ObjectNode nodes:
-            root.withArray("/prop");
-            fail("Expected exception");
-        } catch (UnsupportedOperationException e) {
-            verifyException(e, "Cannot replace context node (of type");
-            verifyException(e, "ArrayNode");
-        }
-        // also: should fail of we already have non-Array property
-        ObjectNode root2 = MAPPER.createObjectNode();
-        root2.put("prop", 13);
-        try { // should not work for non-ObjectNode nodes:
-            root2.withArray("/prop");
-            fail("Expected exception");
-        } catch (UnsupportedOperationException e) {
-            verifyException(e, "Cannot replace `JsonNode` of type ");
-            verifyException(e, "IntNode");
-        }
-    }
-
-    // Test for pre-2.14 behavior for "simple property"
-    public void testInvalidWithArrayLegacy() throws Exception
-    {
-        JsonNode root = MAPPER.createArrayNode();
-        try { // should not work for non-ObjectNode nodes:
             root.withArray("prop");
             fail("Expected exception");
         } catch (UnsupportedOperationException e) {
-            verifyException(e, "not of type `ObjectNode`");
+            verifyException(e, "not of type ObjectNode");
         }
         // also: should fail of we already have non-Array property
         ObjectNode root2 = MAPPER.createObjectNode();
@@ -376,6 +328,7 @@ public class ObjectNodeTest
         }
     }
 
+    // [Issue#93]
     public void testSetAll() throws Exception
     {
         ObjectNode root = MAPPER.createObjectNode();
@@ -417,33 +370,19 @@ public class ObjectNodeTest
     public void testFailOnDupKeys() throws Exception
     {
         final String DUP_JSON = "{ \"a\":1, \"a\":2 }";
-
+        
         // first: verify defaults:
-        assertFalse(MAPPER.isEnabled(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY));
-        ObjectNode root = (ObjectNode) MAPPER.readTree(DUP_JSON);
+        ObjectMapper mapper = new ObjectMapper();
+        assertFalse(mapper.isEnabled(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY));
+        ObjectNode root = (ObjectNode) mapper.readTree(DUP_JSON);
         assertEquals(2, root.path("a").asInt());
-
+        
         // and then enable checks:
         try {
-            MAPPER.reader(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY).readTree(DUP_JSON);
+            mapper.reader(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY).readTree(DUP_JSON);
             fail("Should have thrown exception!");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "duplicate field 'a'");
-        }
-    }
-
-    public void testFailOnDupNestedKeys() throws Exception
-    {
-        final String DOC = a2q(
-                "{'node' : { 'data' : [ 1, 2, { 'a':3 }, { 'foo' : 1, 'bar' : 2, 'foo': 3}]}}"
-        );
-        try {
-            MAPPER.readerFor(ObNodeWrapper.class)
-                .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
-                .readValue(DOC);
-            fail("Should have thrown exception!");
-        } catch (MismatchedInputException e) {
-            verifyException(e, "duplicate field 'foo'");
         }
     }
 
@@ -453,7 +392,7 @@ public class ObjectNodeTest
         ObjectNode ob2 = MAPPER.createObjectNode();
 
         // same contents, different insertion order; should not matter
-
+        
         ob1.put("a", 1);
         ob1.put("b", 2);
         ob1.put("c", 3);
@@ -503,30 +442,12 @@ public class ObjectNodeTest
 
     public void testSimpleMismatch() throws Exception
     {
+        ObjectMapper mapper = objectMapper();
         try {
-            MAPPER.readValue("[ 1, 2, 3 ]", ObjectNode.class);
+            mapper.readValue("[ 1, 2, 3 ]", ObjectNode.class);
             fail("Should not pass");
         } catch (MismatchedInputException e) {
-            verifyException(e, "from Array value (token `JsonToken.START_ARRAY`)");
+            verifyException(e, "out of START_ARRAY token");
         }
-    }
-
-    // [databind#3809]
-    public void testPropertiesTraversal() throws Exception
-    {
-        // Nothing to traverse for other types
-        assertEquals("", _toString(MAPPER.createArrayNode()));
-        assertEquals("", _toString(MAPPER.getNodeFactory().textNode("foo")));
-
-        // But yes for ObjectNode:
-        JsonNode n = MAPPER.readTree(a2q(
-                "{ 'a':1, 'b':true,'c':'stuff'}"));
-        assertEquals("a/1,b/true,c/\"stuff\"", _toString(n));
-    }
-
-    private String _toString(JsonNode n) {
-        return n.properties().stream()
-                .map(e -> e.getKey() + "/" + e.getValue())
-                .collect(Collectors.joining(","));
     }
 }

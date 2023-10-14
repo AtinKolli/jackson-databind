@@ -17,15 +17,13 @@ import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 public abstract class ValueNode
     extends BaseJsonNode
 {
-    private static final long serialVersionUID = 1L;
-
     protected ValueNode() { }
 
     @Override
     protected JsonNode _at(JsonPointer ptr) {
-        // 02-Jan-2020, tatu: As per [databind#3005] must return `null` and NOT
-        //    "missing node"
-        return null;
+        // will only allow direct matches, but no traversal through
+        // (base class checks for direct match)
+        return MissingNode.getInstance();
     }
 
     /**
@@ -35,7 +33,7 @@ public abstract class ValueNode
     @SuppressWarnings("unchecked")
     @Override
     public <T extends JsonNode> T deepCopy() { return (T) this; }
-
+    
     @Override public abstract JsonToken asToken();
 
     @Override
@@ -51,17 +49,17 @@ public abstract class ValueNode
 
     /*
     /**********************************************************************
-    /* Basic property access
+    /* Base impls for standard methods
     /**********************************************************************
      */
 
     @Override
-    public boolean isEmpty() { return true; }
+    public String toString() { return asText(); }
 
     /*
-    /**********************************************************************
-    /* Navigation methods
-    /**********************************************************************
+     **********************************************************************
+     * Navigation methods
+     **********************************************************************
      */
 
     @Override

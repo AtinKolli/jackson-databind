@@ -5,10 +5,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.*;
-
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.core.Version;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -29,7 +33,10 @@ import com.fasterxml.jackson.databind.util.NameTransformer;
  * longer chains of introspectors by linking multiple pairs.
  * Currently most likely combination is that of using the default
  * Jackson provider, along with JAXB annotation introspector.
- *
+ *<p>
+ * Note: up until 2.0, this class was an inner class of
+ * {@link AnnotationIntrospector}; moved here for convenience.
+ * 
  * @since 2.1
  */
 public class AnnotationIntrospectorPair
@@ -80,14 +87,14 @@ public class AnnotationIntrospectorPair
         _secondary.allIntrospectors(result);
         return result;
     }
-
+    
     // // // Generic annotation properties, lookup
-
+    
     @Override
     public boolean isAnnotationBundle(Annotation ann) {
         return _primary.isAnnotationBundle(ann) || _secondary.isAnnotationBundle(ann);
     }
-
+    
     /*
     /******************************************************
     /* General class annotations
@@ -109,23 +116,13 @@ public class AnnotationIntrospectorPair
         return (name2 == null) ? name1 : name2;
     }
 
-    // since 2.12
     @Override
-    public JsonIgnoreProperties.Value findPropertyIgnoralByName(MapperConfig<?> config, Annotated ann)
+    public JsonIgnoreProperties.Value findPropertyIgnorals(Annotated a)
     {
-        JsonIgnoreProperties.Value v2 = _secondary.findPropertyIgnoralByName(config, ann);
-        JsonIgnoreProperties.Value v1 = _primary.findPropertyIgnoralByName(config, ann);
+        JsonIgnoreProperties.Value v2 = _secondary.findPropertyIgnorals(a);
+        JsonIgnoreProperties.Value v1 = _primary.findPropertyIgnorals(a);
         return (v2 == null) // shouldn't occur but
             ? v1 : v2.withOverrides(v1);
-    }
-
-    @Override
-    public JsonIncludeProperties.Value findPropertyInclusionByName(MapperConfig<?> config, Annotated a)
-    {
-        JsonIncludeProperties.Value v2 = _secondary.findPropertyInclusionByName(config, a);
-        JsonIncludeProperties.Value v1 = _primary.findPropertyInclusionByName(config, a);
-        return (v2 == null) // shouldn't occur but
-                ? v1 : v2.withOverrides(v1);
     }
 
     @Override
@@ -147,23 +144,13 @@ public class AnnotationIntrospectorPair
         }
         return id;
     }
-
+    
     @Override
     public Object findNamingStrategy(AnnotatedClass ac)
     {
         Object str = _primary.findNamingStrategy(ac);
         if (str == null) {
             str = _secondary.findNamingStrategy(ac);
-        }
-        return str;
-    }
-
-    @Override
-    public Object findEnumNamingStrategy(MapperConfig<?> config, AnnotatedClass ac)
-    {
-        Object str = _primary.findEnumNamingStrategy(config, ac);
-        if (str == null) {
-            str = _secondary.findEnumNamingStrategy(config, ac);
         }
         return str;
     }
@@ -177,43 +164,12 @@ public class AnnotationIntrospectorPair
         return str;
     }
 
-    @Override
-    @Deprecated // since 2.8
-    public String[] findPropertiesToIgnore(Annotated ac, boolean forSerialization) {
-        String[] result = _primary.findPropertiesToIgnore(ac, forSerialization);
-        if (result == null) {
-            result = _secondary.findPropertiesToIgnore(ac, forSerialization);
-        }
-        return result;
-    }
-
-    @Override
-    @Deprecated // since 2.8
-    public Boolean findIgnoreUnknownProperties(AnnotatedClass ac)
-    {
-        Boolean result = _primary.findIgnoreUnknownProperties(ac);
-        if (result == null) {
-            result = _secondary.findIgnoreUnknownProperties(ac);
-        }
-        return result;
-    }
-
-    @Override
-    @Deprecated // since 2.12
-    public JsonIgnoreProperties.Value findPropertyIgnorals(Annotated a)
-    {
-        JsonIgnoreProperties.Value v2 = _secondary.findPropertyIgnorals(a);
-        JsonIgnoreProperties.Value v1 = _primary.findPropertyIgnorals(a);
-        return (v2 == null) // shouldn't occur but
-            ? v1 : v2.withOverrides(v1);
-    }
-
     /*
     /******************************************************
     /* Property auto-detection
     /******************************************************
     */
-
+    
     @Override
     public VisibilityChecker<?> findAutoDetectVisibility(AnnotatedClass ac,
         VisibilityChecker<?> checker)
@@ -230,19 +186,6 @@ public class AnnotationIntrospectorPair
     /* Type handling
     /******************************************************
      */
-
-    /**
-     * @since 2.16 (backported from Jackson 3.0)
-     */
-    @Override
-    public JsonTypeInfo.Value findPolymorphicTypeInfo(MapperConfig<?> config, Annotated ann)
-    {
-        JsonTypeInfo.Value v = _primary.findPolymorphicTypeInfo(config, ann);
-        if (v == null) {
-            v = _secondary.findPolymorphicTypeInfo(config, ann);
-        }
-        return v;
-    }
 
     @Override
     public TypeResolverBuilder<?> findTypeResolver(MapperConfig<?> config,
@@ -276,7 +219,7 @@ public class AnnotationIntrospectorPair
         }
         return b;
     }
-
+    
     @Override
     public List<NamedType> findSubtypes(Annotated a)
     {
@@ -294,8 +237,8 @@ public class AnnotationIntrospectorPair
     public String findTypeName(AnnotatedClass ac)
     {
         String name = _primary.findTypeName(ac);
-        if (name == null || name.isEmpty()) {
-            name = _secondary.findTypeName(ac);
+        if (name == null || name.length() == 0) {
+            name = _secondary.findTypeName(ac);                
         }
         return name;
     }
@@ -304,14 +247,14 @@ public class AnnotationIntrospectorPair
     /* General member (field, method/constructor) annotations
     /******************************************************
      */
-
-    @Override
+    
+    @Override        
     public ReferenceProperty findReferenceType(AnnotatedMember member) {
         ReferenceProperty r = _primary.findReferenceType(member);
         return (r == null) ? _secondary.findReferenceType(member) : r;
     }
 
-    @Override
+    @Override        
     public NameTransformer findUnwrappingNameTransformer(AnnotatedMember member) {
         NameTransformer r = _primary.findUnwrappingNameTransformer(member);
         return (r == null) ? _secondary.findUnwrappingNameTransformer(member) : r;
@@ -320,13 +263,7 @@ public class AnnotationIntrospectorPair
     @Override
     public JacksonInject.Value findInjectableValue(AnnotatedMember m) {
         JacksonInject.Value r = _primary.findInjectableValue(m);
-        if (r == null || r.getUseInput() == null) {
-            JacksonInject.Value secondary = _secondary.findInjectableValue(m);
-            if (secondary != null) {
-                r = (r == null) ? secondary : r.withUseInput(secondary.getUseInput());
-            }
-        }
-        return r;
+        return (r == null) ? _secondary.findInjectableValue(m) : r;
     }
 
     @Override
@@ -340,13 +277,6 @@ public class AnnotationIntrospectorPair
         return (r == null) ? _secondary.hasRequiredMarker(m) : r;
     }
 
-    @Override
-    @Deprecated // since 2.9
-    public Object findInjectableValueId(AnnotatedMember m) {
-        Object r = _primary.findInjectableValueId(m);
-        return (r == null) ? _secondary.findInjectableValueId(m) : r;
-    }
-
     // // // Serialization: general annotations
 
     @Override
@@ -358,7 +288,7 @@ public class AnnotationIntrospectorPair
         return _explicitClassOrOb(_secondary.findSerializer(am),
                 JsonSerializer.None.class);
     }
-
+    
     @Override
     public Object findKeySerializer(Annotated a) {
         Object r = _primary.findKeySerializer(a);
@@ -378,7 +308,7 @@ public class AnnotationIntrospectorPair
         return _explicitClassOrOb(_secondary.findContentSerializer(a),
                 JsonSerializer.None.class);
     }
-
+    
     @Override
     public Object findNullSerializer(Annotated a) {
         Object r = _primary.findNullSerializer(a);
@@ -531,16 +461,6 @@ public class AnnotationIntrospectorPair
         return res;
     }
 
-    @Override // since 2.11
-    public PropertyName findRenameByField(MapperConfig<?> config,
-            AnnotatedField f, PropertyName implName) {
-        PropertyName n = _secondary.findRenameByField(config, f, implName);
-        if (n == null) {
-            n = _primary.findRenameByField(config, f, implName);
-        }
-        return n;
-    }
-
     // // // Serialization: type refinements
 
     @Override // since 2.7
@@ -574,7 +494,7 @@ public class AnnotationIntrospectorPair
     }
 
     // // // Serialization: property annotations
-
+    
     @Override
     public PropertyName findNameForSerialization(Annotated a) {
         PropertyName n = _primary.findNameForSerialization(a);
@@ -588,15 +508,6 @@ public class AnnotationIntrospectorPair
             }
         }
         return n;
-    }
-
-    @Override
-    public Boolean hasAsKey(MapperConfig<?> config, Annotated a) {
-        Boolean b = _primary.hasAsKey(config, a);
-        if (b == null) {
-            b = _secondary.hasAsKey(config, a);
-        }
-        return b;
     }
 
     @Override
@@ -617,7 +528,6 @@ public class AnnotationIntrospectorPair
         return b;
     }
 
-    @Deprecated // since 2.16
     @Override
     public  String[] findEnumValues(Class<?> enumType, Enum<?>[] enumValues, String[] names) {
         // reverse order to give _primary higher precedence
@@ -627,60 +537,9 @@ public class AnnotationIntrospectorPair
     }
 
     @Override
-    public String[] findEnumValues(MapperConfig<?> config, AnnotatedClass annotatedClass,
-            Enum<?>[] enumValues, String[] names) {
-        // reverse order to give _primary higher precedence
-        names = _secondary.findEnumValues(config, annotatedClass, enumValues, names);
-        names = _primary.findEnumValues(config, annotatedClass, enumValues, names);
-        return names;
-    }
-
-    @Deprecated // since 2.16
-    @Override
-    public void findEnumAliases(Class<?> enumType, Enum<?>[] enumValues, String[][] aliases) {
-        // reverse order to give _primary higher precedence
-        _secondary.findEnumAliases(enumType, enumValues, aliases);
-        _primary.findEnumAliases(enumType, enumValues, aliases);
-    }
-
-    @Override
-    public void findEnumAliases(MapperConfig<?> config, AnnotatedClass annotatedClass,
-            Enum<?>[] enumConstants, String[][] aliases) {
-        // reverse order to give _primary higher precedence
-        _secondary.findEnumAliases(config, annotatedClass, enumConstants, aliases);
-        _primary.findEnumAliases(config, annotatedClass, enumConstants, aliases);
-    }
-
-    @Override
-    @Deprecated // since 2.16
     public Enum<?> findDefaultEnumValue(Class<Enum<?>> enumCls) {
         Enum<?> en = _primary.findDefaultEnumValue(enumCls);
         return (en == null) ? _secondary.findDefaultEnumValue(enumCls) : en;
-    }
-    
-    @Override // since 2.16
-    public Enum<?> findDefaultEnumValue(AnnotatedClass annotatedClass, Enum<?>[] enumValues) {
-        Enum<?> en = _primary.findDefaultEnumValue(annotatedClass, enumValues);
-        return (en == null) ? _secondary.findDefaultEnumValue(annotatedClass, enumValues) : en;
-    }
-
-    @Override
-    @Deprecated // since 2.8
-    public String findEnumValue(Enum<?> value) {
-        String r = _primary.findEnumValue(value);
-        return (r == null) ? _secondary.findEnumValue(value) : r;
-    }
-
-    @Override
-    @Deprecated // since 2.9
-    public boolean hasAsValueAnnotation(AnnotatedMethod am) {
-        return _primary.hasAsValueAnnotation(am) || _secondary.hasAsValueAnnotation(am);
-    }
-
-    @Override
-    @Deprecated // since 2.9
-    public boolean hasAnyGetterAnnotation(AnnotatedMethod am) {
-        return _primary.hasAnyGetterAnnotation(am) || _secondary.hasAnyGetterAnnotation(am);
     }
 
     // // // Deserialization: general annotations
@@ -713,7 +572,7 @@ public class AnnotationIntrospectorPair
         }
         return _explicitClassOrOb(_secondary.findContentDeserializer(am),
                 JsonDeserializer.None.class);
-
+                
     }
 
     @Override
@@ -794,7 +653,7 @@ public class AnnotationIntrospectorPair
             ? v1 : v2.withOverrides(v1);
     }
 
-    @Override // since 2.9
+    @Override
     public Boolean findMergeInfo(Annotated a) {
         Boolean b = _primary.findMergeInfo(a);
         if (b == null) {
@@ -804,31 +663,9 @@ public class AnnotationIntrospectorPair
     }
 
     @Override
-    @Deprecated // since 2.9
-    public boolean hasCreatorAnnotation(Annotated a) {
-        return _primary.hasCreatorAnnotation(a) || _secondary.hasCreatorAnnotation(a);
-    }
-
-    @Override
-    @Deprecated // since 2.9
-    public JsonCreator.Mode findCreatorBinding(Annotated a) {
-        JsonCreator.Mode mode = _primary.findCreatorBinding(a);
-        if (mode != null) {
-            return mode;
-        }
-        return _secondary.findCreatorBinding(a);
-    }
-
-    @Override
     public JsonCreator.Mode findCreatorAnnotation(MapperConfig<?> config, Annotated a) {
         JsonCreator.Mode mode = _primary.findCreatorAnnotation(config, a);
         return (mode == null) ? _secondary.findCreatorAnnotation(config, a) : mode;
-    }
-
-    @Override
-    @Deprecated // since 2.9
-    public boolean hasAnySetterAnnotation(AnnotatedMethod am) {
-        return _primary.hasAnySetterAnnotation(am) || _secondary.hasAnySetterAnnotation(am);
     }
 
     protected boolean _isExplicitClassOrOb(Object maybeCls, Class<?> implicit) {
@@ -841,7 +678,6 @@ public class AnnotationIntrospectorPair
         return true;
     }
 
-    // @since 2.9
     protected Object _explicitClassOrOb(Object maybeCls, Class<?> implicit) {
         if ((maybeCls == null) || (maybeCls == implicit)) {
             return null;

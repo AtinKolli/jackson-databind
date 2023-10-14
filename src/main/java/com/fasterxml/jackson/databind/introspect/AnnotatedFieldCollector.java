@@ -18,29 +18,22 @@ public class AnnotatedFieldCollector
     private final TypeFactory _typeFactory;
     private final MixInResolver _mixInResolver;
 
-    /**
-     * @since 2.11
-     */
-    private final boolean _collectAnnotations;
-
     // // // Collected state
 
     AnnotatedFieldCollector(AnnotationIntrospector intr,
-            TypeFactory types, MixInResolver mixins, boolean collectAnnotations)
+            TypeFactory types, MixInResolver mixins)
     {
         super(intr);
         _typeFactory = types;
         _mixInResolver = (intr == null) ? null : mixins;
-        _collectAnnotations = collectAnnotations;
     }
 
     public static List<AnnotatedField> collectFields(AnnotationIntrospector intr,
             TypeResolutionContext tc,
             MixInResolver mixins, TypeFactory types,
-            JavaType type, boolean collectAnnotations)
+            JavaType type)
     {
-        return new AnnotatedFieldCollector(intr, types, mixins, collectAnnotations)
-                .collect(tc, type);
+        return new AnnotatedFieldCollector(intr, types, mixins).collect(tc, type);
     }
 
     List<AnnotatedField> collect(TypeResolutionContext tc, JavaType type)
@@ -70,7 +63,7 @@ public class AnnotatedFieldCollector
         // Let's add super-class' fields first, then ours.
         fields = _findFields(new TypeResolutionContext.Basic(_typeFactory, parent.getBindings()),
                 parent, fields);
-        for (Field f : cls.getDeclaredFields()) {
+        for (Field f : ClassUtil.getDeclaredFields(cls)) {
             // static fields not included (transients are at this point, filtered out later)
             if (!_isIncludableField(f)) {
                 continue;
@@ -82,13 +75,13 @@ public class AnnotatedFieldCollector
                 fields = new LinkedHashMap<>();
             }
             FieldBuilder b = new FieldBuilder(tc, f);
-            if (_collectAnnotations) {
+            if (_intr != null) {
                 b.annotations = collectAnnotations(b.annotations, f.getDeclaredAnnotations());
             }
             fields.put(f.getName(), b);
         }
         // And then... any mix-in overrides?
-        if ((fields != null) && (_mixInResolver != null)) {
+        if (_mixInResolver != null) {
             Class<?> mixin = _mixInResolver.findMixInClassFor(cls);
             if (mixin != null) {
                 _addFieldMixIns(mixin, cls, fields);
@@ -107,7 +100,7 @@ public class AnnotatedFieldCollector
     {
         List<Class<?>> parents = ClassUtil.findSuperClasses(mixInCls, targetClass, true);
         for (Class<?> mixin : parents) {
-            for (Field mixinField : mixin.getDeclaredFields()) {
+            for (Field mixinField : ClassUtil.getDeclaredFields(mixin)) {
                 // there are some dummy things (static, synthetic); better ignore
                 if (!_isIncludableField(mixinField)) {
                     continue;
@@ -124,10 +117,6 @@ public class AnnotatedFieldCollector
 
     private boolean _isIncludableField(Field f)
     {
-        // [databind#2787]: Allow `Enum` mixins
-        if (f.isEnumConstant()) {
-            return true;
-        }
         // Most likely synthetic fields, if any, are to be skipped similar to methods
         if (f.isSynthetic()) {
             return false;

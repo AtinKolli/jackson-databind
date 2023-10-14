@@ -9,10 +9,7 @@ import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.fasterxml.jackson.databind.deser.std.StdNodeBasedDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-
-import static org.junit.Assert.assertArrayEquals;
 
 /**
  * Unit tests for verifying that "updating reader" works as
@@ -116,61 +113,6 @@ public class TestUpdateViaObjectReader extends BaseMapTest
         }
     }
 
-    @JsonDeserialize(using = Custom3814DeserializerA.class)
-    static class Bean3814A {
-        public int age;
-
-        public Bean3814A(int age) {
-            this.age = age;
-        }
-
-        public void updateTo(JsonNode root) {
-            age = root.get("age").asInt();
-        }
-    }
-
-    static class Custom3814DeserializerA extends StdNodeBasedDeserializer<Bean3814A> {
-        public Custom3814DeserializerA() {
-            super(Bean3814A.class);
-        }
-
-        @Override
-        public Bean3814A convert(JsonNode root, DeserializationContext ctxt) throws IOException {
-            return null;
-        }
-
-        @Override
-        public Bean3814A convert(JsonNode root, DeserializationContext ctxt, Bean3814A oldValue) throws IOException {
-            oldValue.updateTo(root);
-            return oldValue;
-        }
-    }
-
-    @JsonDeserialize(using = Custom3814DeserializerB.class)
-    static class Bean3814B {
-        public int age;
-
-        public Bean3814B(int age) {
-            this.age = age;
-        }
-
-        public void updateTo(JsonNode root) {
-            age = root.get("age").asInt();
-        }
-    }
-
-    static class Custom3814DeserializerB extends StdNodeBasedDeserializer<Bean3814B> {
-        public Custom3814DeserializerB() {
-            super(Bean3814B.class);
-        }
-
-        @Override
-        public Bean3814B convert(JsonNode root, DeserializationContext ctxt) throws IOException {
-            return null;
-        }
-
-    }
-
     /*
     /********************************************************
     /* Test methods
@@ -199,21 +141,6 @@ public class TestUpdateViaObjectReader extends BaseMapTest
         assertEquals("b", child.b);
         assertArrayEquals(new int[] { 1, 2, 3 }, child.c);
         assertNull(child.child);
-
-        // 30-Oct-2022, tatu: Also test that `null` is ok for "readerForUpdating()" to
-        //    to remove "to-update" Object
-
-        Bean b2 = MAPPER.readerForUpdating(null)
-                .forType(Bean.class)
-                .readValue(a2q("{'b':'abc'}"));
-        assertEquals("abc", b2.b);
-
-        // and similarly via ObjectReader
-        Bean b3 = MAPPER.readerForUpdating(b2)
-                .withValueToUpdate(null)
-                .readValue(a2q("{'b':'xyz'}"));
-        assertNotSame(b2, b3);
-        assertEquals("xyz", b3.b);
     }
 
     public void testListUpdate() throws Exception
@@ -269,7 +196,7 @@ public class TestUpdateViaObjectReader extends BaseMapTest
         assertSame(toUpdate, value);
         assertEquals(16, value.x); // unchanged
         assertEquals(37, value.y);
-
+        
         assertFalse(it.hasNext());
     }
 
@@ -281,7 +208,7 @@ public class TestUpdateViaObjectReader extends BaseMapTest
         bean.str = "test";
         Updateable result = MAPPER.readerForUpdating(bean)
                 .withView(TextView.class)
-                .readValue("{\"num\": 10, \"str\":\"foobar\"}");
+                .readValue("{\"num\": 10, \"str\":\"foobar\"}");    
         assertSame(bean, result);
 
         assertEquals(100, bean.num);
@@ -289,7 +216,7 @@ public class TestUpdateViaObjectReader extends BaseMapTest
     }
 
     // [databind#744]
-    public void testIssue744() throws Exception
+    public void testIssue744() throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
         SimpleModule module = new SimpleModule();
@@ -323,14 +250,14 @@ public class TestUpdateViaObjectReader extends BaseMapTest
 
         assertEquals(1, dbUpdViaNode.da.i);
         assertEquals(3, dbUpdViaNode.k);
-
+        
         mapper.readerForUpdating(dbUpdViaNode).readValue(jsonBNode);
         assertEquals(5, dbUpdViaNode.da.i);
         assertEquals(13, dbUpdViaNode.k);
     }
 
     // [databind#1831]
-    public void test1831UsingNode() throws Exception {
+    public void test1831UsingNode() throws IOException {
         String catJson = MAPPER.writeValueAsString(new Cat());
         JsonNode jsonNode = MAPPER.readTree(catJson);
         AnimalWrapper optionalCat = new AnimalWrapper();
@@ -339,38 +266,10 @@ public class TestUpdateViaObjectReader extends BaseMapTest
         assertSame(optionalCat, result);
     }
 
-    public void test1831UsingString() throws Exception {
+    public void test1831UsingString() throws IOException {
         String catJson = MAPPER.writeValueAsString(new Cat());
         AnimalWrapper optionalCat = new AnimalWrapper();
         AnimalWrapper result = MAPPER.readerForUpdating(optionalCat).readValue(catJson);
         assertSame(optionalCat, result);
-    }
-
-    // [databind#3814]
-    public void testReaderForUpdating3814() throws Exception {
-        // Arrange
-        JsonNode root = MAPPER.readTree(a2q("{'age': 30 }"));
-        Bean3814A obj = new Bean3814A(25);
-
-        // Act
-        Bean3814A newObj = MAPPER.readerForUpdating(obj).readValue(root);
-
-        // Assert
-        assertSame(obj, newObj);
-        assertEquals(30, newObj.age);
-    }
-
-    // [databind#3814]
-    public void testReaderForUpdating3814DoesNotOverride() throws Exception {
-        // Arrange
-        JsonNode root = MAPPER.readTree(a2q("{'age': 30 }"));
-        Bean3814B obj = new Bean3814B(25);
-
-        // Act
-        Bean3814B newObj = MAPPER.readerForUpdating(obj).readValue(root);
-
-        // Assert
-        assertNotSame(obj, newObj);
-        assertNull(newObj);
     }
 }

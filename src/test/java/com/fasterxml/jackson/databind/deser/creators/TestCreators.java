@@ -1,14 +1,10 @@
 package com.fasterxml.jackson.databind.deser.creators;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.*;
 
 import com.fasterxml.jackson.annotation.*;
-import com.fasterxml.jackson.core.JsonParser;
+
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
 
 /**
  * Unit tests for verifying that it is possible to annotate
@@ -52,7 +48,7 @@ public class TestCreators
             this.b = b;
         }
     }
-
+    
     static class DoubleConstructorBean {
         Double d; // cup?
         @JsonCreator protected DoubleConstructorBean(Double d) {
@@ -99,16 +95,6 @@ public class TestCreators
          */
         static FactoryBean createIt(@JsonProperty("mixed") double xyz) {
             return null;
-        }
-    }
-
-    /**
-     * Simple demonstration of INVALID construtor annotation (only
-     * defining name for first arg)
-     */
-    static class BrokenBean {
-        @JsonCreator protected BrokenBean(@JsonProperty("a") int a,
-                                          int b) {
         }
     }
 
@@ -162,13 +148,12 @@ public class TestCreators
         @JsonCreator public MultiBean(boolean v) { value = v; }
     }
 
-    // for [JACKSON-850]
     static class NoArgFactoryBean {
         public int x;
         public int y;
-
+        
         public NoArgFactoryBean(int value) { x = value; }
-
+        
         @JsonCreator
         public static NoArgFactoryBean create() { return new NoArgFactoryBean(123); }
     }
@@ -186,25 +171,7 @@ public class TestCreators
             return new FromStringBean(s, false);
         }
     }
-
-    // [databind#2215]
-    protected static class BigIntegerWrapper {
-        BigInteger _value;
-
-        public BigIntegerWrapper() { }
-
-        public BigIntegerWrapper(final BigInteger value) { _value = value; }
-    }
-
-    // [databind#2215]
-    protected static class BigDecimalWrapper {
-        BigDecimal _value;
-
-        public BigDecimalWrapper() { }
-
-        public BigDecimalWrapper(final BigDecimal value) { _value = value; }
-    }
-
+    
     /*
     /**********************************************************
     /* Annotated helper classes, mixed (creator and props)
@@ -319,7 +286,7 @@ public class TestCreators
      */
 
     private final ObjectMapper MAPPER = new ObjectMapper();
-
+    
     public void testSimpleConstructor() throws Exception
     {
         ConstructorBean bean = MAPPER.readValue("{ \"x\" : 42 }", ConstructorBean.class);
@@ -333,10 +300,10 @@ public class TestCreators
         assertEquals(13, value.y);
         assertEquals(123, value.x);
     }
-
+    
     public void testSimpleDoubleConstructor() throws Exception
     {
-        Double exp = Double.valueOf("0.25");
+        Double exp = new Double("0.25");
         DoubleConstructorBean bean = MAPPER.readValue(exp.toString(), DoubleConstructorBean.class);
         assertEquals(exp, bean.d);
     }
@@ -348,32 +315,6 @@ public class TestCreators
 
         BooleanConstructorBean2 bean2 = MAPPER.readValue(" true ", BooleanConstructorBean2.class);
         assertTrue(bean2.b);
-    }
-
-    public void testSimpleBigIntegerConstructor() throws Exception
-    {
-        // 10-Dec-2020, tatu: Small (magnitude) values will NOT trigger path
-        //   we want; must use something outside of Long range...
-
-        BigInteger INPUT = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.TEN);
-        final BigIntegerWrapper result = MAPPER.readValue(INPUT.toString(), BigIntegerWrapper.class);
-        assertEquals(INPUT, result._value);
-    }
-
-    public void testSimpleBigDecimalConstructor() throws Exception
-    {
-        // 10-Dec-2020, tatu: not sure we can ever trigger this with JSON;
-        //    but should be possible to handle via TokenBuffer?
-
-        BigDecimal INPUT = new BigDecimal("42.5");
-        try (TokenBuffer buf = new TokenBuffer(null, false)) {
-            buf.writeNumber(INPUT);
-            try (JsonParser p = buf.asParser()) {
-                final BigDecimalWrapper result = MAPPER.readValue(p,
-                        BigDecimalWrapper.class);
-                assertEquals(INPUT, result._value);
-            }
-        }
     }
 
     public void testSimpleFactory() throws Exception
@@ -392,17 +333,17 @@ public class TestCreators
     public void testStringFactory() throws Exception
     {
         String str = "abc";
-        StringFactoryBean bean = MAPPER.readValue(q(str), StringFactoryBean.class);
+        StringFactoryBean bean = MAPPER.readValue(quote(str), StringFactoryBean.class);
         assertEquals(str, bean.value);
     }
 
     public void testStringFactoryAlt() throws Exception
     {
         String str = "xyz";
-        FromStringBean bean = MAPPER.readValue(q(str), FromStringBean.class);
+        FromStringBean bean = MAPPER.readValue(quote(str), FromStringBean.class);
         assertEquals(str, bean.value);
     }
-
+        
     public void testConstructorCreator() throws Exception
     {
         CreatorBean bean = MAPPER.readValue
@@ -442,12 +383,12 @@ public class TestCreators
     {
         MultiBean bean = MAPPER.readValue("123", MultiBean.class);
         assertEquals(Integer.valueOf(123), bean.value);
-        bean = MAPPER.readValue(q("abc"), MultiBean.class);
+        bean = MAPPER.readValue(quote("abc"), MultiBean.class);
         assertEquals("abc", bean.value);
         bean = MAPPER.readValue("0.25", MultiBean.class);
         assertEquals(Double.valueOf(0.25), bean.value);
     }
-
+    
     /*
     /**********************************************************
     /* Test methods, valid cases, deferred, no mixins
@@ -536,13 +477,4 @@ public class TestCreators
     /* Test methods, invalid/broken cases
     /**********************************************************
      */
-
-    public void testBrokenConstructor() throws Exception
-    {
-        try {
-            /*BrokenBean bean =*/ MAPPER.readValue("{ \"x\" : 42 }", BrokenBean.class);
-        } catch (InvalidDefinitionException je) {
-            verifyException(je, "has no property name");
-        }
-    }
 }

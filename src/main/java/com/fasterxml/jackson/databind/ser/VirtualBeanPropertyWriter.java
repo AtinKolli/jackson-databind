@@ -15,9 +15,7 @@ import com.fasterxml.jackson.databind.util.Annotations;
  * {@link BeanPropertyWriter} implementation used with
  * {@link com.fasterxml.jackson.databind.annotation.JsonAppend}
  * to add "virtual" properties in addition to regular ones.
- *
- * @since 2.5
- *
+ * 
  * @see com.fasterxml.jackson.databind.ser.impl.AttributePropertyWriter
  */
 public abstract class VirtualBeanPropertyWriter
@@ -33,7 +31,7 @@ public abstract class VirtualBeanPropertyWriter
             Annotations contextAnnotations, JavaType declaredType)
     {
         this(propDef, contextAnnotations, declaredType, null, null, null,
-                propDef.findInclusion());
+                propDef.findInclusion(), null);
     }
 
     /**
@@ -58,15 +56,6 @@ public abstract class VirtualBeanPropertyWriter
                 ser, typeSer, serType,
                 _suppressNulls(inclusion), _suppressableValue(inclusion),
                 includeInViews);
-    }
-
-    @Deprecated // since 2.8
-    protected VirtualBeanPropertyWriter(BeanPropertyDefinition propDef,
-            Annotations contextAnnotations, JavaType declaredType,
-            JsonSerializer<?> ser, TypeSerializer typeSer, JavaType serType,
-            JsonInclude.Value inclusion)
-    {
-        this(propDef, contextAnnotations, declaredType, ser, typeSer, serType, inclusion, null);
     }
 
     protected VirtualBeanPropertyWriter(VirtualBeanPropertyWriter base) {
@@ -143,7 +132,7 @@ public abstract class VirtualBeanPropertyWriter
     /* PropertyWriter serialization method overrides
     /**********************************************************
      */
-
+    
     @Override
     public void serializeAsField(Object bean, JsonGenerator gen, SerializerProvider prov) throws Exception
     {
@@ -176,7 +165,7 @@ public abstract class VirtualBeanPropertyWriter
             }
         }
         if (value == bean) { // simple check for direct cycles
-            // four choices: exception; handled by call; or pass-through; write null
+            // three choices: exception; handled by call; or pass-through
             if (_handleSelfReference(bean, gen, prov, ser)) {
                 return;
             }
@@ -191,7 +180,7 @@ public abstract class VirtualBeanPropertyWriter
 
     // This one's fine as-is from base class
     //public void serializeAsOmittedField(Object bean, JsonGenerator jgen, SerializerProvider prov) throws Exception
-
+    
     @Override
     public void serializeAsElement(Object bean, JsonGenerator gen, SerializerProvider prov)
         throws Exception

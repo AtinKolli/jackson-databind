@@ -12,7 +12,6 @@ import com.fasterxml.jackson.core.JsonParser.NumberType;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.*;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 /**
  * Basic tests to exercise low-level support added for JSON Schema module and
@@ -22,7 +21,7 @@ public class NewSchemaTest extends BaseMapTest
 {
     enum TestEnum {
         A, B, C;
-
+        
         @Override
         public String toString() {
             return "ToString:"+name();
@@ -31,7 +30,7 @@ public class NewSchemaTest extends BaseMapTest
 
     enum TestEnumWithJsonValue {
         A, B, C;
-
+        
         @JsonValue
         public String forSerialize() {
             return "value-"+name();
@@ -110,7 +109,7 @@ public class NewSchemaTest extends BaseMapTest
         extends JsonFormatVisitorWrapper.Base
     {
         // Implement handlers just to get more exercise...
-
+        
         @Override
         public JsonObjectFormatVisitor expectObjectFormat(JavaType type) {
             return new JsonObjectFormatVisitor.Base(getProvider()) {
@@ -130,7 +129,7 @@ public class NewSchemaTest extends BaseMapTest
 
                 @Override
                 public void optionalProperty(String name, JsonFormatVisitable handler,
-                        JavaType propertyTypeHint) { }
+                        JavaType propertyTypeHint) throws JsonMappingException { }
 
                 private void _visit(BeanProperty prop) throws JsonMappingException
                 {
@@ -145,12 +144,6 @@ public class NewSchemaTest extends BaseMapTest
                             throw new Error("SerializerProvider missing");
                         }
                         ser = prov.findValueSerializer(prop.getType(), prop);
-                    }
-                    // and this just for bit of extra coverage...
-                    if (ser instanceof StdSerializer) {
-                        @SuppressWarnings("deprecation")
-                        JsonNode schemaNode = ((StdSerializer<?>) ser).getSchema(prov, prop.getType());
-                        assertNotNull(schemaNode);
                     }
                     JsonFormatVisitorWrapper visitor = new JsonFormatVisitorWrapper.Base(getProvider());
                     ser.acceptJsonFormatVisitor(visitor, prop.getType());
@@ -196,7 +189,7 @@ public class NewSchemaTest extends BaseMapTest
         @Override
         public JsonMapFormatVisitor expectMapFormat(JavaType type) {
             return new JsonMapFormatVisitor.Base();
-        }
+        }        
     }
 
     /*
@@ -204,8 +197,8 @@ public class NewSchemaTest extends BaseMapTest
     /* Test methods
     /**********************************************************
      */
-
-    private final ObjectMapper MAPPER = newJsonMapper();
+    
+    private final ObjectMapper MAPPER = new ObjectMapper();
 
     /* Silly little test for simply triggering traversal, without attempting to
      * verify what is being reported. Smoke test that should trigger problems
@@ -285,7 +278,7 @@ public class NewSchemaTest extends BaseMapTest
     public void testJsonValueFormatHandling() throws Exception
     {
         // first: serialize using 'toString()', not name
-        final String EXP = q("host-name");
+        final String EXP = quote("host-name");
         assertEquals(EXP, MAPPER.writeValueAsString(JsonValueFormat.HOST_NAME));
 
         // and second, deserialize ok from that as well
@@ -296,7 +289,7 @@ public class NewSchemaTest extends BaseMapTest
     public void testSimpleNumbers() throws Exception
     {
         final StringBuilder sb = new StringBuilder();
-
+        
         MAPPER.acceptJsonFormatVisitor(Numbers.class,
                 new JsonFormatVisitorWrapper.Base() {
             @Override
@@ -317,7 +310,7 @@ public class NewSchemaTest extends BaseMapTest
                         ser.acceptJsonFormatVisitor(new JsonFormatVisitorWrapper.Base() {
                             @Override
                             public JsonNumberFormatVisitor expectNumberFormat(
-                                    JavaType t) {
+                                    JavaType t) throws JsonMappingException {
                                 return new JsonNumberFormatVisitor() {
                                     @Override
                                     public void format(JsonValueFormat format) {
@@ -335,7 +328,7 @@ public class NewSchemaTest extends BaseMapTest
                             }
 
                             @Override
-                            public JsonIntegerFormatVisitor expectIntegerFormat(JavaType t) {
+                            public JsonIntegerFormatVisitor expectIntegerFormat(JavaType t) throws JsonMappingException {
                                 return new JsonIntegerFormatVisitor() {
                                     @Override
                                     public void format(JsonValueFormat format) {

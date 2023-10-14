@@ -40,7 +40,7 @@ public class MergeWithNullTest extends BaseMapTest
             loc = new AB(a, b);
         }
     }
-
+    
     // another variant where all we got is a getter
     static class NoSetterConfig {
         AB _value = new AB(2, 3);
@@ -66,16 +66,16 @@ public class MergeWithNullTest extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = jsonMapperBuilder()
+    private final ObjectMapper MAPPER = newObjectMapper()
             // 26-Oct-2016, tatu: Make sure we'll report merge problems by default
             .disable(MapperFeature.IGNORE_MERGE_FOR_UNMERGEABLE)
-            .build();
+    ;
 
     public void testBeanMergingWithNullDefault() throws Exception
     {
         // By default `null` should simply overwrite value
         ConfigDefault config = MAPPER.readerForUpdating(new ConfigDefault(5, 7))
-                .readValue(a2q("{'loc':null}"));
+                .readValue(aposToQuotes("{'loc':null}"));
         assertNotNull(config);
         assertNull(config.loc);
 
@@ -83,20 +83,20 @@ public class MergeWithNullTest extends BaseMapTest
 
         // First: via specific type override
         // important! We'll specify for value type to be merged
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = newObjectMapper();
         mapper.configOverride(AB.class)
             .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.SKIP));
         config = mapper.readerForUpdating(new ConfigDefault(137, -3))
-                .readValue(a2q("{'loc':null}"));
+                .readValue(aposToQuotes("{'loc':null}"));
         assertNotNull(config.loc);
         assertEquals(137, config.loc.a);
         assertEquals(-3, config.loc.b);
 
         // Second: by global defaults
-        mapper = newJsonMapper();
+        mapper = newObjectMapper();
         mapper.setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.SKIP));
         config = mapper.readerForUpdating(new ConfigDefault(12, 34))
-                .readValue(a2q("{'loc':null}"));
+                .readValue(aposToQuotes("{'loc':null}"));
         assertNotNull(config.loc);
         assertEquals(12, config.loc.a);
         assertEquals(34, config.loc.b);
@@ -105,7 +105,7 @@ public class MergeWithNullTest extends BaseMapTest
     public void testBeanMergingWithNullSkip() throws Exception
     {
         ConfigSkipNull config = MAPPER.readerForUpdating(new ConfigSkipNull(5, 7))
-                .readValue(a2q("{'loc':null}"));
+                .readValue(aposToQuotes("{'loc':null}"));
         assertNotNull(config);
         assertNotNull(config.loc);
         assertEquals(5, config.loc.a);
@@ -115,16 +115,16 @@ public class MergeWithNullTest extends BaseMapTest
     public void testBeanMergingWithNullSet() throws Exception
     {
         ConfigAllowNullOverwrite config = MAPPER.readerForUpdating(new ConfigAllowNullOverwrite(5, 7))
-                .readValue(a2q("{'loc':null}"));
+                .readValue(aposToQuotes("{'loc':null}"));
         assertNotNull(config);
         assertNull(config.loc);
     }
-
+    
     public void testSetterlessMergingWithNull() throws Exception
     {
         NoSetterConfig input = new NoSetterConfig();
         NoSetterConfig result = MAPPER.readerForUpdating(input)
-                .readValue(a2q("{'value':null}"));
+                .readValue(aposToQuotes("{'value':null}"));
         assertNotNull(result.getValue());
         assertEquals(2, result.getValue().a);
         assertEquals(3, result.getValue().b);

@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.JavaType;
  *
  * @since 2.8.11
  */
-public class PlaceholderForType extends IdentityEqualityType
+public class PlaceholderForType extends TypeBase
 {
     private static final long serialVersionUID = 1L;
 
@@ -19,7 +19,7 @@ public class PlaceholderForType extends IdentityEqualityType
      * structure resolution)
      */
     protected JavaType _actualType;
-
+    
     public PlaceholderForType(int ordinal)
     {
         super(Object.class, TypeBindings.emptyBindings(),
@@ -91,6 +91,11 @@ public class PlaceholderForType extends IdentityEqualityType
     @Override
     public String toString() {
         return getErasedSignature(new StringBuilder()).toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return (o == this);
     }
 
     private <T> T _unsupported() {

@@ -8,11 +8,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 /**
  * Unit tests for checking that alternative settings for
- * {@link JsonSerialize#include} annotation property work
+ * <code>JsonInclude</code> annotation property work
  * as expected.
  */
 public class JsonIncludeTest
@@ -23,7 +22,7 @@ public class JsonIncludeTest
         public String getA() { return "a"; }
         public String getB() { return null; }
     }
-
+    
     @JsonInclude(JsonInclude.Include.ALWAYS) // just to ensure default
     static class NoNullsBean
     {
@@ -60,7 +59,7 @@ public class JsonIncludeTest
             this.z = z;
         }
     }
-
+    
     @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     static class MixedBean
     {
@@ -200,7 +199,7 @@ public class JsonIncludeTest
     /**********************************************************
      */
 
-    final private ObjectMapper MAPPER = newJsonMapper();
+    final private ObjectMapper MAPPER = new ObjectMapper();
 
     public void testGlobal() throws IOException
     {
@@ -239,9 +238,9 @@ public class JsonIncludeTest
     {
         NonDefaultBeanXYZ bean = new NonDefaultBeanXYZ(1, 2, 0);
         String json = MAPPER.writeValueAsString(bean);
-        assertEquals(a2q("{'x':1,'y':2}"), json);
+        assertEquals(aposToQuotes("{'x':1,'y':2}"), json);
     }
-
+    
     public void testMixedMethod() throws IOException
     {
         MixedBean bean = new MixedBean();
@@ -311,10 +310,10 @@ public class JsonIncludeTest
     {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setSerializationInclusion(JsonInclude.Include.NON_DEFAULT);
-        assertEquals(a2q("{}"),
+        assertEquals(aposToQuotes("{}"),
                 mapper.writeValueAsString(new Issue1351Bean(null, (double) 0)));
         // [databind#1417]
-        assertEquals(a2q("{}"),
+        assertEquals(aposToQuotes("{}"),
                 mapper.writeValueAsString(new Issue1351NonBean(0)));
     }
 
@@ -322,12 +321,12 @@ public class JsonIncludeTest
     public void testInclusionOfDate() throws Exception
     {
         final Date input = new Date(0L);
-        assertEquals(a2q("{'value':0}"),
+        assertEquals(aposToQuotes("{'value':0}"), 
                 MAPPER.writeValueAsString(new NonEmptyDate(input)));
-        assertEquals("{}",
+        assertEquals("{}", 
                 MAPPER.writeValueAsString(new NonDefaultDate(input)));
 
-
+    
     }
 
     // [databind#1550]
@@ -335,9 +334,9 @@ public class JsonIncludeTest
     {
         final Calendar input = new GregorianCalendar();
         input.setTimeInMillis(0L);
-        assertEquals(a2q("{'value':0}"),
+        assertEquals(aposToQuotes("{'value':0}"), 
                 MAPPER.writeValueAsString(new NonEmptyCalendar(input)));
-        assertEquals("{}",
+        assertEquals("{}", 
                 MAPPER.writeValueAsString(new NonDefaultCalendar(input)));
     }
 }

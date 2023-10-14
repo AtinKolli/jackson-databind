@@ -1,20 +1,15 @@
 package com.fasterxml.jackson.databind.deser.std;
 
 import java.io.IOException;
-import java.util.Collection;
 
-import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.core.JsonParser;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.deser.ResolvableDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
-import com.fasterxml.jackson.databind.util.AccessPattern;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 import com.fasterxml.jackson.databind.util.Converter;
-import com.fasterxml.jackson.databind.util.NameTransformer;
 
 /**
  * Deserializer implementation where given Java type is first deserialized
@@ -29,13 +24,11 @@ import com.fasterxml.jackson.databind.util.NameTransformer;
  *<p>
  * Since 2.5 There is {@link StdNodeBasedDeserializer} that is a simplified version
  * for cases where intermediate type is {@link JsonNode}
- *<p>
- * NOTE: in Jackson 3.0 this class will be renamed as {@code StdConvertingDeserializer}.
- *
+ * 
  * @param <T> Target type to convert to, from delegate type
- *
+ * 
  * @since 2.1
- *
+ * 
  * @see StdNodeBasedDeserializer
  * @see Converter
  */
@@ -107,21 +100,6 @@ public class StdDelegatingDeserializer<T>
         return new StdDelegatingDeserializer<T>(converter, delegateType, delegateDeserializer);
     }
 
-    @Override
-    public JsonDeserializer<T> unwrappingDeserializer(NameTransformer unwrapper) {
-        ClassUtil.verifyMustOverride(StdDelegatingDeserializer.class, this, "unwrappingDeserializer");
-        return replaceDelegatee(_delegateDeserializer.unwrappingDeserializer(unwrapper));
-    }
-
-    @Override
-    public JsonDeserializer<T> replaceDelegatee(JsonDeserializer<?> delegatee) {
-        ClassUtil.verifyMustOverride(StdDelegatingDeserializer.class, this, "replaceDelegatee");
-        if (delegatee == _delegateDeserializer) {
-            return this;
-        }
-        return new StdDelegatingDeserializer<T>(_converter, _delegateType, delegatee);
-    }
-
     /*
     /**********************************************************
     /* Contextualization
@@ -160,10 +138,31 @@ public class StdDelegatingDeserializer<T>
 
     /*
     /**********************************************************
-    /* Deserialization
+    /* Accessors
     /**********************************************************
      */
 
+    @Override
+    public JsonDeserializer<?> getDelegatee() {
+        return _delegateDeserializer;
+    }
+
+    @Override
+    public Class<?> handledType() {
+        return _delegateDeserializer.handledType();
+    }
+
+    @Override // since 2.9
+    public Boolean supportsUpdate(DeserializationConfig config) {
+        return _delegateDeserializer.supportsUpdate(config);
+    }
+
+    /*
+    /**********************************************************
+    /* Serialization
+    /**********************************************************
+     */
+    
     @Override
     public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException
     {
@@ -207,22 +206,6 @@ public class StdDelegatingDeserializer<T>
         return (T) _handleIncompatibleUpdateValue(p, ctxt, intoValue);
     }
 
-    @SuppressWarnings("unchecked")
-    @Override
-    public Object deserializeWithType(JsonParser p, DeserializationContext ctxt,
-            TypeDeserializer typeDeserializer, T intoValue)
-        throws IOException, JacksonException
-    {
-        // 21-Jan-2023, tatu: Override was missing from 2.15. Tricky to
-        //    support but follow example of the other "deserializeWithType()"
-        //   It seems unlikely to actually work (isn't type check just... wrong?)
-        //   but for now has to do I guess.
-        if (!_delegateType.getRawClass().isAssignableFrom(intoValue.getClass())){
-            return (T) _handleIncompatibleUpdateValue(p, ctxt, intoValue);
-        }
-        return (T) _delegateDeserializer.deserialize(p, ctxt, intoValue);
-    }
-
     /**
      * Overridable handler method called when {@link #deserialize(JsonParser, DeserializationContext, Object)}
      * has been called with a value that is not compatible with delegate value.
@@ -240,81 +223,7 @@ public class StdDelegatingDeserializer<T>
                 ("Cannot update object of type %s (using deserializer for type %s)"
                         +intoValue.getClass().getName(), _delegateType));
     }
-
-    /*
-    /**********************************************************
-    /* Accessors
-    /**********************************************************
-     */
-
-    @Override
-    public Class<?> handledType() {
-        return _delegateDeserializer.handledType();
-    }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return _delegateDeserializer.logicalType();
-    }
-
-    // Let's assume we should be cachable if delegate is
-    @Override
-    public boolean isCachable() {
-        return (_delegateDeserializer != null) && _delegateDeserializer.isCachable();
-    }
-
-    @Override
-    public JsonDeserializer<?> getDelegatee() {
-        return _delegateDeserializer;
-    }
-
-    @Override
-    public Collection<Object> getKnownPropertyNames() {
-        return _delegateDeserializer.getKnownPropertyNames();
-    }
-
-    /*
-    /**********************************************************
-    /* Null/empty/absent accessors
-    /**********************************************************
-     */
-
-    @Override
-    public T getNullValue(DeserializationContext ctxt) throws JsonMappingException {
-        return _convertIfNonNull(_delegateDeserializer.getNullValue(ctxt));
-    }
-
-    @Override
-    public AccessPattern getNullAccessPattern() {
-        return _delegateDeserializer.getNullAccessPattern();
-    }
-
-    @Override
-    public Object getAbsentValue(DeserializationContext ctxt) throws JsonMappingException {
-        return _convertIfNonNull(_delegateDeserializer.getAbsentValue(ctxt));
-    }
-
-    @Override
-    public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
-        return _convertIfNonNull(_delegateDeserializer.getEmptyValue(ctxt));
-    }
-
-    @Override
-    public AccessPattern getEmptyAccessPattern() {
-        return _delegateDeserializer.getEmptyAccessPattern();
-    }
-
-    /*
-    /**********************************************************
-    /* Other accessors
-    /**********************************************************
-     */
-
-    @Override // since 2.9
-    public Boolean supportsUpdate(DeserializationConfig config) {
-        return _delegateDeserializer.supportsUpdate(config);
-    }
-
+    
     /*
     /**********************************************************
     /* Overridable methods
@@ -328,24 +237,12 @@ public class StdDelegatingDeserializer<T>
      *<P>
      * The default implementation uses configured {@link Converter} to do
      * conversion.
-     *
+     * 
      * @param delegateValue
-     *
+     * 
      * @return Result of conversion
      */
     protected T convertValue(Object delegateValue) {
         return _converter.convert(delegateValue);
-    }
-
-    /*
-    /**********************************************************
-    /* Helper methods
-    /**********************************************************
-     */
-
-    // @since 2.14.2
-    protected T _convertIfNonNull(Object delegateValue) {
-        return (delegateValue == null) ? null
-                : _converter.convert(delegateValue);
     }
 }

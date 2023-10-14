@@ -38,13 +38,13 @@ public class ProblemHandlerLocation1440Test extends BaseMapTest
         public List<String> problems() {
             return probs.unknownProperties;
         }
-
+        
         @Override
         public boolean handleUnknownProperty(final DeserializationContext ctxt, final JsonParser p,
                 JsonDeserializer<?> deserializer, Object beanOrClass, String propertyName)
                         throws IOException
         {
-            final JsonStreamContext parsingContext = p.getParsingContext();
+            final TokenStreamContext parsingContext = p.getParsingContext();
             final List<String> pathList = new ArrayList<>();
             addParent(parsingContext, pathList);
             Collections.reverse(pathList);
@@ -67,9 +67,9 @@ public class ProblemHandlerLocation1440Test extends BaseMapTest
             return sb.toString();
         }
 
-        private void addParent(final JsonStreamContext streamContext, final List<String> pathList) {
-            if (streamContext != null && streamContext.getCurrentName() != null) {
-                pathList.add(streamContext.getCurrentName());
+        private void addParent(final TokenStreamContext streamContext, final List<String> pathList) {
+            if (streamContext != null && streamContext.currentName() != null) {
+                pathList.add(streamContext.currentName());
                 addParent(streamContext.getParent(), pathList);
             }
         }
@@ -116,7 +116,7 @@ public class ProblemHandlerLocation1440Test extends BaseMapTest
     public void testIncorrectContext() throws Exception
     {
         // need invalid to trigger problem:
-        final String invalidInput = a2q(
+        final String invalidInput = aposToQuotes(
 "{'actor': {'id': 'actor_id','type': 'actor_type',"
 +"'status': 'actor_status','context':'actor_context','invalid_1': 'actor_invalid_1'},"
 +"'verb': 'verb','object': {'id': 'object_id','type': 'object_type',"
@@ -125,7 +125,7 @@ public class ProblemHandlerLocation1440Test extends BaseMapTest
 +"'invalid_4': 'target_invalid_4','status': 'target_status','context': 'target_context'}}"
 );
 
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = newObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         final DeserializationProblemLogger logger = new DeserializationProblemLogger();
         mapper.addHandler(logger);

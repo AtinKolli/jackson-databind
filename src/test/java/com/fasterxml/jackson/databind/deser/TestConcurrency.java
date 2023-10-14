@@ -3,15 +3,25 @@ package com.fasterxml.jackson.databind.deser;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.*;
+
+import com.fasterxml.jackson.databind.BaseMapTest;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 /**
- * Testing for NPE due to race condition.
+ * Testing for a NPE due to race condition
  */
 public class TestConcurrency extends BaseMapTest
 {
-    @JsonDeserialize(using=CustomBeanDeserializer.class)
+    /*
+    /**********************************************
+    /* Helper beans
+    /**********************************************
+     */
+
+    @JsonDeserialize(using=TestBeanDeserializer.class)
     static class Bean
     {
         public int value = 42;
@@ -22,19 +32,19 @@ public class TestConcurrency extends BaseMapTest
     /* Helper classes
     /**********************************************
      */
-
+    
     /**
      * Dummy deserializer used for verifying that partially handled (i.e. not yet
      * resolved) deserializers are not allowed to be used.
      */
-    static class CustomBeanDeserializer
+    static class TestBeanDeserializer
         extends JsonDeserializer<Bean>
         implements ResolvableDeserializer
     {
         protected volatile boolean resolved = false;
-
+        
         @Override
-        public Bean deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException
+        public Bean deserialize(JsonParser p, DeserializationContext ctxt) throws IOException
         {
             if (!resolved) {
                 throw new IOException("Deserializer not yet completely resolved");
@@ -62,11 +72,10 @@ public class TestConcurrency extends BaseMapTest
 
     public void testDeserializerResolution() throws Exception
     {
-        /* Let's repeat couple of times, just to be sure; thread timing is not
-         * exact science; plus caching plays a role too
-         */
+        // Let's repeat couple of times, just to be sure; thread timing is not
+        // exact science; plus caching plays a role too
         final String JSON = "{\"value\":42}";
-
+        
         for (int i = 0; i < 5; ++i) {
             final ObjectMapper mapper = new ObjectMapper();
             Runnable r = new Runnable() {
@@ -86,6 +95,6 @@ public class TestConcurrency extends BaseMapTest
             // note: funny deserializer, mangles data.. :)
             assertEquals(13, b.value);
             t.join();
-        }
+        }   
     }
 }

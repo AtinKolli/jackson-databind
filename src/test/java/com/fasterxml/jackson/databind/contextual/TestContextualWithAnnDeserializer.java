@@ -20,10 +20,10 @@ public class TestContextualWithAnnDeserializer extends BaseMapTest
     public @interface Name {
         public String value();
     }
-
+    
     static class StringValue {
         protected String value;
-
+        
         public StringValue(String v) { value = v; }
     }
 
@@ -33,13 +33,13 @@ public class TestContextualWithAnnDeserializer extends BaseMapTest
         @JsonDeserialize(using=AnnotatedContextualDeserializer.class)
         public StringValue value;
     }
-
+    
     static class AnnotatedContextualDeserializer
         extends JsonDeserializer<StringValue>
         implements ContextualDeserializer
     {
         protected final String _fieldName;
-
+        
         public AnnotatedContextualDeserializer() { this(""); }
         public AnnotatedContextualDeserializer(String fieldName) {
             _fieldName = fieldName;
@@ -54,6 +54,7 @@ public class TestContextualWithAnnDeserializer extends BaseMapTest
         @Override
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt,
                 BeanProperty property)
+            throws JsonMappingException
         {
             Name ann = property.getAnnotation(Name.class);
             if (ann == null) {

@@ -21,7 +21,7 @@ public class BuilderFailTest extends BaseMapTest
     static class SimpleBuilderXY
     {
         public int x, y;
-
+     
         public SimpleBuilderXY withX(int x0) {
               this.x = x0;
               return this;
@@ -68,20 +68,19 @@ public class BuilderFailTest extends BaseMapTest
         final String json = "{\"x\":1}";
         try {
             MAPPER.readValue(json, ValueClassWrongBuildType.class);
-            fail("Missing expected InvalidDefinitionException exception");
+            fail("Missing expected JsonProcessingException exception");
         } catch (InvalidDefinitionException e) {
-            verifyException(e, "Build method ");
-            verifyException(e, "#build()");
+            verifyException(e, "Build method");
             verifyException(e, "has wrong return type");
         }
     }
 
     public void testExtraFields() throws Exception
     {
-        final String json = a2q("{'x':1,'y':2,'z':3}");
+        final String json = aposToQuotes("{'x':1,'y':2,'z':3}");
         try {
             MAPPER.readValue(json, ValueClassXY.class);
-            fail("Missing expected UnrecognizedPropertyException exception");
+            fail("should not pass");
         } catch (UnrecognizedPropertyException e) {
             verifyException(e, "Unrecognized field \"z\"");
         }

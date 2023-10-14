@@ -3,7 +3,7 @@ package com.fasterxml.jackson.databind.cfg;
 import java.util.Collections;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.introspect.ClassIntrospector;
 
@@ -18,8 +18,6 @@ public class DeserializationConfigTest extends BaseMapTest
 
         // Expected defaults:
         assertTrue(cfg.isEnabled(MapperFeature.USE_ANNOTATIONS));
-        assertTrue(cfg.isEnabled(MapperFeature.AUTO_DETECT_SETTERS));
-        assertTrue(cfg.isEnabled(MapperFeature.AUTO_DETECT_CREATORS));
         assertTrue(cfg.isEnabled(MapperFeature.USE_GETTERS_AS_SETTERS));
         assertTrue(cfg.isEnabled(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS));
 
@@ -47,7 +45,7 @@ public class DeserializationConfigTest extends BaseMapTest
         DeserializationConfig newConfig = config.with(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
         assertNotSame(config, newConfig);
         config = newConfig;
-
+        
         // but another attempt with no real change returns same
         assertSame(config, config.with(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES));
         assertNotSame(config, config.with(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, false));
@@ -59,13 +57,13 @@ public class DeserializationConfigTest extends BaseMapTest
     public void testParserFeatures() throws Exception
     {
         DeserializationConfig config = MAPPER.getDeserializationConfig();
-        assertNotSame(config, config.with(JsonReadFeature.ALLOW_JAVA_COMMENTS));
-        assertNotSame(config, config.withFeatures(JsonReadFeature.ALLOW_JAVA_COMMENTS,
-                JsonReadFeature.ALLOW_MISSING_VALUES));
+        assertNotSame(config, config.with(JsonParser.Feature.ALLOW_COMMENTS));
+        assertNotSame(config, config.withFeatures(JsonParser.Feature.ALLOW_COMMENTS,
+                JsonParser.Feature.ALLOW_MISSING_VALUES));
 
-        assertNotSame(config, config.without(JsonReadFeature.ALLOW_JAVA_COMMENTS));
-        assertNotSame(config, config.withoutFeatures(JsonReadFeature.ALLOW_JAVA_COMMENTS,
-                JsonReadFeature.ALLOW_MISSING_VALUES));
+        assertNotSame(config, config.without(JsonParser.Feature.ALLOW_COMMENTS));
+        assertNotSame(config, config.withoutFeatures(JsonParser.Feature.ALLOW_COMMENTS,
+                JsonParser.Feature.ALLOW_MISSING_VALUES));
     }
 
     public void testFormatFeatures() throws Exception
@@ -86,7 +84,7 @@ public class DeserializationConfigTest extends BaseMapTest
     public void testEnumIndexes()
     {
         int max = 0;
-
+        
         for (DeserializationFeature f : DeserializationFeature.values()) {
             max = Math.max(max, f.ordinal());
         }

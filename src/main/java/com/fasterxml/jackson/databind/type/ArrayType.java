@@ -122,7 +122,7 @@ public final class ArrayType
 
     @Override
     public boolean isArrayType() { return true; }
-
+    
     /**
      * For some odd reason, modifiers for array classes would
      * claim they are abstract types. Not so, at least for our
@@ -171,7 +171,7 @@ public final class ArrayType
     public boolean hasHandlers() {
         return super.hasHandlers() || _componentType.hasHandlers();
     }
-
+    
     @Override
     public StringBuilder getGenericSignature(StringBuilder sb) {
         sb.append('[');
@@ -183,20 +183,7 @@ public final class ArrayType
         sb.append('[');
         return _componentType.getErasedSignature(sb);
     }
-
-    /*
-    /**********************************************************
-    /* Extended API
-    /**********************************************************
-     */
-
-    /**
-     * @since 2.12
-     */
-    public Object[] getEmptyArray() {
-        return  (Object[]) _emptyArray;
-    }
-
+    
     /*
     /**********************************************************
     /* Standard methods

@@ -12,13 +12,12 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 /**
  * Numeric node that contains simple 16-bit integer values.
  */
-@SuppressWarnings("serial")
 public class ShortNode
     extends NumericNode
 {
     protected final short _value;
 
-    /*
+    /* 
     ************************************************
     * Construction
     ************************************************
@@ -28,7 +27,7 @@ public class ShortNode
 
     public static ShortNode valueOf(short l) { return new ShortNode(l); }
 
-    /*
+    /* 
     ************************************************
     * Overridden JsonNode methods
     ************************************************
@@ -48,7 +47,7 @@ public class ShortNode
 
     @Override public boolean canConvertToInt() { return true; }
     @Override public boolean canConvertToLong() { return true; }
-
+    
     @Override
     public Number numberValue() {
         return Short.valueOf(_value);
@@ -84,12 +83,12 @@ public class ShortNode
     public boolean asBoolean(boolean defaultValue) {
         return _value != 0;
     }
-
+    
     @Override
-    public final void serialize(JsonGenerator g, SerializerProvider provider)
-        throws IOException
+    public final void serialize(JsonGenerator jg, SerializerProvider provider)
+        throws IOException, JsonProcessingException
     {
-        g.writeNumber(_value);
+        jg.writeNumber(_value);
     }
 
     @Override

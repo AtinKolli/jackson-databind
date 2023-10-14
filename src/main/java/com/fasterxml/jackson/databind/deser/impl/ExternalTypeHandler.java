@@ -13,7 +13,7 @@ import com.fasterxml.jackson.databind.util.TokenBuffer;
  * Helper class that is used to flatten JSON structure when using
  * "external type id" (see {@link com.fasterxml.jackson.annotation.JsonTypeInfo.As#EXTERNAL_PROPERTY}).
  * This is needed to store temporary state and buffer tokens, as the structure is
- * rearranged a bit so that actual type deserializer can resolve type and
+ * rearranged a bit so that actual type deserializer can resolve type and 
  * finalize deserialization.
  */
 public class ExternalTypeHandler
@@ -128,7 +128,7 @@ public class ExternalTypeHandler
      * at point where parser points to the first token of the value.
      * Handling can mean either resolving type id it contains (if it matches type
      * property name), or by buffering the value for further use.
-     *
+     * 
      * @return True, if the given property was properly handled
      */
     @SuppressWarnings("unchecked")
@@ -155,7 +155,9 @@ public class ExternalTypeHandler
                     _typeIds[it.next()] = typeId;
                 }
             } else {
-                TokenBuffer tokens = ctxt.bufferAsCopyOfValue(p);
+                @SuppressWarnings("resource")
+                TokenBuffer tokens = new TokenBuffer(p, ctxt);
+                tokens.copyCurrentStructure(p);
                 _tokens[index] = tokens;
                 while (it.hasNext()) {
                     _tokens[it.next()] = tokens;
@@ -170,14 +172,13 @@ public class ExternalTypeHandler
         ExtTypedProperty prop = _properties[index];
         boolean canDeserialize;
         if (prop.hasTypePropertyName(propName)) {
-            // 19-Feb-2021, tatu: as per [databind#3008], don't use "getText()"
-            //    since that'll coerce null value into String "null"...
-            _typeIds[index] = p.getValueAsString();
+            _typeIds[index] = p.getText();
             p.skipChildren();
             canDeserialize = (bean != null) && (_tokens[index] != null);
         } else {
             @SuppressWarnings("resource")
-            TokenBuffer tokens = ctxt.bufferAsCopyOfValue(p);
+            TokenBuffer tokens = new TokenBuffer(p, ctxt);
+            tokens.copyCurrentStructure(p);
             _tokens[index] = tokens;
             canDeserialize = (bean != null) && (_typeIds[index] != null);
         }
@@ -203,7 +204,6 @@ public class ExternalTypeHandler
     {
         for (int i = 0, len = _properties.length; i < len; ++i) {
             String typeId = _typeIds[i];
-            final ExtTypedProperty extProp = _properties[i];
             if (typeId == null) {
                 TokenBuffer tokens = _tokens[i];
                 // let's allow missing both type and property (may already have been set, too)
@@ -215,36 +215,31 @@ public class ExternalTypeHandler
                 // will be included.
                 JsonToken t = tokens.firstToken();
                 if (t.isScalarValue()) { // can't be null as we never store empty buffers
-                    JsonParser buffered = tokens.asParser(p);
+                    JsonParser buffered = tokens.asParser(ctxt, p);
                     buffered.nextToken();
-                    SettableBeanProperty prop = extProp.getProperty();
-                    Object result = TypeDeserializer.deserializeIfNatural(buffered, ctxt, prop.getType());
+                    SettableBeanProperty extProp = _properties[i].getProperty();
+                    Object result = TypeDeserializer.deserializeIfNatural(buffered, ctxt, extProp.getType());
                     if (result != null) {
-                        prop.set(bean, result);
+                        extProp.set(bean, result);
                         continue;
                     }
-                }
-                // 26-Oct-2012, tatu: As per [databind#94], must allow use of 'defaultImpl'
-                if (!extProp.hasDefaultType()) {
-                    ctxt.reportPropertyInputMismatch(_beanType, extProp.getProperty().getName(),
-                            "Missing external type id property '%s' (and no 'defaultImpl' specified)",
-                            extProp.getTypePropertyName());
-                } else  {
-                    typeId = extProp.getDefaultTypeId();
-                    if (typeId == null) {
-                        ctxt.reportPropertyInputMismatch(_beanType, extProp.getProperty().getName(),
-"Invalid default type id for property '%s': `null` returned by TypeIdResolver",
-                                extProp.getTypePropertyName());
+                    // 26-Oct-2012, tatu: As per [databind#94], must allow use of 'defaultImpl'
+                    if (!_properties[i].hasDefaultType()) {
+                        ctxt.reportInputMismatch(bean.getClass(),
+                                "Missing external type id property '%s'",
+                                _properties[i].getTypePropertyName());                                
+                    } else  {
+                        typeId = _properties[i].getDefaultTypeId();
                     }
                 }
             } else if (_tokens[i] == null) {
-                SettableBeanProperty prop = extProp.getProperty();
+                SettableBeanProperty prop = _properties[i].getProperty();
 
-                if (prop.isRequired() ||
+                if(prop.isRequired() ||
                         ctxt.isEnabled(DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)) {
-                    ctxt.reportPropertyInputMismatch(bean.getClass(), prop.getName(),
+                    ctxt.reportInputMismatch(bean.getClass(),
                             "Missing property '%s' for external type id '%s'",
-                            prop.getName(), extProp.getTypePropertyName());
+                            prop.getName(), _properties[i].getTypePropertyName());
                 }
                 return bean;
             }
@@ -267,40 +262,28 @@ public class ExternalTypeHandler
         for (int i = 0; i < len; ++i) {
             String typeId = _typeIds[i];
             final ExtTypedProperty extProp = _properties[i];
+
             if (typeId == null) {
                 // let's allow missing both type and property (may already have been set, too)
-                TokenBuffer tb = _tokens[i];
-                if ((tb == null)
-                        // 19-Feb-2021, tatu: Both missing value and explicit `null`
-                        //    should be accepted...
-                        || (tb.firstToken() == JsonToken.VALUE_NULL)
-                    ) {
+                if (_tokens[i] == null) {
                     continue;
                 }
                 // but not just one
                 // 26-Oct-2012, tatu: As per [databind#94], must allow use of 'defaultImpl'
                 if (!extProp.hasDefaultType()) {
-                    ctxt.reportPropertyInputMismatch(_beanType, extProp.getProperty().getName(),
+                    ctxt.reportInputMismatch(_beanType,
                             "Missing external type id property '%s'",
                             extProp.getTypePropertyName());
                 } else {
                     typeId = extProp.getDefaultTypeId();
                 }
+            } else if (_tokens[i] == null) {
+                SettableBeanProperty prop = extProp.getProperty();
+                ctxt.reportInputMismatch(_beanType,
+                        "Missing property '%s' for external type id '%s'",
+                        prop.getName(), _properties[i].getTypePropertyName());
             }
-
-            if (_tokens[i] != null) {
-                values[i] = _deserialize(p, ctxt, i, typeId);
-            } else {
-                if (ctxt.isEnabled(DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)) {
-                    SettableBeanProperty prop = extProp.getProperty();
-                    ctxt.reportPropertyInputMismatch(_beanType, prop.getName(),
-                            "Missing property '%s' for external type id '%s'",
-                            prop.getName(), _properties[i].getTypePropertyName());
-                }
-                // 03-Aug-2022, tatu: [databind#3533] to handle absent value matching
-                //    present type id
-                values[i] = _deserializeMissingToken(p, ctxt, i, typeId);
-            }
+            values[i] = _deserialize(p, ctxt, i, typeId);
 
             final SettableBeanProperty prop = extProp.getProperty();
             // also: if it's creator prop, fill in
@@ -311,21 +294,11 @@ public class ExternalTypeHandler
                 SettableBeanProperty typeProp = extProp.getTypeProperty();
                 // for now, should only be needed for creator properties, too
                 if ((typeProp != null) && (typeProp.getCreatorIndex() >= 0)) {
-                    // 31-May-2018, tatu: [databind#1328] if id is NOT plain `String`, need to
-                    //    apply deserializer... fun fun.
-                    final Object v;
-                    if (typeProp.getType().hasRawClass(String.class)) {
-                        v = typeId;
-                    } else {
-                        TokenBuffer tb = ctxt.bufferForInputBuffering(p);
-                        tb.writeString(typeId);
-                        v = typeProp.getValueDeserializer().deserialize(tb.asParserOnFirstToken(), ctxt);
-                        tb.close();
-                    }
-                    buffer.assignParameter(typeProp, v);
+                    buffer.assignParameter(typeProp, typeId);
                 }
             }
         }
+
         Object bean = creator.build(ctxt, buffer);
         // third: assign non-creator properties
         for (int i = 0; i < len; ++i) {
@@ -341,36 +314,20 @@ public class ExternalTypeHandler
     protected final Object _deserialize(JsonParser p, DeserializationContext ctxt,
             int index, String typeId) throws IOException
     {
-        JsonParser p2 = _tokens[index].asParser(p);
+        JsonParser p2 = _tokens[index].asParser(ctxt, p);
         JsonToken t = p2.nextToken();
         // 29-Sep-2015, tatu: As per [databind#942], nulls need special support
         if (t == JsonToken.VALUE_NULL) {
             return null;
         }
-        TokenBuffer merged = ctxt.bufferForInputBuffering(p);
+        TokenBuffer merged = new TokenBuffer(p, ctxt);
         merged.writeStartArray();
         merged.writeString(typeId);
         merged.copyCurrentStructure(p2);
         merged.writeEndArray();
 
         // needs to point to START_OBJECT (or whatever first token is)
-        JsonParser mp = merged.asParser(p);
-        mp.nextToken();
-        return _properties[index].getProperty().deserialize(mp, ctxt);
-    }
-
-    // 03-Aug-2022, tatu: [databind#3533] to handle absent value matching:
-    @SuppressWarnings("resource")
-    protected final Object _deserializeMissingToken(JsonParser p, DeserializationContext ctxt,
-            int index, String typeId) throws IOException
-    {
-        TokenBuffer merged = ctxt.bufferForInputBuffering(p);
-        merged.writeStartArray();
-        merged.writeString(typeId);
-        merged.writeEndArray();
-
-        // needs to point to START_OBJECT (or whatever first token is)
-        JsonParser mp = merged.asParser(p);
+        JsonParser mp = merged.asParser(ctxt, p);
         mp.nextToken();
         return _properties[index].getProperty().deserialize(mp, ctxt);
     }
@@ -379,28 +336,24 @@ public class ExternalTypeHandler
     protected final void _deserializeAndSet(JsonParser p, DeserializationContext ctxt,
             Object bean, int index, String typeId) throws IOException
     {
-        // 11-Nov-2020, tatu: Should never get `null` passed this far,
-        if (typeId == null) {
-            ctxt.reportInputMismatch(_beanType, "Internal error in external Type Id handling: `null` type id passed");
-        }
-
-        // Ok: time to mix type id, value; and we will actually use "wrapper-array"
-        // style to ensure we can handle all kinds of JSON constructs.
-        JsonParser p2 = _tokens[index].asParser(p);
+        /* Ok: time to mix type id, value; and we will actually use "wrapper-array"
+         * style to ensure we can handle all kinds of JSON constructs.
+         */
+        JsonParser p2 = _tokens[index].asParser(ctxt, p);
         JsonToken t = p2.nextToken();
         // 29-Sep-2015, tatu: As per [databind#942], nulls need special support
         if (t == JsonToken.VALUE_NULL) {
             _properties[index].getProperty().set(bean, null);
             return;
         }
-        TokenBuffer merged = ctxt.bufferForInputBuffering(p);
+        TokenBuffer merged = new TokenBuffer(p, ctxt);
         merged.writeStartArray();
         merged.writeString(typeId);
 
         merged.copyCurrentStructure(p2);
         merged.writeEndArray();
         // needs to point to START_OBJECT (or whatever first token is)
-        JsonParser mp = merged.asParser(p);
+        JsonParser mp = merged.asParser(ctxt, p);
         mp.nextToken();
         _properties[index].getProperty().deserializeAndSet(mp, ctxt, bean);
     }
@@ -410,7 +363,7 @@ public class ExternalTypeHandler
     /* Helper classes
     /**********************************************************
      */
-
+    
     public static class Builder
     {
         private final JavaType _beanType;
@@ -445,13 +398,11 @@ public class ExternalTypeHandler
                 _nameToPropertyIndex.put(name, list);
             }
         }
-
+        
         /**
          * Method called after all external properties have been assigned, to further
          * link property with polymorphic value with possible property for type id
          * itself. This is needed to support type ids as Creator properties.
-         *
-         * @since 2.8
          */
         public ExternalTypeHandler build(BeanPropertyMap otherProps) {
             // 21-Jun-2016, tatu: as per [databind#999], may need to link type id property also
@@ -460,7 +411,7 @@ public class ExternalTypeHandler
             for (int i = 0; i < len; ++i) {
                 ExtTypedProperty extProp = _properties.get(i);
                 String typePropId = extProp.getTypePropertyName();
-                SettableBeanProperty typeProp = otherProps.find(typePropId);
+                SettableBeanProperty typeProp = otherProps.findDefinition(typePropId);
                 if (typeProp != null) {
                     extProp.linkTypeProperty(typeProp);
                 }
@@ -477,9 +428,6 @@ public class ExternalTypeHandler
         private final TypeDeserializer _typeDeserializer;
         private final String _typePropertyName;
 
-        /**
-         * @since 2.8
-         */
         private SettableBeanProperty _typeProperty;
 
         public ExtTypedProperty(SettableBeanProperty property, TypeDeserializer typeDeser)
@@ -501,7 +449,7 @@ public class ExternalTypeHandler
         }
 
         public boolean hasDefaultType() {
-            return _typeDeserializer.hasDefaultImpl();
+            return _typeDeserializer.getDefaultImpl() != null;
         }
 
         /**
@@ -523,9 +471,6 @@ public class ExternalTypeHandler
             return _property;
         }
 
-        /**
-         * @since 2.8
-         */
         public SettableBeanProperty getTypeProperty() {
             return _typeProperty;
         }

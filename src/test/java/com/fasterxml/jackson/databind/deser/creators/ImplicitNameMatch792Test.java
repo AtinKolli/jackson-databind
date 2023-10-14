@@ -23,7 +23,7 @@ public class ImplicitNameMatch792Test extends BaseMapTest
             return super.findImplicitPropertyName(member);
         }
     }
-
+    
     @JsonPropertyOrder({ "first" ,"second", "other" })
     static class Issue792Bean
     {
@@ -36,14 +36,14 @@ public class ImplicitNameMatch792Test extends BaseMapTest
         }
 
         public String getCtor0() { return value; }
-
+        
         public int getOther() { return 3; }
     }
 
     static class Bean2
     {
         int x = 3;
-
+        
         @JsonProperty("stuff")
         private void setValue(int i) { x = i; }
 
@@ -54,11 +54,14 @@ public class ImplicitNameMatch792Test extends BaseMapTest
     {
         private int value;
 
-        ReadWriteBean(@JsonProperty(value="value",
+        // 22-Sep-2017, tatu: Note that must be either `public`; annotated with JsonCreator,
+        //    or visibility min level for creator auto-detection needs to be raised
+        public ReadWriteBean(@JsonProperty(value="value",
                 access=JsonProperty.Access.READ_WRITE) int v) {
             value = v;
         }
 
+        @JsonProperty("value")
         public int testValue() { return value; }
 
         // Let's also add setter to ensure conflict resolution works
@@ -82,27 +85,27 @@ public class ImplicitNameMatch792Test extends BaseMapTest
             return String.format("[password='%s',value=%d]", password, value);
         }
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = sharedMapper();
-
+    private final ObjectMapper MAPPER = objectMapper();
+    
     public void testBindingOfImplicitCreatorNames() throws Exception
     {
         ObjectMapper m = new ObjectMapper();
         m.setAnnotationIntrospector(new ConstructorNameAI());
         String json = m.writeValueAsString(new Issue792Bean("a", "b"));
-        assertEquals(a2q("{'first':'a','other':3}"), json);
+        assertEquals(aposToQuotes("{'first':'a','other':3}"), json);
     }
 
     public void testImplicitWithSetterGetter() throws Exception
     {
         String json = MAPPER.writeValueAsString(new Bean2());
-        assertEquals(a2q("{'stuff':3}"), json);
+        assertEquals(aposToQuotes("{'stuff':3}"), json);
     }
 
     public void testReadWriteWithPrivateField() throws Exception
@@ -113,7 +116,7 @@ public class ImplicitNameMatch792Test extends BaseMapTest
 
     public void testWriteOnly() throws Exception
     {
-        PasswordBean bean = MAPPER.readValue(a2q("{'value':7,'password':'foo'}"),
+        PasswordBean bean = MAPPER.readValue(aposToQuotes("{'value':7,'password':'foo'}"),
                 PasswordBean.class);
         assertEquals("[password='foo',value=7]", bean.asString());
         String json = MAPPER.writeValueAsString(bean);

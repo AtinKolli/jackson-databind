@@ -1,7 +1,5 @@
 package com.fasterxml.jackson.databind.type;
 
-import java.lang.reflect.TypeVariable;
-
 import com.fasterxml.jackson.databind.JavaType;
 
 /**
@@ -41,26 +39,6 @@ public final class CollectionType
                 null, null, false);
     }
 
-    /**
-     * @deprecated Since 2.7, remove from 2.9
-     */
-    @Deprecated // since 2.7
-    public static CollectionType construct(Class<?> rawType, JavaType elemT) {
-        // First: may need to fabricate TypeBindings (needed for refining into
-        // concrete collection types, as per [databind#1102])
-        TypeVariable<?>[] vars = rawType.getTypeParameters();
-        TypeBindings bindings;
-        if ((vars == null) || (vars.length != 1)) {
-            bindings = TypeBindings.emptyBindings();
-        } else {
-            bindings = TypeBindings.create(rawType, elemT);
-        }
-        return new CollectionType(rawType, bindings,
-                // !!! TODO: Wrong, does have supertypes, but:
-                _bogusSuperClass(rawType), null, elemT,
-                null, null, false);
-    }
-
     @Override
     public JavaType withContentType(JavaType contentType) {
         if (_elementType == contentType) {
@@ -69,7 +47,7 @@ public final class CollectionType
         return new CollectionType(_class, _bindings, _superClass, _superInterfaces,
                 contentType, _valueHandler, _typeHandler, _asStatic);
     }
-
+    
     @Override
     public CollectionType withTypeHandler(Object h) {
         return new CollectionType(_class, _bindings,

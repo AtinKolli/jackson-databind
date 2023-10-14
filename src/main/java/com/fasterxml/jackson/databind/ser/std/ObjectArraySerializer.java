@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.IOException;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -41,7 +40,7 @@ public class ObjectArraySerializer
      * Type serializer to use for values, if any.
      */
     protected final TypeSerializer _valueTypeSerializer;
-
+    
     /**
      * Value serializer to use, if it can be statically determined.
      */
@@ -58,7 +57,7 @@ public class ObjectArraySerializer
     /* Life-cycle
     /**********************************************************
      */
-
+    
     public ObjectArraySerializer(JavaType elemType, boolean staticTyping,
             TypeSerializer vts, JsonSerializer<Object> elementSerializer)
     {
@@ -76,12 +75,10 @@ public class ObjectArraySerializer
         _elementType = src._elementType;
         _valueTypeSerializer = vts;
         _staticTyping = src._staticTyping;
-        // 22-Nov-2018, tatu: probably safe (even with [databind#2181]) since it's just
-        //   inclusion, type serializer but NOT serializer
         _dynamicSerializers = src._dynamicSerializers;
         _elementSerializer = src._elementSerializer;
     }
-
+    
     @SuppressWarnings("unchecked")
     public ObjectArraySerializer(ObjectArraySerializer src,
             BeanProperty property, TypeSerializer vts, JsonSerializer<?> elementSerializer,
@@ -91,8 +88,7 @@ public class ObjectArraySerializer
         _elementType = src._elementType;
         _valueTypeSerializer = vts;
         _staticTyping = src._staticTyping;
-        // [databind#2181]: may not be safe to reuse, start from empty
-        _dynamicSerializers = PropertySerializerMap.emptyForProperties();
+        _dynamicSerializers = src._dynamicSerializers;
         _elementSerializer = (JsonSerializer<Object>) elementSerializer;
     }
 
@@ -101,7 +97,7 @@ public class ObjectArraySerializer
         return new ObjectArraySerializer(this, prop,
                 _valueTypeSerializer, _elementSerializer, unwrapSingle);
     }
-
+    
     @Override
     public ContainerSerializer<?> _withValueTypeSerializer(TypeSerializer vts) {
         return new ObjectArraySerializer(_elementType, _staticTyping, vts, _elementSerializer);
@@ -110,7 +106,7 @@ public class ObjectArraySerializer
     public ObjectArraySerializer withResolved(BeanProperty prop,
             TypeSerializer vts, JsonSerializer<?> ser, Boolean unwrapSingle) {
         if ((_property == prop) && (ser == _elementSerializer)
-                && (_valueTypeSerializer == vts) && (Objects.equals(_unwrapSingle, unwrapSingle))) {
+                && (_valueTypeSerializer == vts) && (_unwrapSingle == unwrapSingle)) {
             return this;
         }
         return new ObjectArraySerializer(this, prop, vts, ser, unwrapSingle);
@@ -159,7 +155,7 @@ public class ObjectArraySerializer
             //   we can consider it a static case as well.
             if (_elementType != null) {
                 if (_staticTyping && !_elementType.isJavaLangObject()) {
-                    ser = serializers.findContentValueSerializer(_elementType, property);
+                    ser = serializers.findValueSerializer(_elementType, property);
                 }
             }
         }
@@ -328,7 +324,7 @@ public class ObjectArraySerializer
 */
             JsonSerializer<?> valueSer = _elementSerializer;
             if (valueSer == null) {
-                valueSer = visitor.getProvider().findContentValueSerializer(contentType, _property);
+                valueSer = visitor.getProvider().findValueSerializer(contentType, _property);
             }
             arrayVisitor.itemsFormat(valueSer, contentType);
         }

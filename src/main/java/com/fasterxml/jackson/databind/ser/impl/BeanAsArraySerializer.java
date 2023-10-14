@@ -6,7 +6,6 @@ import java.util.Set;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.WritableTypeId;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
@@ -41,37 +40,31 @@ import com.fasterxml.jackson.databind.util.NameTransformer;
  * In cases where array-based output is not feasible, this serializer
  * can instead delegate to the original Object-based serializer; this
  * is why a reference is retained to the original serializer.
- *
- * @since 2.1
  */
 public class BeanAsArraySerializer
     extends BeanSerializerBase
 {
-    private static final long serialVersionUID = 1L; // since 2.6
+    private static final long serialVersionUID = 3L;
 
     /**
      * Serializer that would produce JSON Object version; used in
      * cases where array output cannot be used.
      */
     protected final BeanSerializerBase _defaultSerializer;
-
+    
     /*
     /**********************************************************
     /* Life-cycle: constructors
     /**********************************************************
      */
 
-    public BeanAsArraySerializer(BeanSerializerBase src) {
+    public BeanAsArraySerializer(BeanSerializerBase src) {    
         super(src, (ObjectIdWriter) null);
         _defaultSerializer = src;
     }
 
     protected BeanAsArraySerializer(BeanSerializerBase src, Set<String> toIgnore) {
-        this(src, toIgnore, null);
-    }
-
-    protected BeanAsArraySerializer(BeanSerializerBase src, Set<String> toIgnore, Set<String> toInclude) {
-        super(src, toIgnore, toInclude);
+        super(src, toIgnore);
         _defaultSerializer = src;
     }
 
@@ -87,11 +80,22 @@ public class BeanAsArraySerializer
     /**********************************************************
      */
 
+    /**
+     * @since 3.0
+     */
+    public static BeanSerializerBase construct(BeanSerializerBase src)
+    {
+        BeanSerializerBase ser = UnrolledBeanAsArraySerializer.tryConstruct(src);
+        if (ser != null) {
+            return ser;
+        }
+        return new BeanAsArraySerializer(src);
+    }
+    
     @Override
     public JsonSerializer<Object> unwrappingSerializer(NameTransformer transformer) {
-        /* If this gets called, we will just need delegate to the default
-         * serializer, to "undo" as-array serialization
-         */
+        // If this gets called, we will just need delegate to the default
+        // serializer, to "undo" as-array serialization
         return _defaultSerializer.unwrappingSerializer(transformer);
     }
 
@@ -111,17 +115,9 @@ public class BeanAsArraySerializer
         return new BeanAsArraySerializer(this, _objectIdWriter, filterId);
     }
 
-    @Override // @since 2.12
-    protected BeanAsArraySerializer withByNameInclusion(Set<String> toIgnore, Set<String> toInclude) {
-        return new BeanAsArraySerializer(this, toIgnore, toInclude);
-    }
-
-    @Override // @since 2.11.1
-    protected BeanSerializerBase withProperties(BeanPropertyWriter[] properties,
-            BeanPropertyWriter[] filteredProperties) {
-        // 16-Jun-2020, tatu: Added for [databind#2759] but with as-array we
-        //    probably do not want to reorder anything; so actually leave unchanged
-        return this;
+    @Override
+    protected BeanAsArraySerializer withIgnorals(Set<String> toIgnore) {
+        return new BeanAsArraySerializer(this, toIgnore);
     }
 
     @Override
@@ -129,7 +125,7 @@ public class BeanAsArraySerializer
         // already is one, so:
         return this;
     }
-
+    
     /*
     /**********************************************************
     /* JsonSerializer implementation that differs between impls
@@ -142,17 +138,18 @@ public class BeanAsArraySerializer
             SerializerProvider provider, TypeSerializer typeSer)
         throws IOException
     {
-        /* 10-Dec-2014, tatu: Not sure if this can be made to work reliably;
-         *   but for sure delegating to default implementation will not work. So:
-         */
+        // 10-Dec-2014, tatu: Not sure if this can be made to work reliably;
+        //   but for sure delegating to default implementation will not work. So:
         if (_objectIdWriter != null) {
             _serializeWithObjectId(bean, gen, provider, typeSer);
             return;
         }
+        gen.setCurrentValue(bean);
         WritableTypeId typeIdDef = _typeIdDef(typeSer, bean, JsonToken.START_ARRAY);
         typeSer.writeTypePrefix(gen, typeIdDef);
-        gen.setCurrentValue(bean);
-        serializeAsArray(bean, gen, provider);
+        final boolean filtered = (_filteredProps != null && provider.getActiveView() != null);
+        if (filtered) serializeFiltered(bean, gen, provider);
+        else serializeNonFiltered(bean, gen, provider);
         typeSer.writeTypeSuffix(gen, typeIdDef);
     }
 
@@ -165,17 +162,20 @@ public class BeanAsArraySerializer
     public final void serialize(Object bean, JsonGenerator gen, SerializerProvider provider)
         throws IOException
     {
+        final boolean filtered = (_filteredProps != null && provider.getActiveView() != null);
         if (provider.isEnabled(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)
                 && hasSingleElement(provider)) {
-            serializeAsArray(bean, gen, provider);
+            if (filtered) serializeFiltered(bean, gen, provider);
+            else serializeNonFiltered(bean, gen, provider);
             return;
         }
-        /* note: it is assumed here that limitations (type id, object id,
-         * any getter, filtering) have already been checked; so code here
-         * is trivial.
-         */
-        gen.writeStartArray(bean);
-        serializeAsArray(bean, gen, provider);
+        // note: it is assumed here that limitations (type id, object id,
+        // any getter, filtering) have already been checked; so code here
+        // is trivial.
+
+        gen.writeStartArray(bean, _props.length);
+        if (filtered) serializeFiltered(bean, gen, provider);
+        else serializeNonFiltered(bean, gen, provider);
         gen.writeEndArray();
     }
 
@@ -186,30 +186,118 @@ public class BeanAsArraySerializer
      */
 
     private boolean hasSingleElement(SerializerProvider provider) {
-        final BeanPropertyWriter[] props;
-        if (_filteredProps != null && provider.getActiveView() != null) {
-            props = _filteredProps;
-        } else {
-            props = _props;
-        }
-        return props.length == 1;
+        return _props.length == 1;
     }
 
-    protected final void serializeAsArray(Object bean, JsonGenerator gen, SerializerProvider provider)
+    protected final void serializeNonFiltered(Object bean, JsonGenerator gen,
+            SerializerProvider provider)
         throws IOException
     {
-        final BeanPropertyWriter[] props;
-        if (_filteredProps != null && provider.getActiveView() != null) {
-            props = _filteredProps;
-        } else {
-            props = _props;
-        }
-
+        final BeanPropertyWriter[] props = _props;
         int i = 0;
+        int left = props.length;
+        BeanPropertyWriter prop = null;
+
         try {
-            for (final int len = props.length; i < len; ++i) {
-                BeanPropertyWriter prop = props[i];
-                if (prop == null) { // can have nulls in filtered list; but if so, MUST write placeholders
+            if (left > 3) {
+                do {
+                    prop = props[i];
+                    prop.serializeAsElement(bean, gen, provider);
+                    prop = props[i+1];
+                    prop.serializeAsElement(bean, gen, provider);
+                    prop = props[i+2];
+                    prop.serializeAsElement(bean, gen, provider);
+                    prop = props[i+3];
+                    prop.serializeAsElement(bean, gen, provider);
+                    left -= 4;
+                    i += 4;
+                } while (left > 3);
+            }
+            switch (left) {
+            case 3:
+                prop = props[i++];
+                prop.serializeAsElement(bean, gen, provider);
+            case 2:
+                prop = props[i++];
+                prop.serializeAsElement(bean, gen, provider);
+            case 1:
+                prop = props[i++];
+                prop.serializeAsElement(bean, gen, provider);
+            }
+            // NOTE: any getters cannot be supported either
+            //if (_anyGetterWriter != null) {
+            //    _anyGetterWriter.getAndSerialize(bean, gen, provider);
+            //}
+        } catch (Exception e) {
+            wrapAndThrow(provider, e, bean, prop.getName());
+        } catch (StackOverflowError e) {
+            JsonMappingException mapE = JsonMappingException.from(gen, "Infinite recursion (StackOverflowError)", e);
+            mapE.prependPath(new JsonMappingException.Reference(bean, prop.getName()));
+            throw mapE;
+        }
+    }
+
+    protected final void serializeFiltered(Object bean, JsonGenerator gen, SerializerProvider provider)
+        throws IOException
+    {
+        final BeanPropertyWriter[] props = _filteredProps;
+        int i = 0;
+        int left = props.length;
+        BeanPropertyWriter prop = null;
+
+        try {
+            if (left > 3) {
+                do {
+                    prop = props[i];
+                    if (prop == null) { // can have nulls in filtered list; but if so, MUST write placeholders
+                        gen.writeNull();
+                    } else {
+                        prop.serializeAsElement(bean, gen, provider);
+                    }
+
+                    prop = props[i+1];
+                    if (prop == null) {
+                        gen.writeNull();
+                    } else {
+                        prop.serializeAsElement(bean, gen, provider);
+                    }
+
+                    prop = props[i+2];
+                    if (prop == null) {
+                        gen.writeNull();
+                    } else {
+                        prop.serializeAsElement(bean, gen, provider);
+                    }
+
+                    prop = props[i+3];
+                    if (prop == null) {
+                        gen.writeNull();
+                    } else {
+                        prop.serializeAsElement(bean, gen, provider);
+                    }
+
+                    left -= 4;
+                    i += 4;
+                } while (left > 3);
+            }
+            switch (left) {
+            case 3:
+                prop = props[i++];
+                if (prop == null) {
+                    gen.writeNull();
+                } else {
+                    prop.serializeAsElement(bean, gen, provider);
+                }
+            case 2:
+                prop = props[i++];
+                if (prop == null) {
+                    gen.writeNull();
+                } else {
+                    prop.serializeAsElement(bean, gen, provider);
+                }
+            case 1:
+                prop = props[i++];
+                if (prop == null) {
                     gen.writeNull();
                 } else {
                     prop.serializeAsElement(bean, gen, provider);
@@ -220,21 +308,11 @@ public class BeanAsArraySerializer
             //    _anyGetterWriter.getAndSerialize(bean, gen, provider);
             //}
         } catch (Exception e) {
-            wrapAndThrow(provider, e, bean, props[i].getName());
+            wrapAndThrow(provider, e, bean, prop.getName());
         } catch (StackOverflowError e) {
-            DatabindException mapE = JsonMappingException.from(gen, "Infinite recursion (StackOverflowError)", e);
-            mapE.prependPath(bean, props[i].getName());
+            JsonMappingException mapE = JsonMappingException.from(gen, "Infinite recursion (StackOverflowError)", e);
+            mapE.prependPath(new JsonMappingException.Reference(bean, prop.getName()));
             throw mapE;
         }
-    }
-
-    /*
-    /**********************************************************
-    /* Standard methods
-    /**********************************************************
-     */
-
-    @Override public String toString() {
-        return "BeanAsArraySerializer for "+handledType().getName();
     }
 }

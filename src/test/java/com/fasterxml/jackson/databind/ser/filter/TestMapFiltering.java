@@ -8,9 +8,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonGenerator;
+
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonObjectFormatVisitor;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ser.*;
 import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
@@ -33,7 +33,7 @@ public class TestMapFiltering extends BaseMapTest
         @JsonFilter("filterX")
         @CustomOffset(1)
         public Map<String,Integer> values;
-
+        
         public MapBean() {
             values = new LinkedHashMap<String,Integer>();
             values.put("a", 1);
@@ -45,7 +45,7 @@ public class TestMapFiltering extends BaseMapTest
     static class MapBeanNoOffset {
         @JsonFilter("filterX")
         public Map<String,Integer> values;
-
+        
         public MapBeanNoOffset() {
             values = new LinkedHashMap<String,Integer>();
             values.put("a", 1);
@@ -53,7 +53,7 @@ public class TestMapFiltering extends BaseMapTest
             values.put("c", 3);
         }
     }
-
+    
     static class TestMapFilter implements PropertyFilter
     {
         @Override
@@ -90,21 +90,16 @@ public class TestMapFiltering extends BaseMapTest
         }
 
         @Override
-        @Deprecated
-        public void depositSchemaProperty(PropertyWriter writer,
-                ObjectNode propertiesNode, SerializerProvider provider) { }
-
-        @Override
         public void depositSchemaProperty(PropertyWriter writer,
                 JsonObjectFormatVisitor objectVisitor,
-                SerializerProvider provider) { }
+                SerializerProvider provider) throws JsonMappingException { }
     }
 
     // [databind#527]
     static class NoNullValuesMapContainer {
         @JsonInclude(content=JsonInclude.Include.NON_NULL)
         public Map<String,String> stuff = new LinkedHashMap<String,String>();
-
+        
         public NoNullValuesMapContainer add(String key, String value) {
             stuff.put(key, value);
             return this;
@@ -161,13 +156,13 @@ public class TestMapFiltering extends BaseMapTest
      */
 
     final ObjectMapper MAPPER = objectMapper();
-
+    
     public void testMapFilteringViaProps() throws Exception
     {
         FilterProvider prov = new SimpleFilterProvider().addFilter("filterX",
                 SimpleBeanPropertyFilter.filterOutAllExcept("b"));
         String json = MAPPER.writer(prov).writeValueAsString(new MapBean());
-        assertEquals(a2q("{'values':{'b':5}}"), json);
+        assertEquals(aposToQuotes("{'values':{'b':5}}"), json);
     }
 
     public void testMapFilteringViaClass() throws Exception
@@ -178,7 +173,7 @@ public class TestMapFiltering extends BaseMapTest
         FilterProvider prov = new SimpleFilterProvider().addFilter("filterForMaps",
                 SimpleBeanPropertyFilter.filterOutAllExcept("b"));
         String json = MAPPER.writer(prov).writeValueAsString(bean);
-        assertEquals(a2q("{'b':3}"), json);
+        assertEquals(aposToQuotes("{'b':3}"), json);
     }
 
     // [databind#527]
@@ -188,9 +183,9 @@ public class TestMapFiltering extends BaseMapTest
             .add("a", "foo")
             .add("b", null)
             .add("c", "bar"));
-        assertEquals(a2q("{'stuff':{'a':'foo','c':'bar'}}"), json);
+        assertEquals(aposToQuotes("{'stuff':{'a':'foo','c':'bar'}}"), json);
     }
-
+    
     // [databind#522]
     public void testMapFilteringWithAnnotations() throws Exception
     {
@@ -198,11 +193,11 @@ public class TestMapFiltering extends BaseMapTest
                 new TestMapFilter());
         String json = MAPPER.writer(prov).writeValueAsString(new MapBean());
         // a=1 should become a=2
-        assertEquals(a2q("{'values':{'a':2}}"), json);
+        assertEquals(aposToQuotes("{'values':{'a':2}}"), json);
 
         // and then one without annotation as contrast
         json = MAPPER.writer(prov).writeValueAsString(new MapBeanNoOffset());
-        assertEquals(a2q("{'values':{'a':1}}"), json);
+        assertEquals(aposToQuotes("{'values':{'a':1}}"), json);
     }
 
     // [databind#527]
@@ -212,7 +207,7 @@ public class TestMapFiltering extends BaseMapTest
             .add("a", "foo")
             .add("b", null)
             .add("c", "bar"));
-        assertEquals(a2q("{'a':'foo','c':'bar'}"), json);
+        assertEquals(aposToQuotes("{'a':'foo','c':'bar'}"), json);
     }
 
     // [databind#527]
@@ -222,7 +217,7 @@ public class TestMapFiltering extends BaseMapTest
             .add("a", "foo")
             .add("b", "bar")
             .add("c", ""));
-        assertEquals(a2q("{'a':'foo','b':'bar'}"), json);
+        assertEquals(aposToQuotes("{'a':'foo','b':'bar'}"), json);
     }
 
     // Test to ensure absent content of AtomicReference handled properly
@@ -232,22 +227,7 @@ public class TestMapFiltering extends BaseMapTest
         String json = MAPPER.writeValueAsString(new NoAbsentStringMap()
             .add("a", "foo")
             .add("b", null));
-        assertEquals(a2q("{'a':'foo'}"), json);
-    }
-
-    @SuppressWarnings("deprecation")
-    public void testMapNullSerialization() throws IOException
-    {
-        ObjectMapper m = new ObjectMapper();
-        Map<String,String> map = new HashMap<String,String>();
-        map.put("a", null);
-        // by default, should output null-valued entries:
-        assertEquals("{\"a\":null}", m.writeValueAsString(map));
-        // but not if explicitly asked not to (note: config value is dynamic here)
-
-        m = new ObjectMapper();
-        m.disable(SerializationFeature.WRITE_NULL_MAP_VALUES);
-        assertEquals("{}", m.writeValueAsString(map));
+        assertEquals(aposToQuotes("{'a':'foo'}"), json);
     }
 
     // [databind#527]
@@ -258,13 +238,13 @@ public class TestMapFiltering extends BaseMapTest
         // First, non empty:
         json = MAPPER.writeValueAsString(new Wrapper497(new StringMap497()
             .add("a", "123")));
-        assertEquals(a2q("{'values':{'a':'123'}}"), json);
+        assertEquals(aposToQuotes("{'values':{'a':'123'}}"), json);
 
         // then empty
         json = MAPPER.writeValueAsString(new Wrapper497(new StringMap497()
             .add("a", "")
             .add("b", null)));
-        assertEquals(a2q("{}"), json);
+        assertEquals(aposToQuotes("{}"), json);
     }
 
     public void testMapViaGlobalNonEmpty() throws Exception
@@ -273,7 +253,7 @@ public class TestMapFiltering extends BaseMapTest
         ObjectMapper mapper = new ObjectMapper();
         mapper.setDefaultPropertyInclusion(JsonInclude.Value.empty()
                 .withContentInclusion(JsonInclude.Include.NON_EMPTY));
-        assertEquals(a2q("{'a':'b'}"), mapper.writeValueAsString(
+        assertEquals(aposToQuotes("{'a':'b'}"), mapper.writeValueAsString(
                 new StringMap497()
                     .add("x", "")
                     .add("a", "b")
@@ -287,7 +267,7 @@ public class TestMapFiltering extends BaseMapTest
         mapper.configOverride(Map.class)
             .setInclude(JsonInclude.Value.empty()
                 .withContentInclusion(JsonInclude.Include.NON_EMPTY));
-        assertEquals(a2q("{'a':'b'}"), mapper.writeValueAsString(
+        assertEquals(aposToQuotes("{'a':'b'}"), mapper.writeValueAsString(
                 new StringMap497()
                     .add("foo", "")
                     .add("a", "b")

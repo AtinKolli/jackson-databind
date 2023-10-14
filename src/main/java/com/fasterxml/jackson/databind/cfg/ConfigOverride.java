@@ -72,15 +72,13 @@ public abstract class ConfigOverride
      * or not.
      */
     protected Boolean _mergeable;
-
+    
     protected ConfigOverride() { }
     protected ConfigOverride(ConfigOverride src) {
         _format = src._format;
         _include = src._include;
         _includeAsProperty = src._includeAsProperty;
         _ignorals = src._ignorals;
-        _setterInfo = src._setterInfo;
-        _visibility = src._visibility;
         _isIgnoredType = src._isIgnoredType;
         _mergeable = src._mergeable;
     }
@@ -107,7 +105,7 @@ public abstract class ConfigOverride
     public Boolean getIsIgnoredType() {
         return _isIgnoredType;
     }
-
+    
     /**
      * @since 2.9
      */
@@ -122,7 +120,7 @@ public abstract class ConfigOverride
      * @since 2.9
      */
     public Boolean getMergeable() { return _mergeable; }
-
+    
     /**
      * Implementation used solely for "empty" instance; has no mutators
      * and is not changed by core functionality.

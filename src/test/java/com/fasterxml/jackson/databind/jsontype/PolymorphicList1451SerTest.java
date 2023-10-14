@@ -34,13 +34,13 @@ public class PolymorphicList1451SerTest extends BaseMapTest
         b.a = "a2";
         input.add(b);
 
-        final TypeReference<?> typeRef =
+        final TypeReference<?> typeRef = 
                 new TypeReference<Collection<A>>(){};
         ObjectWriter writer = mapper.writerFor(typeRef);
 
         String result = writer.writeValueAsString(input);
 
-        assertEquals(a2q(
+        assertEquals(aposToQuotes(
 "[{'@class':'."+CLASS_NAME+"$A','a':'a1'},{'@class':'."+CLASS_NAME+"$B','a':'a2','b':'b'}]"
 ), result);
 

@@ -15,16 +15,17 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
 /**
- * Test custom value instantiators.
+ * Test custom instantiators.
  */
-@SuppressWarnings("serial")
 public class TestValueInstantiator extends BaseMapTest
 {
     static class MyBean
     {
         String _secret;
 
-        public MyBean(String s, boolean bogus) {
+        // 20-Sep-2017, tatu: Must NOT be public for 3.x because we do auto-detect
+        //   public ctors....
+        protected MyBean(String s, boolean bogus) {
             _secret = s;
         }
     }
@@ -61,19 +62,21 @@ public class TestValueInstantiator extends BaseMapTest
         @Override
         public boolean canCreateUsingDelegate() { return false; }
     }
-
+    
     static abstract class PolymorphicBeanBase { }
-
+    
     static class PolymorphicBean extends PolymorphicBeanBase
     {
         public String name;
     }
-
+    
+    @SuppressWarnings("serial")
     static class MyList extends ArrayList<Object>
     {
         public MyList(boolean b) { super(); }
     }
 
+    @SuppressWarnings("serial")
     static class MyMap extends HashMap<String,Object>
     {
         public MyMap(boolean b) { super(); }
@@ -82,14 +85,14 @@ public class TestValueInstantiator extends BaseMapTest
             put(name, name);
         }
     }
-
+    
     static class MyBeanInstantiator extends InstantiatorBase
     {
         @Override
         public String getValueTypeDesc() {
             return MyBean.class.getName();
         }
-
+        
         @Override
         public boolean canCreateUsingDefault() { return true; }
 
@@ -110,14 +113,14 @@ public class TestValueInstantiator extends BaseMapTest
         public String getValueTypeDesc() {
             return Object.class.getName();
         }
-
+        
         @Override
         public boolean canCreateFromObjectWith() { return true; }
-
+        
         @Override
         public CreatorProperty[] getFromObjectArguments(DeserializationConfig config) {
             return  new CreatorProperty[] {
-                    CreatorProperty.construct(new PropertyName("type"), config.constructType(Class.class), null,
+                    new CreatorProperty(new PropertyName("type"), config.constructType(Class.class), null,
                             null, null, null, 0, null,
                             PropertyMetadata.STD_REQUIRED)
             };
@@ -127,27 +130,27 @@ public class TestValueInstantiator extends BaseMapTest
         public Object createFromObjectWith(DeserializationContext ctxt, Object[] args) {
             try {
                 Class<?> cls = (Class<?>) args[0];
-                return cls.getDeclaredConstructor().newInstance();
+                return cls.newInstance();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
     }
-
+    
     static class CreatorMapInstantiator extends InstantiatorBase
     {
         @Override
         public String getValueTypeDesc() {
             return MyMap.class.getName();
         }
-
+        
         @Override
         public boolean canCreateFromObjectWith() { return true; }
 
         @Override
         public CreatorProperty[] getFromObjectArguments(DeserializationConfig config) {
             return  new CreatorProperty[] {
-                    CreatorProperty.construct(new PropertyName("name"), config.constructType(String.class), null,
+                    new CreatorProperty(new PropertyName("name"), config.constructType(String.class), null,
                             null, null, null, 0, null,
                             PropertyMetadata.STD_REQUIRED)
             };
@@ -158,14 +161,14 @@ public class TestValueInstantiator extends BaseMapTest
             return new MyMap((String) args[0]);
         }
     }
-
+    
     static class MyDelegateBeanInstantiator extends ValueInstantiator.Base
     {
         public MyDelegateBeanInstantiator() { super(Object.class); }
 
         @Override
         public String getValueTypeDesc() { return "xxx"; }
-
+        
         @Override
         public boolean canCreateUsingDelegate() { return true; }
 
@@ -173,20 +176,20 @@ public class TestValueInstantiator extends BaseMapTest
         public JavaType getDelegateType(DeserializationConfig config) {
             return config.constructType(Object.class);
         }
-
+        
         @Override
         public Object createUsingDelegate(DeserializationContext ctxt, Object delegate) {
             return new MyBean(""+delegate, true);
         }
     }
-
+    
     static class MyListInstantiator extends InstantiatorBase
     {
         @Override
         public String getValueTypeDesc() {
             return MyList.class.getName();
         }
-
+        
         @Override
         public boolean canCreateUsingDefault() { return true; }
 
@@ -202,7 +205,7 @@ public class TestValueInstantiator extends BaseMapTest
 
         @Override
         public String getValueTypeDesc() { return "xxx"; }
-
+        
         @Override
         public boolean canCreateUsingDelegate() { return true; }
 
@@ -210,7 +213,7 @@ public class TestValueInstantiator extends BaseMapTest
         public JavaType getDelegateType(DeserializationConfig config) {
             return config.constructType(Object.class);
         }
-
+        
         @Override
         public Object createUsingDelegate(DeserializationContext ctxt, Object delegate) {
             MyList list = new MyList(true);
@@ -218,14 +221,14 @@ public class TestValueInstantiator extends BaseMapTest
             return list;
         }
     }
-
+    
     static class MyMapInstantiator extends InstantiatorBase
     {
         @Override
         public String getValueTypeDesc() {
             return MyMap.class.getName();
         }
-
+        
         @Override
         public boolean canCreateUsingDefault() { return true; }
 
@@ -241,7 +244,7 @@ public class TestValueInstantiator extends BaseMapTest
 
         @Override
         public String getValueTypeDesc() { return "xxx"; }
-
+        
         @Override
         public boolean canCreateUsingDelegate() { return true; }
 
@@ -249,7 +252,7 @@ public class TestValueInstantiator extends BaseMapTest
         public JavaType getDelegateType(DeserializationConfig config) {
             return TypeFactory.defaultInstance().constructType(Object.class);
         }
-
+        
         @Override
         public Object createUsingDelegate(DeserializationContext ctxt, Object delegate) {
             MyMap map = new MyMap(true);
@@ -262,7 +265,7 @@ public class TestValueInstantiator extends BaseMapTest
     static class AnnotatedBean {
         protected final String a;
         protected final int b;
-
+        
         public AnnotatedBean(String a, int b) {
             this.a = a;
             this.b = b;
@@ -275,7 +278,7 @@ public class TestValueInstantiator extends BaseMapTest
         public String getValueTypeDesc() {
             return AnnotatedBean.class.getName();
         }
-
+        
         @Override
         public boolean canCreateUsingDefault() { return true; }
 
@@ -284,7 +287,8 @@ public class TestValueInstantiator extends BaseMapTest
             return new AnnotatedBean("foo", 3);
         }
     }
-
+    
+    @SuppressWarnings("serial")
     static class MyModule extends SimpleModule
     {
         public MyModule(Class<?> cls, ValueInstantiator inst)
@@ -309,7 +313,7 @@ public class TestValueInstantiator extends BaseMapTest
         public String getValueTypeDesc() {
             return AnnotatedBeanDelegating.class.getName();
         }
-
+        
         @Override
         public boolean canCreateUsingDelegate() { return true; }
 
@@ -322,7 +326,7 @@ public class TestValueInstantiator extends BaseMapTest
         public AnnotatedWithParams getDelegateCreator() {
             return null;
         }
-
+        
         @Override
         public Object createUsingDelegate(DeserializationContext ctxt, Object delegate) throws IOException {
             return new AnnotatedBeanDelegating(delegate, false);
@@ -336,7 +340,7 @@ public class TestValueInstantiator extends BaseMapTest
      */
 
     private final ObjectMapper MAPPER = objectMapper();
-
+    
     public void testCustomBeanInstantiator() throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
@@ -365,7 +369,7 @@ public class TestValueInstantiator extends BaseMapTest
         assertEquals(MyMap.class, result.getClass());
         assertEquals(1, result.size());
     }
-
+    
     /*
     /**********************************************************
     /* Unit tests for delegate creators
@@ -390,7 +394,7 @@ public class TestValueInstantiator extends BaseMapTest
         assertEquals(1, result.size());
         assertEquals(Integer.valueOf(123), result.get(0));
     }
-
+    
     public void testDelegateMapInstantiator() throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
@@ -423,16 +427,16 @@ public class TestValueInstantiator extends BaseMapTest
                 new InstantiatorBase() {
                     @Override
                     public boolean canCreateFromObjectWith() { return true; }
-
+        
                     @Override
                     public CreatorProperty[] getFromObjectArguments(DeserializationConfig config) {
                         return  new CreatorProperty[] {
-                                CreatorProperty.construct(new PropertyName("secret"), config.constructType(String.class), null,
+                                new CreatorProperty(new PropertyName("secret"), config.constructType(String.class), null,
                                         null, null, null, 0, null,
                                         PropertyMetadata.STD_REQUIRED)
                         };
                     }
-
+        
                     @Override
                     public Object createFromObjectWith(DeserializationContext ctxt, Object[] args) {
                         return new CreatorBean((String) args[0]);
@@ -467,13 +471,13 @@ public class TestValueInstantiator extends BaseMapTest
                 new InstantiatorBase() {
                     @Override
                     public boolean canCreateFromString() { return true; }
-
+                    
                     @Override
                     public Object createFromString(DeserializationContext ctxt, String value) {
                         return new MysteryBean(value);
                     }
         }));
-        MysteryBean result = mapper.readValue(q("abc"), MysteryBean.class);
+        MysteryBean result = mapper.readValue(quote("abc"), MysteryBean.class);
         assertNotNull(result);
         assertEquals("abc", result.value);
     }
@@ -485,7 +489,7 @@ public class TestValueInstantiator extends BaseMapTest
                 new InstantiatorBase() {
                     @Override
                     public boolean canCreateFromInt() { return true; }
-
+                    
                     @Override
                     public Object createFromInt(DeserializationContext ctxt, int value) {
                         return new MysteryBean(value+1);
@@ -503,7 +507,7 @@ public class TestValueInstantiator extends BaseMapTest
                 new InstantiatorBase() {
                     @Override
                     public boolean canCreateFromLong() { return true; }
-
+                    
                     @Override
                     public Object createFromLong(DeserializationContext ctxt, long value) {
                         return new MysteryBean(value+1L);
@@ -539,7 +543,7 @@ public class TestValueInstantiator extends BaseMapTest
                 new InstantiatorBase() {
                     @Override
                     public boolean canCreateFromBoolean() { return true; }
-
+                    
                     @Override
                     public Object createFromBoolean(DeserializationContext ctxt, boolean value) {
                         return new MysteryBean(Boolean.valueOf(value));
@@ -549,7 +553,7 @@ public class TestValueInstantiator extends BaseMapTest
         assertNotNull(result);
         assertEquals(Boolean.TRUE, result.value);
     }
-
+    
     /*
     /**********************************************************
     /* Other tests
@@ -564,7 +568,7 @@ public class TestValueInstantiator extends BaseMapTest
     {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new MyModule(PolymorphicBeanBase.class, new PolymorphicBeanInstantiator()));
-        String JSON = "{\"type\":"+q(PolymorphicBean.class.getName())+",\"name\":\"Axel\"}";
+        String JSON = "{\"type\":"+quote(PolymorphicBean.class.getName())+",\"name\":\"Axel\"}";
         PolymorphicBeanBase result = mapper.readValue(JSON, PolymorphicBeanBase.class);
         assertNotNull(result);
         assertSame(PolymorphicBean.class, result.getClass());
@@ -585,9 +589,11 @@ public class TestValueInstantiator extends BaseMapTest
         try {
             MAPPER.readValue("{ }", MyBean.class);
             fail("Should not succeed");
-        } catch (InvalidDefinitionException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot construct instance of");
             verifyException(e, "no Creators");
+            // as per [databind#1414], is definition problem
+            assertEquals(InvalidDefinitionException.class, e.getClass());
         }
     }
 
@@ -597,9 +603,11 @@ public class TestValueInstantiator extends BaseMapTest
         try {
             MAPPER.readValue("\"foo\"", MyBean.class);
             fail("Should not succeed");
-        } catch (InvalidDefinitionException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot construct instance of");
             verifyException(e, "no String-argument constructor/factory");
+            // as per [databind#1414], is definition problem
+            assertEquals(InvalidDefinitionException.class, e.getClass());
         }
     }
 }

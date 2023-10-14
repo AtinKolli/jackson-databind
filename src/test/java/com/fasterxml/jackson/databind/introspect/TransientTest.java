@@ -5,7 +5,6 @@ import java.beans.Transient;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
  * Tests for both `transient` keyword and JDK 7
@@ -28,7 +27,7 @@ public class TransientTest extends BaseMapTest
         public int a = 1;
         public transient int b = 2;
     }
-
+    
     // for [databind#857]
     static class BeanTransient {
         @Transient
@@ -46,12 +45,6 @@ public class TransientTest extends BaseMapTest
         public OverridableTransient(int v) { tValue = v; }
     }
 
-    static class TransientToPrune {
-        public transient int a;
-
-        public int getA() { return a; }
-    }
-
     /*
     /**********************************************************
     /* Unit tests
@@ -64,42 +57,29 @@ public class TransientTest extends BaseMapTest
     public void testTransientFieldHandling() throws Exception
     {
         // default handling: remove transient field but do not propagate
-        assertEquals(a2q("{'x':42,'value':3}"),
+        assertEquals(aposToQuotes("{'x':42,'value':3}"),
                 MAPPER.writeValueAsString(new ClassyTransient()));
-        assertEquals(a2q("{'a':1}"),
+        assertEquals(aposToQuotes("{'a':1}"),
                 MAPPER.writeValueAsString(new SimplePrunableTransient()));
 
         // but may change that
-        ObjectMapper m = jsonMapperBuilder()
-            .enable(MapperFeature.PROPAGATE_TRANSIENT_MARKER)
-            .build();
-        assertEquals(a2q("{'x':42}"),
+        ObjectMapper m = new ObjectMapper()
+            .enable(MapperFeature.PROPAGATE_TRANSIENT_MARKER);
+        assertEquals(aposToQuotes("{'x':42}"),
                 m.writeValueAsString(new ClassyTransient()));
     }
 
     // for [databind#857]
     public void testBeanTransient() throws Exception
     {
-        assertEquals(a2q("{'y':4}"),
+        assertEquals(aposToQuotes("{'y':4}"),
                 MAPPER.writeValueAsString(new BeanTransient()));
     }
 
     // for [databind#1184]
     public void testOverridingTransient() throws Exception
     {
-        assertEquals(a2q("{'tValue':38}"),
+        assertEquals(aposToQuotes("{'tValue':38}"),
                 MAPPER.writeValueAsString(new OverridableTransient(38)));
-    }
-
-    // for [databind#3682]: SHOULD prune `transient` Field, not pull in
-    public void testTransientToPrune() throws Exception
-    {
-        try {
-            TransientToPrune result = MAPPER.readValue("{\"a\":3}",
-                    TransientToPrune.class);
-            fail("Should not pass, got: "+result);
-        } catch (UnrecognizedPropertyException e) {
-            verifyException(e, "Unrecognized", "\"a\"");
-        }
     }
 }

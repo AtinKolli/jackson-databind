@@ -13,7 +13,7 @@ public class TestViewDeserialization extends BaseMapTest
     static class ViewAA extends ViewA { }
     static class ViewB { }
     static class ViewBB extends ViewB { }
-
+    
     static class Bean
     {
         @JsonView(ViewA.class)
@@ -23,7 +23,7 @@ public class TestViewDeserialization extends BaseMapTest
         public String aa;
 
         protected int b;
-
+        
         @JsonView(ViewB.class)
         public void setB(int value) { b = value; }
     }
@@ -54,13 +54,13 @@ public class TestViewDeserialization extends BaseMapTest
     }
 
     /*
-    /************************************************************************
+    /************************************************************************ 
     /* Tests
-    /************************************************************************
+    /************************************************************************ 
      */
 
     private final ObjectMapper mapper = new ObjectMapper();
-
+    
     public void testSimple() throws Exception
     {
         // by default, should have it all...
@@ -69,7 +69,7 @@ public class TestViewDeserialization extends BaseMapTest
         assertEquals(3, bean.a);
         assertEquals("foo", bean.aa);
         assertEquals(9, bean.b);
-
+        
         // but with different views, different contents
         bean = mapper.readerWithView(ViewAA.class)
                 .forType(Bean.class)
@@ -86,7 +86,7 @@ public class TestViewDeserialization extends BaseMapTest
         assertEquals(1, bean.a);
         assertNull(bean.aa);
         assertEquals(0, bean.b);
-
+        
         bean = mapper.readerFor(Bean.class)
                 .withView(ViewB.class)
                 .readValue("{\"a\":-3, \"aa\":\"y\", \"b\": 2 }");
@@ -103,9 +103,8 @@ public class TestViewDeserialization extends BaseMapTest
         assertEquals(3, bean.a);
         assertEquals(9, bean.b);
 
-        ObjectMapper myMapper = jsonMapperBuilder()
-                .disable(MapperFeature.DEFAULT_VIEW_INCLUSION)
-                .build();
+        ObjectMapper myMapper = new ObjectMapper();
+        myMapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
 
         // but with, say, AA, will not get 'b'
         bean = myMapper.readerWithView(ViewAA.class)
@@ -118,24 +117,24 @@ public class TestViewDeserialization extends BaseMapTest
 
     public void testWithCreatorAndViews() throws Exception
     {
-        ViewsAndCreatorBean result;
+        ViewsAndCreatorBean result; 
 
         result = mapper.readerFor(ViewsAndCreatorBean.class)
                 .withView(ViewA.class)
-                .readValue(a2q("{'a':1,'b':2}"));
+                .readValue(aposToQuotes("{'a':1,'b':2}"));
         assertEquals(1, result.a);
         assertEquals(0, result.b);
 
         result = mapper.readerFor(ViewsAndCreatorBean.class)
                 .withView(ViewB.class)
-                .readValue(a2q("{'a':1,'b':2}"));
+                .readValue(aposToQuotes("{'a':1,'b':2}"));
         assertEquals(0, result.a);
         assertEquals(2, result.b);
 
         // and actually... fine to skip incompatible stuff too
         result = mapper.readerFor(ViewsAndCreatorBean.class)
                 .withView(ViewB.class)
-                .readValue(a2q("{'a':[ 1, 23, { } ],'b':2}"));
+                .readValue(aposToQuotes("{'a':[ 1, 23, { } ],'b':2}"));
         assertEquals(0, result.a);
         assertEquals(2, result.b);
     }

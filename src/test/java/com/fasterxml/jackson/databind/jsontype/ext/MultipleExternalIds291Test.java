@@ -53,7 +53,7 @@ public class MultipleExternalIds291Test extends BaseMapTest
      */
 
     final ObjectMapper MAPPER = objectMapper();
-
+    
     // [databind#291]
     public void testMultipleValuesSingleExtId() throws Exception
     {
@@ -85,7 +85,7 @@ public class MultipleExternalIds291Test extends BaseMapTest
 
     public void _testMultipleValuesSingleExtId(String json) throws Exception
     {
-        json = a2q(json);
+        json = aposToQuotes(json);
 
         // First, with base class, no type id field separately
         {

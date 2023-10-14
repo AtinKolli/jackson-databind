@@ -3,7 +3,6 @@ package com.fasterxml.jackson.databind.node;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.*;
-import com.fasterxml.jackson.core.io.CharTypes;
 import com.fasterxml.jackson.core.io.NumberInput;
 import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 
@@ -16,8 +15,6 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 public class TextNode
     extends ValueNode
 {
-    private static final long serialVersionUID = 2L;
-
     final static TextNode EMPTY_STRING_NODE = new TextNode("");
 
     protected final String _value;
@@ -38,7 +35,7 @@ public class TextNode
         if (v == null) {
             return null;
         }
-        if (v.isEmpty()) {
+        if (v.length() == 0) {
             return EMPTY_STRING_NODE;
         }
         return new TextNode(v);
@@ -65,13 +62,7 @@ public class TextNode
     public byte[] getBinaryValue(Base64Variant b64variant) throws IOException
     {
         final String str = _value.trim();
-        // 04-Sep-2020, tatu: Let's limit the size of the initial block to 64k,
-        //    no point in trying to exactly match the size beyond certain point
-        // (plus it could even lead to unnecessarily high retention with block
-        // recycling)
-        final int initBlockSize = 4 + ((str.length() >> 2) * 3);
-        ByteArrayBuilder builder = new ByteArrayBuilder(Math.max(16,
-                Math.min(0x10000, initBlockSize)));
+        ByteArrayBuilder builder = new ByteArrayBuilder(4 + ((str.length() * 3) << 2));
         try {
             b64variant.decode(str, builder);
         } catch (IllegalArgumentException e) {
@@ -89,7 +80,7 @@ e.getMessage()),
         return getBinaryValue(Base64Variants.getDefaultVariant());
     }
 
-    /*
+    /* 
     /**********************************************************
     /* General type coercions
     /**********************************************************
@@ -104,7 +95,7 @@ e.getMessage()),
     public String asText(String defaultValue) {
         return (_value == null) ? defaultValue : _value;
     }
-
+    
     // note: neither fast nor elegant, but these work for now:
 
     @Override
@@ -120,7 +111,7 @@ e.getMessage()),
         }
         return defaultValue;
     }
-
+    
     @Override
     public int asInt(int defaultValue) {
         return NumberInput.parseAsInt(_value, defaultValue);
@@ -130,18 +121,18 @@ e.getMessage()),
     public long asLong(long defaultValue) {
         return NumberInput.parseAsLong(_value, defaultValue);
     }
-
+    
     @Override
     public double asDouble(double defaultValue) {
         return NumberInput.parseAsDouble(_value, defaultValue);
     }
-
-    /*
+    
+    /* 
     /**********************************************************
     /* Serialization
     /**********************************************************
      */
-
+    
     @Override
     public final void serialize(JsonGenerator g, SerializerProvider provider) throws IOException
     {
@@ -157,7 +148,7 @@ e.getMessage()),
     /* Overridden standard methods
     /**********************************************************
      */
-
+    
     @Override
     public boolean equals(Object o)
     {
@@ -168,15 +159,23 @@ e.getMessage()),
         }
         return false;
     }
-
+    
     @Override
     public int hashCode() { return _value.hashCode(); }
 
-    @Deprecated // since 2.10
-    protected static void appendQuoted(StringBuilder sb, String content)
+    /**
+     * Different from other values, Strings need quoting
+     */
+    @Override
+    public String toString()
     {
-        sb.append('"');
-        CharTypes.appendQuoted(sb, content);
-        sb.append('"');
+        int len = _value.length();
+        len = len + 2 + (len >> 4);
+        return new StringBuilder(len)
+                // 09-Dec-2017, tatu: Use apostrophes on purpose to prevent use as JSON producer:
+                .append('\'')
+                .append(_value)
+                .append('\'')
+                .toString();
     }
 }

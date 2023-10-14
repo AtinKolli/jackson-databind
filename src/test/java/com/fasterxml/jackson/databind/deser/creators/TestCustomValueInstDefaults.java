@@ -19,8 +19,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
  * and {@link PropertyValueBuffer#getParameter(SettableBeanProperty)} methods.
  */
 @SuppressWarnings("serial")
-public class TestCustomValueInstDefaults
-    extends BaseMapTest
+public class TestCustomValueInstDefaults extends BaseTest
 {
     static class Bucket
     {
@@ -120,9 +119,10 @@ public class TestCustomValueInstDefaults
         }
 
         @Override
-        public Object createFromObjectWith(DeserializationContext ctxt,
-                SettableBeanProperty[] props, PropertyValueBuffer buffer)
-            throws IOException
+        public Object createFromObjectWith(
+                DeserializationContext ctxt,
+                SettableBeanProperty[] props,
+                PropertyValueBuffer buffer) throws JsonMappingException
         {
             int a = Bucket.DEFAULT_A;
             int b = Bucket.DEFAULT_B;
@@ -153,9 +153,10 @@ public class TestCustomValueInstDefaults
         }
 
         @Override
-        public Object createFromObjectWith(DeserializationContext ctxt,
-                SettableBeanProperty[] props, PropertyValueBuffer buffer)
-            throws IOException
+        public Object createFromObjectWith(
+                DeserializationContext ctxt,
+                SettableBeanProperty[] props,
+                PropertyValueBuffer buffer) throws JsonMappingException
         {
             int i01 = BigBucket.DEFAULT_I;
             int i02 = BigBucket.DEFAULT_I;
@@ -345,7 +346,7 @@ public class TestCustomValueInstDefaults
     }
 
     // [databind#1432]
-
+    
     public static class ClassWith32Module extends SimpleModule {
         public ClassWith32Module() {
             super("test", Version.unknownVersion());
@@ -372,7 +373,7 @@ public class TestCustomValueInstDefaults
     /* Test methods
     /**********************************************************
      */
-
+    
     // When all values are in the source, no defaults should be used.
     public void testAllPresent() throws Exception
     {

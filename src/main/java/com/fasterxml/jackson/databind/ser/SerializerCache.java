@@ -1,11 +1,10 @@
 package com.fasterxml.jackson.databind.ser;
 
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.ser.impl.ReadOnlyClassToSerializerMap;
-import com.fasterxml.jackson.databind.util.LRUMap;
-import com.fasterxml.jackson.databind.util.LookupCache;
 import com.fasterxml.jackson.databind.util.TypeKey;
 
 /**
@@ -24,18 +23,9 @@ import com.fasterxml.jackson.databind.util.TypeKey;
  * to resolve value type. One (but not both) of entries can be null.
  */
 public final class SerializerCache
+    implements java.io.Serializable
 {
-    /**
-     * By default, allow caching of up to 4000 serializer entries (for possibly up to
-     * 1000 types; but depending access patterns may be as few as half of that).
-     */
-    public final static int DEFAULT_MAX_CACHE_SIZE = 4000;
-
-    /**
-     * @deprecated Use {@link #DEFAULT_MAX_CACHE_SIZE} instead.
-     */
-    @Deprecated
-    public final static int DEFAULT_MAX_CACHED = DEFAULT_MAX_CACHE_SIZE;
+    private static final long serialVersionUID = 1L;
 
     /**
      * Shared, modifiable map; all access needs to be through synchronized blocks.
@@ -43,28 +33,21 @@ public final class SerializerCache
      * NOTE: keys are of various types (see below for key types), in addition to
      * basic {@link JavaType} used for "untyped" serializers.
      */
-    private final LookupCache<TypeKey, JsonSerializer<Object>> _sharedMap;
+    private final transient HashMap<TypeKey, JsonSerializer<Object>> _sharedMap;
 
     /**
      * Most recent read-only instance, created from _sharedMap, if any.
      */
-    private final AtomicReference<ReadOnlyClassToSerializerMap> _readOnlyMap =
-        new AtomicReference<ReadOnlyClassToSerializerMap>();
+    private final transient AtomicReference<ReadOnlyClassToSerializerMap> _readOnlyMap;
 
     public SerializerCache() {
-        this(DEFAULT_MAX_CACHE_SIZE);
+        _sharedMap = new HashMap<TypeKey, JsonSerializer<Object>>(64);
+        _readOnlyMap = new AtomicReference<ReadOnlyClassToSerializerMap>();
     }
 
-    public SerializerCache(int maxCached) {
-        int initial = Math.min(64, maxCached>>2);
-        _sharedMap = new LRUMap<TypeKey, JsonSerializer<Object>>(initial, maxCached);
-    }
-
-    /**
-     * @since 2.16
-     */
-    public SerializerCache(LookupCache<TypeKey, JsonSerializer<Object>> cache) {
-        _sharedMap = cache;
+    // Since 3.0, needed to initialize cache properly
+    protected Object readResolve() {
+        return new SerializerCache();
     }
 
     /**
@@ -138,7 +121,7 @@ public final class SerializerCache
     /* Methods for adding shared serializer instances
     /**********************************************************
      */
-
+    
     /**
      * Method called if none of lookups succeeded, and caller had to construct
      * a serializer. If so, we will update the shared lookup map so that it
@@ -163,7 +146,7 @@ public final class SerializerCache
             }
         }
     }
-
+    
     public void addAndResolveNonTypedSerializer(Class<?> type, JsonSerializer<Object> ser,
             SerializerProvider provider)
         throws JsonMappingException
@@ -231,6 +214,5 @@ public final class SerializerCache
      */
     public synchronized void flush() {
         _sharedMap.clear();
-        _readOnlyMap.set(null);
     }
 }

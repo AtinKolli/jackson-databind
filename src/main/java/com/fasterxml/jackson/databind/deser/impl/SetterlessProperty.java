@@ -64,9 +64,7 @@ public final class SetterlessProperty
         if (_valueDeserializer == deser) {
             return this;
         }
-        // 07-May-2019, tatu: As per [databind#2303], must keep VD/NVP in-sync if they were
-        NullValueProvider nvp = (_valueDeserializer == _nullProvider) ? deser : _nullProvider;
-        return new SetterlessProperty(this, deser, nvp);
+        return new SetterlessProperty(this, deser, _nullProvider);
     }
 
     @Override
@@ -85,7 +83,7 @@ public final class SetterlessProperty
     /* BeanProperty impl
     /**********************************************************
      */
-
+    
     @Override
     public <A extends Annotation> A getAnnotation(Class<A> acls) {
         return _annotated.getAnnotation(acls);
@@ -98,12 +96,13 @@ public final class SetterlessProperty
     /* Overridden methods
     /**********************************************************
      */
-
+    
     @Override
     public final void deserializeAndSet(JsonParser p, DeserializationContext ctxt,
             Object instance) throws IOException
     {
-        if (p.hasToken(JsonToken.VALUE_NULL)) {
+        JsonToken t = p.currentToken();
+        if (t == JsonToken.VALUE_NULL) {
             // Hmmh. Is this a problem? We won't be setting anything, so it's
             // equivalent of empty Collection/Map in this case
             return;

@@ -13,9 +13,6 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.*;
 import com.fasterxml.jackson.databind.deser.std.*;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.util.AccessPattern;
-import com.fasterxml.jackson.databind.util.NameTransformer;
 import com.fasterxml.jackson.databind.util.StdConverter;
 
 /**
@@ -25,6 +22,12 @@ import com.fasterxml.jackson.databind.util.StdConverter;
 public class TestCustomDeserializers
     extends BaseMapTest
 {
+    /*
+    /**********************************************************
+    /* Helper classes
+    /**********************************************************
+     */
+
     static class DummyDeserializer<T>
         extends StdDeserializer<T>
     {
@@ -94,7 +97,7 @@ public class TestCustomDeserializers
 
     public static class Immutable {
         protected int x, y;
-
+        
         public Immutable(int x0, int y0) {
             x = x0;
             y = y0;
@@ -108,7 +111,7 @@ public class TestCustomDeserializers
 
         public int getId() { return id; }
     }
-
+    
     public static class Model
     {
         protected final Map<CustomKey, String> map;
@@ -125,7 +128,7 @@ public class TestCustomDeserializers
             return map;
         }
     }
-
+     
     static class CustomKeySerializer extends JsonSerializer<CustomKey> {
         @Override
         public void serialize(CustomKey value, JsonGenerator g, SerializerProvider provider) throws IOException {
@@ -150,7 +153,7 @@ public class TestCustomDeserializers
         @Negative
         public Bean375Outer value;
     }
-
+    
     static class Bean375Outer {
         protected Bean375Inner inner;
 
@@ -167,7 +170,7 @@ public class TestCustomDeserializers
         implements ContextualDeserializer
     {
         protected BeanProperty prop;
-
+        
         protected Bean375OuterDeserializer() { this(null); }
         protected Bean375OuterDeserializer(BeanProperty p) {
             super(Bean375Outer.class);
@@ -175,14 +178,14 @@ public class TestCustomDeserializers
         }
 
         @Override
-        public Bean375Outer deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException {
+        public Bean375Outer deserialize(JsonParser p, DeserializationContext ctxt) throws IOException,
+                JsonProcessingException {
             Object ob = ctxt.readPropertyValue(p, prop, Bean375Inner.class);
             return new Bean375Outer((Bean375Inner) ob);
         }
         @Override
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property)
-        {
+                throws JsonMappingException {
             return new Bean375OuterDeserializer(property);
         }
     }
@@ -191,7 +194,7 @@ public class TestCustomDeserializers
         implements ContextualDeserializer
     {
         protected boolean negative;
-
+        
         protected Bean375InnerDeserializer() { this(false); }
         protected Bean375InnerDeserializer(boolean n) {
             super(Bean375Inner.class);
@@ -200,8 +203,7 @@ public class TestCustomDeserializers
 
         @Override
         public Bean375Inner deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException
-        {
+                throws IOException, JsonProcessingException {
             int x = p.getIntValue();
             if (negative) {
                 x = -x;
@@ -213,7 +215,7 @@ public class TestCustomDeserializers
 
         @Override
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property)
-        {
+                throws JsonMappingException {
             if (property != null) {
                 Negative n = property.getAnnotation(Negative.class);
                 if (n != null) {
@@ -305,101 +307,14 @@ public class TestCustomDeserializers
         }
     }
 
-    static class MyNodeDeserializer extends StdDeserializer<Object> {
-        public MyNodeDeserializer() { super(Object.class); }
-
-        @Override
-        public Object deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException {
-            return ctxt.readTree(p);
-        }
-    }
-
-    @JsonDeserialize(using = NamedPointDeserializer.class)
-    static class NamedPoint
-    {
-        public Point point;
-        public String name;
-
-        public NamedPoint(String name, Point point) {
-            this.point = point;
-            this.name = name;
-        }
-    }
-
-    static class NamedPointDeserializer extends StdDeserializer<NamedPoint>
-    {
-        public NamedPointDeserializer() {
-            super(NamedPoint.class);
-        }
-
-        @Override
-        public NamedPoint deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException
-        {
-            JsonNode tree = ctxt.readTree(p);
-            String name = tree.path("name").asText(null);
-            Point point = ctxt.readTreeAsValue(tree.get("point"), Point.class);
-            return new NamedPoint(name, point);
-        }
-    }
-
-    // [databind#3748]
-    static class BaseDeserializer3748
-        extends StdDeserializer<String>
-    {
-        public BaseDeserializer3748() { super(String.class); }
-
-        @Override
-        public String deserialize(JsonParser p, DeserializationContext ctxt) {
-            return null;
-        }
-
-        @Override
-        public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
-            return "empty";
-        }
-
-        @Override
-        public AccessPattern getEmptyAccessPattern() {
-            return AccessPattern.ALWAYS_NULL;
-        }
-
-        @Override
-        public Object getAbsentValue(DeserializationContext ctxt) {
-            return "absent";
-        }
-
-        @Override
-        public JsonDeserializer<String> unwrappingDeserializer(NameTransformer unwrapper) {
-            return new BaseDeserializer3748();
-        }
-    }
-
-    static class Delegating3748 extends DelegatingDeserializer
-    {
-        public Delegating3748() {
-            this(new BaseDeserializer3748());
-        }
-
-        public Delegating3748(JsonDeserializer<?> del) {
-            super(del);
-        }
-
-        @Override
-        protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee) {
-            return new Delegating3748(newDelegatee);
-        }
-    }
-
     /*
     /**********************************************************
     /* Unit tests
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    final ObjectMapper MAPPER = objectMapper();
+    
     public void testCustomBeanDeserializer() throws Exception
     {
         String json = "{\"beans\":[{\"c\":{\"a\":10,\"b\":20},\"d\":\"hello, tatu\"}]}";
@@ -467,6 +382,7 @@ public class TestCustomDeserializers
     // [databind#623]
     public void testJsonNodeDelegating() throws Exception
     {
+        ObjectMapper mapper = new ObjectMapper();
         SimpleModule module = new SimpleModule("test", Version.unknownVersion());
         module.addDeserializer(Immutable.class,
             new StdNodeBasedDeserializer<Immutable>(Immutable.class) {
@@ -477,14 +393,12 @@ public class TestCustomDeserializers
                     return new Immutable(x, y);
                 }
         });
-        ObjectMapper mapper = jsonMapperBuilder()
-                .addModule(module)
-                .build();
+        mapper.registerModule(module);
         Immutable imm = mapper.readValue("{\"x\":-10,\"y\":3}", Immutable.class);
         assertEquals(-10, imm.x);
         assertEquals(3, imm.y);
     }
-
+    
     public void testIssue882() throws Exception
     {
         Model original = new Model(Collections.singletonMap(new CustomKey(123), "test"));
@@ -518,7 +432,7 @@ public class TestCustomDeserializers
     // [#631]: "current value" access
     public void testCurrentValueAccess() throws Exception
     {
-        Issue631Bean bean = MAPPER.readValue(a2q("{'prop':'stuff'}"),
+        Issue631Bean bean = MAPPER.readValue(aposToQuotes("{'prop':'stuff'}"),
                 Issue631Bean.class);
         assertNotNull(bean);
         assertEquals("prop/Issue631Bean", bean.prop);
@@ -529,7 +443,7 @@ public class TestCustomDeserializers
         ObjectMapper mapper = new ObjectMapper().registerModule(
                 new SimpleModule().addDeserializer(String.class, new UCStringDeserializer())
                 );
-        assertEquals("FOO", mapper.readValue(q("foo"), String.class));
+        assertEquals("FOO", mapper.readValue(quote("foo"), String.class));
         StringWrapper sw = mapper.readValue("{\"str\":\"foo\"}", StringWrapper.class);
         assertNotNull(sw);
         assertEquals("FOO", sw.str);
@@ -539,78 +453,7 @@ public class TestCustomDeserializers
     {
         ObjectMapper mapper = new ObjectMapper().registerModule(
                 new DelegatingModuleImpl());
-        String str = mapper.readValue(q("foo"), String.class);
+        String str = mapper.readValue(quote("foo"), String.class);
         assertEquals("MY:foo", str);
-    }
-
-    // [databind#2392]
-    public void testModifyingCustomDeserializer() throws Exception
-    {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .addModule(new SimpleModule()
-                        .setDeserializerModifier(new BeanDeserializerModifier() {
-                            @Override
-                            public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config,
-                                    BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
-                                if (deserializer instanceof DummyDeserializer<?>) {
-                                    return new DummyDeserializer<String>("FOOBAR", String.class);
-                                }
-                                return deserializer;
-                            }
-                        })
-                        .addDeserializer(String.class, new DummyDeserializer<String>("dummy", String.class))
-                        ).build();
-        String str = mapper.readValue(q("foo"), String.class);
-        assertEquals("FOOBAR", str);
-    }
-
-    // [databind#2452]
-    public void testCustomDeserializerWithReadTree() throws Exception
-    {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .addModule(new SimpleModule()
-                        .addDeserializer(Object.class, new MyNodeDeserializer())
-                        )
-                .build();
-        ObjectWrapper w = mapper.readValue(a2q("[ 1, { 'a' : 3}, 123 ] "),
-                ObjectWrapper.class);
-        assertEquals(ArrayNode.class, w.getObject().getClass());
-        JsonNode n = (JsonNode) w.getObject();
-        assertEquals(3, n.size());
-        assertEquals(123, n.get(2).intValue());
-    }
-
-    // [databind#3002]
-    public void testCustomDeserializerWithReadTreeAsValue() throws Exception
-    {
-        final String json = a2q("{'point':{'x':13, 'y':-4}, 'name':'Foozibald' }");
-        NamedPoint result = MAPPER.readValue(json, NamedPoint.class);
-        assertNotNull(result);
-        assertEquals("Foozibald", result.name);
-        assertEquals(new Point(13, -4), result.point);
-
-        // and with JavaType variant too
-        result = MAPPER.readValue(json, MAPPER.constructType(NamedPoint.class));
-        assertNotNull(result);
-        assertEquals("Foozibald", result.name);
-        assertEquals(new Point(13, -4), result.point);
-
-        // also, try some edge conditions
-        result = MAPPER.readValue(a2q("{'name':4})"), NamedPoint.class);
-        assertNotNull(result);
-        assertEquals("4", result.name);
-        assertNull(result.point);
-    }
-
-    // [databind#3748]
-    public void testBasicDelegatingDeser() throws Exception
-    {
-        Delegating3748 deser = new Delegating3748();
-        assertEquals("absent", deser.getAbsentValue(null));
-        assertEquals("empty", deser.getEmptyValue(null));
-        assertEquals(AccessPattern.ALWAYS_NULL, deser.getEmptyAccessPattern());
-        JsonDeserializer<?> unwrapping = deser.unwrappingDeserializer(null);
-        assertNotNull(unwrapping);
-        assertNotSame(deser, unwrapping);
     }
 }

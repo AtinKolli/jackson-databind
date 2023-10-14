@@ -1,18 +1,14 @@
 package com.fasterxml.jackson.databind.ser.impl;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-
 import com.fasterxml.jackson.core.JsonGenerator;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
-import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
+import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatTypes;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.ser.ContainerSerializer;
 import com.fasterxml.jackson.databind.ser.ContextualSerializer;
@@ -47,7 +43,7 @@ public class StringArraySerializer
     /* Life-cycle
     /**********************************************************
      */
-
+    
     protected StringArraySerializer() {
         super(String[].class);
         _elementSerializer = null;
@@ -79,7 +75,7 @@ public class StringArraySerializer
     /* Post-processing
     /**********************************************************
      */
-
+    
     @Override
     public JsonSerializer<?> createContextual(SerializerProvider provider,
             BeanProperty property)
@@ -112,14 +108,14 @@ public class StringArraySerializer
         // May have a content converter
         ser = findContextualConvertingSerializer(provider, property, ser);
         if (ser == null) {
-            ser = provider.findContentValueSerializer(String.class, property);
+            ser = provider.findValueSerializer(String.class, property);
         }
         // Optimization: default serializer just writes String, so we can avoid a call:
         if (isDefaultSerializer(ser)) {
             ser = null;
         }
         // note: will never have TypeSerializer, because Strings are "natural" type
-        if ((ser == _elementSerializer) && (Objects.equals(unwrapSingle, _unwrapSingle))) {
+        if ((ser == _elementSerializer) && (unwrapSingle == _unwrapSingle)) {
             return this;
         }
         return new StringArraySerializer(this, property, ser, unwrapSingle);
@@ -140,7 +136,7 @@ public class StringArraySerializer
     public JsonSerializer<?> getContentSerializer() {
         return _elementSerializer;
     }
-
+    
     @Override
     public boolean isEmpty(SerializerProvider prov, String[] value) {
         return (value.length == 0);
@@ -150,13 +146,13 @@ public class StringArraySerializer
     public boolean hasSingleElement(String[] value) {
         return (value.length == 1);
     }
-
+    
     /*
     /**********************************************************
     /* Actual serialization
     /**********************************************************
      */
-
+    
     @Override
     public final void serialize(String[] value, JsonGenerator gen, SerializerProvider provider)
         throws IOException
@@ -174,7 +170,7 @@ public class StringArraySerializer
         serializeContents(value, gen, provider);
         gen.writeEndArray();
     }
-
+    
     @Override
     public void serializeContents(String[] value, JsonGenerator gen, SerializerProvider provider)
         throws IOException
@@ -208,15 +204,6 @@ public class StringArraySerializer
                 ser.serialize(value[i], gen, provider);
             }
         }
-    }
-
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-        return createSchemaNode("array", true).set("items", createSchemaNode("string"));
     }
 
     @Override

@@ -34,7 +34,7 @@ public abstract class TypeSerializerBase extends TypeSerializer
 
     @Override
     public String getPropertyName() { return null; }
-
+    
     @Override
     public TypeIdResolver getTypeIdResolver() { return _idResolver; }
 
@@ -43,12 +43,6 @@ public abstract class TypeSerializerBase extends TypeSerializer
             WritableTypeId idMetadata) throws IOException
     {
         _generateTypeId(idMetadata);
-        // 16-Jan-2022, tatu: As per [databind#3373], skip for null typeId.
-        //    And return "null" so that matching "writeTypeSuffix" call should
-        //    be avoided as well.
-        if (idMetadata.id == null) {
-            return null;
-        }
         return g.writeTypePrefix(idMetadata);
     }
 
@@ -56,10 +50,6 @@ public abstract class TypeSerializerBase extends TypeSerializer
     public WritableTypeId writeTypeSuffix(JsonGenerator g,
             WritableTypeId idMetadata) throws IOException
     {
-        // 16-Jan-2022, tatu: As per [databind#3373], skip for null:
-        if (idMetadata == null) {
-            return null;
-        }
         return g.writeTypeSuffix(idMetadata);
     }
 

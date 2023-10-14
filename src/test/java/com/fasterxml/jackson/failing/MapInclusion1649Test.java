@@ -30,12 +30,12 @@ public class MapInclusion1649Test extends BaseMapTest
     public void testNonEmptyViaClass() throws IOException
     {
         // non-empty/null, include
-        assertEquals(a2q("{'map':{'a':'b'}}"),
+        assertEquals(aposToQuotes("{'map':{'a':'b'}}"),
                 MAPPER.writeValueAsString(new Bean1649("a", "b")));
         // null, empty, nope
-        assertEquals(a2q("{}"),
+        assertEquals(aposToQuotes("{}"),
                 MAPPER.writeValueAsString(new Bean1649("a", null)));
-        assertEquals(a2q("{}"),
+        assertEquals(aposToQuotes("{}"),
                 MAPPER.writeValueAsString(new Bean1649("a", "")));
     }
 }

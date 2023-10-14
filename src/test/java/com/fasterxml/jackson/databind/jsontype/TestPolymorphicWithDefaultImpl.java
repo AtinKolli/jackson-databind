@@ -5,7 +5,6 @@ import java.util.*;
 import com.fasterxml.jackson.annotation.*;
 
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.annotation.NoClass;
 import com.fasterxml.jackson.databind.exc.InvalidTypeIdException;
 
 /**
@@ -44,14 +43,6 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     }
 
     /**
-     * Note: <code>NoClass</code> here has special meaning, of mapping invalid
-     * types into null instances.
-     */
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type",
-            defaultImpl = NoClass.class)
-    public static class DefaultWithNoClass { }
-
-    /**
      * Also another variant to verify that from 2.5 on, can use non-deprecated
      * value for the same.
      */
@@ -81,7 +72,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     public static class Bad {
         public List<BadItem> many;
     }
-
+ 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
             include = JsonTypeInfo.As.WRAPPER_OBJECT)
     @JsonSubTypes({@JsonSubTypes.Type(name="sub1", value = GoodSub1.class),
@@ -124,7 +115,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY,
             property = "clazz")
-    abstract static class BaseClass { }
+    abstract static class BaseClass { }    
 
     static class BaseWrapper {
         public BaseClass value;
@@ -178,15 +169,6 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     }
 
     // [databind#148]
-    public void testDefaultAsNoClass() throws Exception
-    {
-        Object ob = MAPPER.readerFor(DefaultWithNoClass.class).readValue("{ }");
-        assertNull(ob);
-        ob = MAPPER.readerFor(DefaultWithNoClass.class).readValue("{ \"bogus\":3 }");
-        assertNull(ob);
-    }
-
-    // same, with 2.5 and Void.class
     public void testDefaultAsVoid() throws Exception
     {
         Object ob = MAPPER.readerFor(DefaultWithVoidAsDefault.class).readValue("{ }");
@@ -198,11 +180,11 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     // [databind#148]
     public void testBadTypeAsNull() throws Exception
     {
-        ObjectReader r = MAPPER.readerFor(MysteryPolymorphic.class)
-                .without(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE);
-        Object ob = r.readValue("{}");
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.disable(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE);
+        Object ob = mapper.readValue("{}", MysteryPolymorphic.class);
         assertNull(ob);
-        ob = r.readValue("{ \"whatever\":13}");
+        ob = mapper.readValue("{ \"whatever\":13}", MysteryPolymorphic.class);
         assertNull(ob);
     }
 
@@ -223,7 +205,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     // [databind#656]
     public void testDefaultImplWithObjectWrapper() throws Exception
     {
-        BaseFor656 value = MAPPER.readValue(a2q("{'foobar':{'a':3}}"), BaseFor656.class);
+        BaseFor656 value = MAPPER.readValue(aposToQuotes("{'foobar':{'a':3}}"), BaseFor656.class);
         assertNotNull(value);
         assertEquals(ImplFor656.class, value.getClass());
         assertEquals(3, ((ImplFor656) value).a);
@@ -233,7 +215,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     {
         ObjectReader reader = MAPPER.readerFor(CallRecord.class).without(
                 DeserializationFeature.FAIL_ON_INVALID_SUBTYPE);
-        String json = a2q("{'version':0.0,'application':'123',"
+        String json = aposToQuotes("{'version':0.0,'application':'123',"
                 +"'item':{'type':'xevent','location':'location1'},"
                 +"'item2':{'type':'event','location':'location1'}}");
         // can't read item2 - which is valid
@@ -241,7 +223,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
         assertNull(r.item);
         assertNotNull(r.item2);
 
-        json = a2q("{'item':{'type':'xevent','location':'location1'}, 'version':0.0,'application':'123'}");
+        json = aposToQuotes("{'item':{'type':'xevent','location':'location1'}, 'version':0.0,'application':'123'}");
         CallRecord r3 = reader.readValue(json);
         assertNull(r3.item);
         assertEquals("123", r3.application);
@@ -251,7 +233,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
     {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE, false);
-        BaseWrapper w = mapper.readValue(a2q
+        BaseWrapper w = mapper.readValue(aposToQuotes
                 ("{'value':{'clazz':'com.foobar.Nothing'}}'"),
                 BaseWrapper.class);
         assertNotNull(w);
@@ -264,7 +246,7 @@ public class TestPolymorphicWithDefaultImpl extends BaseMapTest
                 .without(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
         try {
             r.readValue("{ \"value\": \"\" }");
-            fail("Expected InvalidTypeIdException");
+            fail("Expected " + JsonMappingException.class);
         } catch (InvalidTypeIdException e) {
             verifyException(e, "missing type id property 'type'");
         }

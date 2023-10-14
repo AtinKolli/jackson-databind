@@ -1,29 +1,29 @@
 package com.fasterxml.jackson.databind.node;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.*;
-
 import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.core.tree.ArrayTreeNode;
 import com.fasterxml.jackson.core.type.WritableTypeId;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.util.RawValue;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+
 /**
  * Node class that represents Arrays mapped from JSON content.
- *<p>
- * Note: class was <code>final</code> temporarily for Jackson 2.2.
  */
 public class ArrayNode
     extends ContainerNode<ArrayNode>
-    implements java.io.Serializable // since 2.10
+    implements ArrayTreeNode // since 3.0
 {
-    private static final long serialVersionUID = 1L;
-
     private final List<JsonNode> _children;
 
     public ArrayNode(JsonNodeFactory nf) {
@@ -31,21 +31,14 @@ public class ArrayNode
         _children = new ArrayList<JsonNode>();
     }
 
-    /**
-     * @since 2.8
-     */
     public ArrayNode(JsonNodeFactory nf, int capacity) {
         super(nf);
         _children = new ArrayList<JsonNode>(capacity);
     }
 
-    /**
-     * @since 2.7
-     */
     public ArrayNode(JsonNodeFactory nf, List<JsonNode> children) {
         super(nf);
-        _children = Objects.requireNonNull(children,
-                "Must not pass `null` for 'children' argument");
+        _children = children;
     }
 
     @Override
@@ -64,150 +57,6 @@ public class ArrayNode
             ret._children.add(element.deepCopy());
 
         return ret;
-    }
-
-    /*
-    /**********************************************************
-    /* Support for withArray()/withObject()
-    /**********************************************************
-     */
-
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    @Override
-    public ObjectNode with(String exprOrProperty) {
-        JsonPointer ptr = _jsonPointerIfValid(exprOrProperty);
-        if (ptr != null) {
-            return withObject(ptr);
-        }
-        return super.with(exprOrProperty); // to give failure
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public ArrayNode withArray(String exprOrProperty)
-    {
-        JsonPointer ptr = _jsonPointerIfValid(exprOrProperty);
-        if (ptr != null) {
-            return withArray(ptr);
-        }
-        return super.withArray(exprOrProperty); // to give failure
-    }
-
-    @Override
-    protected ObjectNode _withObject(JsonPointer origPtr,
-            JsonPointer currentPtr,
-            OverwriteMode overwriteMode, boolean preferIndex)
-    {
-        if (currentPtr.matches()) {
-            // Cannot return, not an ObjectNode so:
-            return null;
-        }
-        JsonNode n = _at(currentPtr);
-        // If there's a path, follow it
-        if ((n != null) && (n instanceof BaseJsonNode)) {
-            ObjectNode found = ((BaseJsonNode) n)._withObject(origPtr, currentPtr.tail(),
-                    overwriteMode, preferIndex);
-            if (found != null) {
-                return found;
-            }
-            // Ok no; must replace if allowed to
-            _withXxxVerifyReplace(origPtr, currentPtr, overwriteMode, preferIndex, n);
-        }
-        // Either way; must replace or add a new property
-        return _withObjectAddTailElement(currentPtr, preferIndex);
-    }
-
-    @Override
-    protected ArrayNode _withArray(JsonPointer origPtr,
-            JsonPointer currentPtr,
-            OverwriteMode overwriteMode, boolean preferIndex)
-    {
-        if (currentPtr.matches()) {
-            return this;
-        }
-        JsonNode n = _at(currentPtr);
-        // If there's a path, follow it
-        if ((n != null) && (n instanceof BaseJsonNode)) {
-            ArrayNode found = ((BaseJsonNode) n)._withArray(origPtr, currentPtr.tail(),
-                    overwriteMode, preferIndex);
-            if (found != null) {
-                return found;
-            }
-            // Ok no; must replace if allowed to
-            _withXxxVerifyReplace(origPtr, currentPtr, overwriteMode, preferIndex, n);
-        }
-        // Either way; must replace or add a new property
-        return _withArrayAddTailElement(currentPtr, preferIndex);
-    }
-
-    protected ObjectNode _withObjectAddTailElement(JsonPointer tail, boolean preferIndex)
-    {
-        final int index = tail.getMatchingIndex();
-        if (index < 0) {
-            return null;
-        }
-
-        tail = tail.tail();
-
-        // First: did we complete traversal? If so, easy, we got our result
-        if (tail.matches()) {
-            ObjectNode result = this.objectNode();
-            _withXxxSetArrayElement(index, result);
-            return result;
-        }
-
-        // Otherwise, do we want Array or Object
-        if (preferIndex && tail.mayMatchElement()) { // array!
-            ArrayNode next = this.arrayNode();
-            _withXxxSetArrayElement(index, next);
-            return next._withObjectAddTailElement(tail, preferIndex);
-        }
-        ObjectNode next = this.objectNode();
-        _withXxxSetArrayElement(index, next);
-        return next._withObjectAddTailProperty(tail, preferIndex);
-    }
-
-    protected ArrayNode _withArrayAddTailElement(JsonPointer tail, boolean preferIndex)
-    {
-        final int index = tail.getMatchingIndex();
-        if (index < 0) {
-            return null;
-        }
-        tail = tail.tail();
-
-        // First: did we complete traversal? If so, easy, we got our result
-        if (tail.matches()) {
-            ArrayNode result = this.arrayNode();
-            _withXxxSetArrayElement(index, result);
-            return result;
-        }
-
-        // Otherwise, do we want Array or Object
-        if (preferIndex && tail.mayMatchElement()) { // array!
-            ArrayNode next = this.arrayNode();
-            _withXxxSetArrayElement(index, next);
-            return next._withArrayAddTailElement(tail, preferIndex);
-        }
-        ObjectNode next = this.objectNode();
-        _withXxxSetArrayElement(index, next);
-        return next._withArrayAddTailProperty(tail, preferIndex);
-    }
-
-    protected void _withXxxSetArrayElement(int index, JsonNode value) {
-        // 27-Jul-2022, tatu: Let's make it less likely anyone OOMs by
-        //    humongous index...
-        if (index >= size()) {
-            final int max = _nodeFactory.getMaxElementIndexForInsert();
-            if (index > max) {
-                _reportWrongNodeOperation("Too big Array index (%d; max %d) to use for insert with `JsonPointer`",
-                        index, max);
-            }
-            while (index >= this.size()) {
-                addNull();
-            }
-        }
-        set(index, value);
     }
 
     /*
@@ -244,9 +93,6 @@ public class ArrayNode
         return _children.size();
     }
 
-    @Override // since 2.10
-    public boolean isEmpty() { return _children.isEmpty(); }
-
     @Override
     public Iterator<JsonNode> elements() {
         return _children.iterator();
@@ -254,7 +100,7 @@ public class ArrayNode
 
     @Override
     public JsonNode get(int index) {
-        if ((index >= 0) && (index < _children.size())) {
+        if (index >= 0 && index < _children.size()) {
             return _children.get(index);
         }
         return null;
@@ -272,15 +118,6 @@ public class ArrayNode
             return _children.get(index);
         }
         return MissingNode.getInstance();
-    }
-
-    @Override
-    public JsonNode required(int index) {
-        if ((index >= 0) && (index < _children.size())) {
-            return _children.get(index);
-        }
-        return _reportRequiredViolation("No value at index #%d [0, %d) of `ArrayNode`",
-                index, _children.size());
     }
 
     @Override
@@ -311,16 +148,17 @@ public class ArrayNode
      */
 
     @Override
-    public void serialize(JsonGenerator g, SerializerProvider provider) throws IOException
+    public void serialize(JsonGenerator f, SerializerProvider provider) throws IOException
     {
         final List<JsonNode> c = _children;
         final int size = c.size();
-        g.writeStartArray(this, size);
+        f.writeStartArray(this, size);
         for (int i = 0; i < size; ++i) { // we'll typically have array list
-            JsonNode value = c.get(i);
-            value.serialize(g, provider);
+            // For now, assuming it's either BaseJsonNode, JsonSerializable
+            JsonNode n = c.get(i);
+            ((BaseJsonNode) n).serialize(f, provider);
         }
-        g.writeEndArray();
+        f.writeEndArray();
     }
 
     @Override
@@ -399,17 +237,42 @@ public class ArrayNode
      */
 
     /**
-     * Method that will set specified field, replacing old value,
-     * if any.
+     * Method that will set specified element, replacing old value.
      *
-     * @param value to set field to; if null, will be converted
+     * @param value to set element to; if null, will be converted
      *   to a {@link NullNode} first  (to remove field entry, call
      *   {@link #remove} instead)
      *
-     * @return Old value of the field, if any; null if there was no
-     *   old value.
+     * @return This node after adding/replacing property value (to allow chaining)
+     *
+     * @throws IndexOutOfBoundsException If Array does not have specified element
+     *  (that is, index is outside valid range of elements in array)
      */
-    public JsonNode set(int index, JsonNode value)
+    public ArrayNode set(int index, JsonNode value)
+    {
+        if (value == null) { // let's not store 'raw' nulls but nodes
+            value = nullNode();
+        }
+        if (index < 0 || index >= _children.size()) {
+            throw new IndexOutOfBoundsException("Illegal index "+ index +", array size "+size());
+        }
+        _children.set(index, value);
+        return this;
+    }
+
+    /**
+     * Method that will set specified element, replacing old value.
+     *
+     * @param value to set element to; if null, will be converted
+     *   to a {@link NullNode} first  (to remove field entry, call
+     *   {@link #remove} instead)
+     *
+     * @return Old value of the element, if any; null if no such element existed.
+     *
+     * @throws IndexOutOfBoundsException If Array does not have specified element
+     *  (that is, index is outside valid range of elements in array)
+     */
+    public JsonNode replace(int index, JsonNode value)
     {
         if (value == null) { // let's not store 'raw' nulls but nodes
             value = nullNode();
@@ -419,7 +282,7 @@ public class ArrayNode
         }
         return _children.set(index, value);
     }
-
+    
     /**
      * Method for adding specified node at the end of this array.
      *
@@ -457,16 +320,14 @@ public class ArrayNode
      */
     public ArrayNode addAll(Collection<? extends JsonNode> nodes)
     {
-        for (JsonNode node : nodes) {
-            add(node);
-        }
+        _children.addAll(nodes);
         return this;
     }
 
     /**
      * Method for inserting specified child node as an element
      * of this Array. If index is 0 or less, it will be inserted as
-     * the first element; if {@code >= size()}, appended at the end, and otherwise
+     * the first element; if >= size(), appended at the end, and otherwise
      * inserted before existing element in specified index.
      * No exceptions are thrown for any index.
      *
@@ -511,7 +372,7 @@ public class ArrayNode
 
     /*
     /**********************************************************
-    /* Extended ObjectNode API, mutators, generic; addXxx()/insertXxx()/setXxx()
+    /* Extended ObjectNode API, mutators, generic; addXxx()/insertXxx()
     /**********************************************************
      */
 
@@ -519,7 +380,7 @@ public class ArrayNode
      * Method that will construct an ArrayNode and add it at the end
      * of this array node.
      *
-     * @return Newly constructed ArrayNode (NOTE: NOT `this` ArrayNode)
+     * @return Newly constructed ArrayNode
      */
     public ArrayNode addArray()
     {
@@ -532,7 +393,7 @@ public class ArrayNode
      * Method that will construct an ObjectNode and add it at the end
      * of this array node.
      *
-     * @return Newly constructed ObjectNode (NOTE: NOT `this` ArrayNode)
+     * @return Newly constructed ObjectNode
      */
     public ObjectNode addObject()
     {
@@ -547,17 +408,26 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode addPOJO(Object pojo) {
-        return _add((pojo == null) ? nullNode() : pojoNode(pojo));
+    public ArrayNode addPOJO(Object value)
+    {
+        if (value == null) {
+            addNull();
+        } else {
+            _add(pojoNode(value));
+        }
+        return this;
     }
 
     /**
      * @return This array node, to allow chaining
-     *
-     * @since 2.6
      */
     public ArrayNode addRawValue(RawValue raw) {
-        return _add((raw == null) ? nullNode() : rawValueNode(raw));
+        if (raw == null) {
+            addNull();
+        } else {
+            _add(rawValueNode(raw));
+        }
+        return this;
     }
 
     /**
@@ -565,31 +435,10 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode addNull() {
-        return _add(nullNode());
-    }
-
-    /**
-     * Method for adding specified number at the end of this array.
-     *
-     * @return This array node, to allow chaining
-     *
-     * @since 2.13
-     */
-    public ArrayNode add(short v) {
-        return _add(numberNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This array node, to allow chaining
-     *
-     * @since 2.13
-     */
-    public ArrayNode add(Short v) {
-        return _add((v == null) ? nullNode() : numberNode(v.shortValue()));
+    public ArrayNode addNull()
+    {
+        _add(nullNode());
+        return this;
     }
 
     /**
@@ -598,7 +447,8 @@ public class ArrayNode
      * @return This array node, to allow chaining
      */
     public ArrayNode add(int v) {
-        return _add(numberNode(v));
+        _add(numberNode(v));
+        return this;
     }
 
     /**
@@ -607,8 +457,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode add(Integer v) {
-        return _add((v == null) ? nullNode() : numberNode(v.intValue()));
+    public ArrayNode add(Integer value) {
+        if (value == null) {
+            return addNull();
+        }
+        return _add(numberNode(value.intValue()));
     }
 
     /**
@@ -624,8 +477,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode add(Long v) {
-        return _add((v == null) ? nullNode() : numberNode(v.longValue()));
+    public ArrayNode add(Long value) {
+        if (value == null) {
+            return addNull();
+        }
+        return _add(numberNode(value.longValue()));
     }
 
     /**
@@ -643,8 +499,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode add(Float v) {
-        return _add((v == null) ? nullNode() : numberNode(v.floatValue()));
+    public ArrayNode add(Float value) {
+        if (value == null) {
+            return addNull();
+        }
+        return _add(numberNode(value.floatValue()));
     }
 
     /**
@@ -662,8 +521,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode add(Double v) {
-        return _add((v == null) ? nullNode() : numberNode(v.doubleValue()));
+    public ArrayNode add(Double value) {
+        if (value == null) {
+            return addNull();
+        }
+        return _add(numberNode(value.doubleValue()));
     }
 
     /**
@@ -672,27 +534,34 @@ public class ArrayNode
      * @return This array node, to allow chaining
      */
     public ArrayNode add(BigDecimal v) {
-        return _add((v == null) ? nullNode() : numberNode(v));
+        if (v == null) {
+            return addNull();
+        }
+        return _add(numberNode(v));
     }
 
     /**
      * Method for adding specified number at the end of this array.
      *
      * @return This array node, to allow chaining
-     *
-     * @since 2.9
      */
     public ArrayNode add(BigInteger v) {
-        return _add((v == null) ? nullNode() : numberNode(v));
+        if (v == null) {
+            return addNull();
+        }
+        return _add(numberNode(v));
     }
-
+    
     /**
      * Method for adding specified String value at the end of this array.
      *
      * @return This array node, to allow chaining
      */
     public ArrayNode add(String v) {
-        return _add((v == null) ? nullNode() : textNode(v));
+        if (v == null) {
+            return addNull();
+        }
+        return _add(textNode(v));
     }
 
     /**
@@ -710,8 +579,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode add(Boolean v) {
-        return _add((v == null) ? nullNode() : booleanNode(v.booleanValue()));
+    public ArrayNode add(Boolean value) {
+        if (value == null) {
+            return addNull();
+        }
+        return _add(booleanNode(value.booleanValue()));
     }
 
     /**
@@ -721,7 +593,10 @@ public class ArrayNode
      * @return This array node, to allow chaining
      */
     public ArrayNode add(byte[] v) {
-        return _add((v == null) ? nullNode() : binaryNode(v));
+        if (v == null) {
+            return addNull();
+        }
+        return _add(binaryNode(v));
     }
 
     /**
@@ -729,8 +604,6 @@ public class ArrayNode
      * specified point in the array,
      * and returning the <b>newly created array</b>
      * (note: NOT 'this' array)
-     *
-     * @return Newly constructed {@code ArrayNode} (note! NOT `this` ArrayNode)
      */
     public ArrayNode insertArray(int index)
     {
@@ -744,7 +617,7 @@ public class ArrayNode
      * of this array, and returning the <b>newly created node</b>
      * (note: NOT 'this' array)
      *
-     * @return Newly constructed {@code ObjectNode} (note! NOT `this` ArrayNode)
+     * @return Newly constructed ObjectNode
      */
     public ObjectNode insertObject(int index)
     {
@@ -754,56 +627,29 @@ public class ArrayNode
     }
 
     /**
-     * Method that will insert a null value
-     * at specified position in this array.
-     *
-     * @return This array node, to allow chaining
-     */
-    public ArrayNode insertNull(int index) {
-        return _insert(index, nullNode());
-    }
-
-    /**
      * Method that will construct a POJONode and
      * insert it at specified position in this array.
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode insertPOJO(int index, Object pojo) {
-        return _insert(index, (pojo == null) ? nullNode() : pojoNode(pojo));
+    public ArrayNode insertPOJO(int index, Object value)
+    {
+        if (value == null) {
+            return insertNull(index);
+        }
+        return _insert(index, pojoNode(value));
     }
 
     /**
-     * @return This array node, to allow chaining
-     *
-     * @since 2.13
-     */
-    public ArrayNode insertRawValue(int index, RawValue raw) {
-        return _insert(index, (raw == null) ? nullNode() : rawValueNode(raw));
-    }
-
-    /**
-     * Method that will insert specified numeric value
+     * Method that will insert a null value
      * at specified position in this array.
      *
      * @return This array node, to allow chaining
-     *
-     * @since 2.13
      */
-    public ArrayNode insert(int index, short v) {
-        return _insert(index, numberNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This array node, to allow chaining
-     *
-     * @since 2.13
-     */
-    public ArrayNode insert(int index, Short value) {
-        return _insert(index, (value == null) ? nullNode() : numberNode(value.shortValue()));
+    public ArrayNode insertNull(int index)
+    {
+        _insert(index, nullNode());
+        return this;
     }
 
     /**
@@ -813,7 +659,8 @@ public class ArrayNode
      * @return This array node, to allow chaining
      */
     public ArrayNode insert(int index, int v) {
-        return _insert(index, numberNode(v));
+        _insert(index, numberNode(v));
+        return this;
     }
 
     /**
@@ -822,8 +669,13 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode insert(int index, Integer v) {
-        return _insert(index, (v == null) ? nullNode() : numberNode(v.intValue()));
+    public ArrayNode insert(int index, Integer value) {
+        if (value == null) {
+            insertNull(index);
+        } else {
+            _insert(index, numberNode(value.intValue()));
+        }
+        return this;
     }
 
     /**
@@ -842,8 +694,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode insert(int index, Long v) {
-        return _insert(index, (v == null) ? nullNode() : numberNode(v.longValue()));
+    public ArrayNode insert(int index, Long value) {
+        if (value == null) {
+            return insertNull(index);
+        }
+        return _insert(index, numberNode(value.longValue()));
     }
 
     /**
@@ -862,8 +717,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode insert(int index, Float v) {
-        return _insert(index, (v == null) ? nullNode() : numberNode(v.floatValue()));
+    public ArrayNode insert(int index, Float value) {
+        if (value == null) {
+            return insertNull(index);
+        }
+        return _insert(index, numberNode(value.floatValue()));
     }
 
     /**
@@ -882,8 +740,11 @@ public class ArrayNode
      *
      * @return This array node, to allow chaining
      */
-    public ArrayNode insert(int index, Double v) {
-        return _insert(index, (v == null) ? nullNode() : numberNode(v.doubleValue()));
+    public ArrayNode insert(int index, Double value) {
+        if (value == null) {
+            return insertNull(index);
+        }
+        return _insert(index, numberNode(value.doubleValue()));
     }
 
     /**
@@ -893,7 +754,10 @@ public class ArrayNode
      * @return This array node, to allow chaining
      */
     public ArrayNode insert(int index, BigDecimal v) {
-        return _insert(index, (v == null) ? nullNode() : numberNode(v));
+        if (v == null) {
+            return insertNull(index);
+        }
+        return _insert(index, numberNode(v));
     }
 
     /**
@@ -905,9 +769,12 @@ public class ArrayNode
      * @since 2.9
      */
     public ArrayNode insert(int index, BigInteger v) {
-        return _insert(index, (v == null) ? nullNode() : numberNode(v));
+        if (v == null) {
+            return insertNull(index);
+        }
+        return _insert(index, numberNode(v));
     }
-
+    
     /**
      * Method that will insert specified String
      * at specified position in this array.
@@ -915,7 +782,10 @@ public class ArrayNode
      * @return This array node, to allow chaining
      */
     public ArrayNode insert(int index, String v) {
-        return _insert(index, (v == null) ? nullNode() : textNode(v));
+        if (v == null) {
+            return insertNull(index);
+        }
+        return _insert(index, textNode(v));
     }
 
     /**
@@ -955,206 +825,6 @@ public class ArrayNode
         return _insert(index, binaryNode(v));
     }
 
-    /**
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode setNull(int index) {
-        return _set(index, nullNode());
-    }
-
-    /**
-     * @return This array node, to allow chaining
-     *
-     * @since 2.13
-     */
-    public ArrayNode setPOJO(int index, Object pojo) {
-        return _set(index, (pojo == null) ? nullNode() : pojoNode(pojo));
-    }
-
-    /**
-     * @return This array node, to allow chaining
-     *
-     * @since 2.13
-     */
-    public ArrayNode setRawValue(int index, RawValue raw) {
-        return _set(index, (raw == null) ? nullNode() : rawValueNode(raw));
-    }
-
-    /**
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, short v) {
-        return _set(index, numberNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, Short v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v.shortValue()));
-    }
-
-    /**
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, int v) {
-        return _set(index, numberNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, Integer v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v.intValue()));
-    }
-
-    /**
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, long v) {
-        return _set(index, numberNode(v));
-    }
-
-    /**
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, Long v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v.longValue()));
-    }
-
-    /**
-     * Method for setting value of a field to specified numeric value.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, float v) {
-        return _set(index, numberNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, Float v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v.floatValue()));
-    }
-
-    /**
-     * Method for setting value of a field to specified numeric value.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, double v) {
-        return _set(index, numberNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, Double v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v.doubleValue()));
-    }
-
-    /**
-     * Method for setting value of a field to specified numeric value.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, BigDecimal v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v));
-    }
-
-    /**
-     * Method for setting value of a field to specified numeric value.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, BigInteger v) {
-        return _set(index, (v == null) ? nullNode() : numberNode(v));
-    }
-
-    /**
-     * Method for setting value of a field to specified String value.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, String v) {
-        return _set(index, (v == null) ? nullNode() : textNode(v));
-    }
-
-    /**
-     * Method for setting value of a field to specified String value.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, boolean v) {
-        return _set(index, booleanNode(v));
-    }
-
-    /**
-     * Alternative method that we need to avoid bumping into NPE issues
-     * with auto-unboxing.
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, Boolean v) {
-        return _set(index, (v == null) ? nullNode() : booleanNode(v.booleanValue()));
-    }
-
-    /**
-     * Method for setting value of a field to specified binary value
-     *
-     * @return This node (to allow chaining)
-     *
-     * @since 2.13
-     */
-    public ArrayNode set(int index, byte[] v) {
-        return _set(index, (v == null) ? nullNode() : binaryNode(v));
-    }
-
     /*
     /**********************************************************
     /* Standard methods
@@ -1184,19 +854,26 @@ public class ArrayNode
         return _children.hashCode();
     }
 
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder(16 + (size() << 4));
+        sb.append('[');
+        for (int i = 0, len = _children.size(); i < len; ++i) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(_children.get(i).toString());
+        }
+        sb.append(']');
+        return sb.toString();
+    }
+
     /*
     /**********************************************************
     /* Internal methods (overridable)
     /**********************************************************
      */
-
-    protected ArrayNode _set(int index, JsonNode node) {
-        if (index < 0 || index >= _children.size()) {
-            throw new IndexOutOfBoundsException("Illegal index "+ index +", array size "+size());
-        }
-        _children.set(index, node);
-        return this;
-    }
 
     protected ArrayNode _add(JsonNode node) {
         _children.add(node);

@@ -27,7 +27,7 @@ public class NullConversionsSkipTest extends BaseMapTest
             _noNulls = v;
         }
     }
-
+    
     static class StringValue {
         String value = "default";
 
@@ -36,34 +36,24 @@ public class NullConversionsSkipTest extends BaseMapTest
         }
     }
 
-    // for [databind#2015]
-    enum NUMS2015 {
-        ONE, TWO
-    }
-
-    public static class Pojo2015 {
-        @JsonSetter(value = "number", nulls = Nulls.SKIP)
-        NUMS2015 number = NUMS2015.TWO;
-    }
-
     /*
     /**********************************************************
     /* Test methods, straight annotation
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = newObjectMapper();
 
     public void testSkipNullField() throws Exception
     {
         // first, ok if assigning non-null to not-nullable, null for nullable
-        NullSkipField result = MAPPER.readValue(a2q("{'noNulls':'foo', 'nullsOk':null}"),
+        NullSkipField result = MAPPER.readValue(aposToQuotes("{'noNulls':'foo', 'nullsOk':null}"),
                 NullSkipField.class);
         assertEquals("foo", result.noNulls);
         assertNull(result.nullsOk);
 
         // and then see that nulls are not ok for non-nullable
-        result = MAPPER.readValue(a2q("{'noNulls':null}"),
+        result = MAPPER.readValue(aposToQuotes("{'noNulls':null}"),
                 NullSkipField.class);
         assertEquals("b", result.noNulls);
         assertEquals("a", result.nullsOk);
@@ -71,24 +61,15 @@ public class NullConversionsSkipTest extends BaseMapTest
 
     public void testSkipNullMethod() throws Exception
     {
-        NullSkipMethod result = MAPPER.readValue(a2q("{'noNulls':'foo', 'nullsOk':null}"),
+        NullSkipMethod result = MAPPER.readValue(aposToQuotes("{'noNulls':'foo', 'nullsOk':null}"),
                 NullSkipMethod.class);
         assertEquals("foo", result._noNulls);
         assertNull(result._nullsOk);
 
-        result = MAPPER.readValue(a2q("{'noNulls':null}"),
+        result = MAPPER.readValue(aposToQuotes("{'noNulls':null}"),
                 NullSkipMethod.class);
         assertEquals("b", result._noNulls);
         assertEquals("a", result._nullsOk);
-    }
-
-    // for [databind#2015]
-    public void testEnumAsNullThenSkip() throws Exception
-    {
-        Pojo2015 p = MAPPER.readerFor(Pojo2015.class)
-                .with(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)
-                .readValue("{\"number\":\"THREE\"}");
-        assertEquals(NUMS2015.TWO, p.number);
     }
 
     /*
@@ -96,14 +77,14 @@ public class NullConversionsSkipTest extends BaseMapTest
     /* Test methods, defaulting
     /**********************************************************
      */
-
+    
     public void testSkipNullWithDefaults() throws Exception
     {
-        String json = a2q("{'value':null}");
+        String json = aposToQuotes("{'value':null}");
         StringValue result = MAPPER.readValue(json, StringValue.class);
         assertNull(result.value);
 
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = newObjectMapper();
         mapper.configOverride(String.class)
             .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.SKIP));
         result = mapper.readValue(json, StringValue.class);

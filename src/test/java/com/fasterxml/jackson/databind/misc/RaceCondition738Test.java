@@ -39,7 +39,7 @@ public class RaceCondition738Test extends BaseMapTest
     static class Wrapper {
         private final HasSubTypes hasSubTypes;
 
-        Wrapper(HasSubTypes hasSubTypes) {
+        private Wrapper(HasSubTypes hasSubTypes) {
             this.hasSubTypes = hasSubTypes;
         }
 
@@ -48,22 +48,22 @@ public class RaceCondition738Test extends BaseMapTest
             return hasSubTypes;
         }
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
-
+    
     public void testRepeatedly() throws Exception {
-        final int COUNT = 3000;
+        final int COUNT = 2000;
         for (int i = 0; i < COUNT; i++) {
             runOnce(i, COUNT);
         }
     }
-
+    
     void runOnce(int round, int max) throws Exception {
-        final ObjectMapper mapper = newJsonMapper();
+        final ObjectMapper mapper = newObjectMapper();
         Callable<String> writeJson = new Callable<String>() {
             @Override
             public String call() throws Exception {

@@ -3,7 +3,6 @@ package com.fasterxml.jackson.databind.deser.creators;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 
 /**
  * Tests to ensure that deserialization fails when a bean property has a null value
@@ -30,29 +29,29 @@ public class FailOnNullCreatorTest extends BaseMapTest
     {
         Person p;
         // First: fine if feature is not enabled
-        p = POINT_READER.readValue(a2q("{}"));
+        p = POINT_READER.readValue(aposToQuotes("{}"));
         assertEquals(null, p.name);
         assertEquals(Integer.valueOf(0), p.age);
 
         // Second: fine if feature is enabled but default value is not null
         ObjectReader r = POINT_READER.with(DeserializationFeature.FAIL_ON_NULL_CREATOR_PROPERTIES);
-        p = POINT_READER.readValue(a2q("{'name':'John', 'age': null}"));
+        p = POINT_READER.readValue(aposToQuotes("{'name':'John', 'age': null}"));
         assertEquals("John", p.name);
         assertEquals(Integer.valueOf(0), p.age);
 
         // Third: throws exception if property is missing
         try {
-            r.readValue(a2q("{}"));
+            r.readValue(aposToQuotes("{}"));
             fail("Should not pass third test");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Null value for creator property 'name'");
         }
 
         // Fourth: throws exception if property is set to null explicitly
         try {
-            r.readValue(a2q("{'age': 5, 'name': null}"));
+            r.readValue(aposToQuotes("{'age': 5, 'name': null}"));
             fail("Should not pass fourth test");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Null value for creator property 'name'");
         }
     }

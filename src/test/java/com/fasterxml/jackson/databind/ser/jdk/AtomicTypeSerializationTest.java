@@ -1,18 +1,19 @@
 package com.fasterxml.jackson.databind.ser.jdk;
 
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.*;
 
-import com.fasterxml.jackson.annotation.*;
-
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.databind.BaseMapTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 /**
- * Unit tests for verifying serialization of {@link java.util.concurrent.atomic.AtomicReference}
- * and other atomic types, via various settings.
+ * Unit tests for verifying serialization of simple basic non-structured
+ * types; primitives (and/or their wrappers), Strings.
  */
 public class AtomicTypeSerializationTest
     extends BaseMapTest
@@ -37,48 +38,14 @@ public class AtomicTypeSerializationTest
         public AtomicReference<Date> date2;
     }
 
-    // [databind#1673]
-    static class ContainerA {
-        public AtomicReference<Strategy> strategy =
-                new AtomicReference<>((Strategy) new Foo(42));
-    }
-
-    static class ContainerB {
-        public AtomicReference<List<Strategy>> strategy;
-        {
-            List<Strategy> list = new ArrayList<>();
-            list.add(new Foo(42));
-            strategy = new AtomicReference<>(list);
-        }
-    }
-
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-    @JsonSubTypes({ @JsonSubTypes.Type(name = "Foo", value = Foo.class) })
-    interface Strategy { }
-
-    static class Foo implements Strategy {
-        public int foo;
-
-        @JsonCreator
-        Foo(@JsonProperty("foo") int foo) {
-            this.foo = foo;
-        }
-    }
-
-    // [databind#2565]: problems with JsonUnwrapped, non-unwrappable type
-    static class MyBean2565 {
-        @JsonUnwrapped
-        public AtomicReference<String> maybeText = new AtomicReference<>("value");
-    }
-
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = objectMapper();
+    
     public void testAtomicBoolean() throws Exception
     {
         assertEquals("true", MAPPER.writeValueAsString(new AtomicBoolean(true)));
@@ -106,7 +73,7 @@ public class AtomicTypeSerializationTest
     {
         final String VALUE = "fooBAR";
         String json = MAPPER.writeValueAsString(new UCStringWrapper(VALUE));
-        assertEquals(json, a2q("{'value':'FOOBAR'}"));
+        assertEquals(json, aposToQuotes("{'value':'FOOBAR'}"));
     }
 
     public void testContextualAtomicReference() throws Exception
@@ -120,33 +87,8 @@ public class AtomicTypeSerializationTest
         input.date1 = new AtomicReference<>(new Date(0L));
         input.date2 = new AtomicReference<>(new Date(0L));
         final String json = mapper.writeValueAsString(input);
-        assertEquals(a2q(
+        assertEquals(aposToQuotes(
                 "{'date1':'1970+01+01','date2':'1970*01*01','date':'1970/01/01'}"),
                 json);
-    }
-
-    // [databind#1673]
-    public void testPolymorphicReferenceSimple() throws Exception
-    {
-        final String EXPECTED = "{\"type\":\"Foo\",\"foo\":42}";
-        String json = MAPPER.writeValueAsString(new ContainerA());
-        assertEquals("{\"strategy\":" + EXPECTED + "}", json);
-    }
-
-    // [databind#1673]
-    public void testPolymorphicReferenceListOf() throws Exception
-    {
-        final String EXPECTED = "{\"type\":\"Foo\",\"foo\":42}";
-        // Reproduction of issue seen with scala.Option and java8 Optional types:
-        // https://github.com/FasterXML/jackson-module-scala/issues/346#issuecomment-336483326
-        String json = MAPPER.writeValueAsString(new ContainerB());
-        assertEquals("{\"strategy\":[" + EXPECTED + "]}", json);
-    }
-
-    // [databind#2565]: problems with JsonUnwrapped, non-unwrappable type
-    public void testWithUnwrappableUnwrapped() throws Exception
-    {
-        assertEquals(a2q("{'maybeText':'value'}"),
-                MAPPER.writeValueAsString(new MyBean2565()));
     }
 }

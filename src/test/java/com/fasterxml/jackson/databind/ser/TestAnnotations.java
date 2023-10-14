@@ -104,10 +104,10 @@ public class TestAnnotations
     static class GettersWithoutSetters
     {
         public int d = 0;
-
+        
         @JsonCreator
         public GettersWithoutSetters(@JsonProperty("a") int a) { }
-
+        
         // included, since there is a constructor property
         public int getA() { return 3; }
 
@@ -128,7 +128,7 @@ public class TestAnnotations
         @JsonProperty
         public int getA() { return 123; }
     }
-
+    
     /*
     /**********************************************************
     /* Other helper classes
@@ -139,7 +139,7 @@ public class TestAnnotations
     {
         @Override
         public void serialize(Object value, JsonGenerator jgen, SerializerProvider provider)
-            throws IOException
+            throws IOException, JsonGenerationException
         {
             jgen.writeBoolean(true);
         }
@@ -149,7 +149,7 @@ public class TestAnnotations
     {
         @Override
         public void serialize(Object value, JsonGenerator jgen, SerializerProvider provider)
-            throws IOException
+            throws IOException, JsonGenerationException
         {
             jgen.writeString("X"+value+"X");
         }
@@ -163,7 +163,7 @@ public class TestAnnotations
      */
 
     private final ObjectMapper MAPPER = new ObjectMapper();
-
+    
     public void testSimpleGetter() throws Exception
     {
         Map<String,Object> result = writeAndMap(MAPPER, new SizeClassGetter());
@@ -229,8 +229,9 @@ public class TestAnnotations
     public void testInactiveMethodSerializer() throws Exception
     {
         String json = MAPPER.writeValueAsString(new InactiveClassMethodSerializer(8));
-        // Here we will get wrapped as an object, since we have
-        // full object, just override a single property
+        /* Here we will get wrapped as an object, since we have
+         * full object, just override a single property
+         */
         assertEquals("{\"x\":8}", json);
     }
 
@@ -239,23 +240,21 @@ public class TestAnnotations
         ObjectMapper m = new ObjectMapper();
         GettersWithoutSetters bean = new GettersWithoutSetters(123);
         assertFalse(m.isEnabled(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS));
-
+    
         // by default, all 4 found:
         assertEquals("{\"a\":3,\"b\":4,\"c\":5,\"d\":6}", m.writeValueAsString(bean));
 
         // but 3 if we require mutator:
-        m = jsonMapperBuilder()
-                .enable(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS)
-                .build();
+        m = new ObjectMapper();
+        m.enable(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS);
         assertEquals("{\"a\":3,\"c\":5,\"d\":6}", m.writeValueAsString(bean));
     }
 
     public void testGettersWithoutSettersOverride() throws Exception
     {
         GettersWithoutSetters2 bean = new GettersWithoutSetters2();
-        ObjectMapper m = jsonMapperBuilder()
-                .enable(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS)
-                .build();
+        ObjectMapper m = new ObjectMapper();
+        m.enable(MapperFeature.REQUIRE_SETTERS_FOR_GETTERS);
         assertEquals("{\"a\":123}", m.writeValueAsString(bean));
     }
 }

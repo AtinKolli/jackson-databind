@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import com.fasterxml.jackson.core.*;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.util.RawValue;
 
@@ -16,8 +15,6 @@ public abstract class ContainerNode<T extends ContainerNode<T>>
     extends BaseJsonNode
     implements JsonNodeCreator
 {
-    private static final long serialVersionUID = 1L;
-
     /**
      * We will keep a reference to the Object (usually TreeMapper)
      * that can construct instances of nodes to add to this container
@@ -28,8 +25,6 @@ public abstract class ContainerNode<T extends ContainerNode<T>>
     protected ContainerNode(JsonNodeFactory nc) {
         _nodeFactory = nc;
     }
-
-    protected ContainerNode() { _nodeFactory = null; } // only for JDK ser
 
     // all containers are mutable: can't define:
 //    @Override public abstract <T extends JsonNode> T deepCopy();
@@ -55,30 +50,10 @@ public abstract class ContainerNode<T extends ContainerNode<T>>
     @Override
     public abstract JsonNode get(String fieldName);
 
-    @Override
-    protected abstract ObjectNode _withObject(JsonPointer origPtr,
-            JsonPointer currentPtr,
-            OverwriteMode overwriteMode, boolean preferIndex);
-
     /*
     /**********************************************************
-    /* JsonNodeCreator implementation, Enumerated/singleton types
-    /**********************************************************
-     */
-
-    @Override
-    public final BooleanNode booleanNode(boolean v) { return _nodeFactory.booleanNode(v); }
-
-    public JsonNode missingNode() {
-        return _nodeFactory.missingNode();
-    }
-
-    @Override
-    public final NullNode nullNode() { return _nodeFactory.nullNode(); }
-
-    /*
-    /**********************************************************
-    /* JsonNodeCreator implementation, just dispatch to real creator
+    /* JsonNodeCreator implementation, just dispatch to
+    /* the real creator
     /**********************************************************
      */
 
@@ -103,6 +78,12 @@ public abstract class ContainerNode<T extends ContainerNode<T>>
      */
     @Override
     public final ObjectNode objectNode() { return _nodeFactory.objectNode(); }
+
+    @Override
+    public final NullNode nullNode() { return _nodeFactory.nullNode(); }
+
+    @Override
+    public final BooleanNode booleanNode(boolean v) { return _nodeFactory.booleanNode(v); }
 
     @Override
     public final NumericNode numberNode(byte v) { return _nodeFactory.numberNode(v); }

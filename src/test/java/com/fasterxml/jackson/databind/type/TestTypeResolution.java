@@ -6,6 +6,9 @@ import java.util.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.BaseMapTest;
 import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.type.CollectionType;
+import com.fasterxml.jackson.databind.type.MapType;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 
 @SuppressWarnings("serial")
 public class TestTypeResolution extends BaseMapTest
@@ -41,7 +44,7 @@ public class TestTypeResolution extends BaseMapTest
         MapType type = (MapType) t;
         assertSame(LongValuedMap.class, type.getRawClass());
         assertEquals(tf.constructType(String.class), type.getKeyType());
-        assertEquals(tf.constructType(Long.class), type.getContentType());
+        assertEquals(tf.constructType(Long.class), type.getContentType());        
     }
 
     public void testListViaTypeRef()
@@ -50,7 +53,7 @@ public class TestTypeResolution extends BaseMapTest
         JavaType t = tf.constructType(new TypeReference<MyLongList<Integer>>() {});
         CollectionType type = (CollectionType) t;
         assertSame(MyLongList.class, type.getRawClass());
-        assertEquals(tf.constructType(Long.class), type.getContentType());
+        assertEquals(tf.constructType(Long.class), type.getContentType());        
     }
 
     public void testListViaClass()
@@ -59,7 +62,7 @@ public class TestTypeResolution extends BaseMapTest
         JavaType t = tf.constructType(LongList.class);
         JavaType type = (CollectionType) t;
         assertSame(LongList.class, type.getRawClass());
-        assertEquals(tf.constructType(Long.class), type.getContentType());
+        assertEquals(tf.constructType(Long.class), type.getContentType());        
     }
 
     public void testGeneric()

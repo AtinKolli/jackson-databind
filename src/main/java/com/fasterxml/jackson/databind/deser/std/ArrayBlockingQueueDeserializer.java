@@ -85,20 +85,19 @@ public class ArrayBlockingQueueDeserializer
         return null;
     }
 
-    // NOTE: implementation changed between 2.11 and 2.12
     @Override
-    protected Collection<Object> _deserializeFromArray(JsonParser p, DeserializationContext ctxt,
-            Collection<Object> result0)
-        throws IOException
+    public Collection<Object> deserialize(JsonParser p, DeserializationContext ctxt,
+            Collection<Object> result0) throws IOException
     {
-        if (result0 == null) { // usual case
-            result0 = new ArrayList<>();
+        if (result0 != null) {
+            return super.deserialize(p, ctxt, result0);
         }
-        result0 = super._deserializeFromArray(p, ctxt, result0);
-        if (result0.isEmpty()) {
-            return new ArrayBlockingQueue<>(1, false);
+        // Ok: must point to START_ARRAY (or equivalent)
+        if (!p.isExpectedStartArrayToken()) {
+            return handleNonArray(p, ctxt, new ArrayBlockingQueue<Object>(1));
         }
-        return new ArrayBlockingQueue<>(result0.size(), false, result0);
+        result0 = super.deserialize(p, ctxt, new ArrayList<Object>());
+        return new ArrayBlockingQueue<Object>(result0.size(), false, result0);
     }
 
     @Override

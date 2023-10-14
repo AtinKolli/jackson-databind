@@ -68,8 +68,7 @@ class CollectorBase
     // // // Defaulting ("mix under")
 
     // Variant that only adds annotations that are missing
-    protected final AnnotationCollector collectDefaultAnnotations(AnnotationCollector c,
-            Annotation[] anns) {
+    protected final AnnotationCollector collectDefaultAnnotations(AnnotationCollector c, Annotation[] anns) {
         for (int i = 0, end = anns.length; i < end; ++i) {
             Annotation ann = anns[i];
             if (!c.isPresent(ann)) {
@@ -82,8 +81,7 @@ class CollectorBase
         return c;
     }
 
-    protected final AnnotationCollector collectDefaultFromBundle(AnnotationCollector c,
-            Annotation bundle) {
+    protected final AnnotationCollector collectDefaultFromBundle(AnnotationCollector c, Annotation bundle) {
         Annotation[] anns = ClassUtil.findClassAnnotations(bundle.annotationType());
         for (int i = 0, end = anns.length; i < end; ++i) {
             Annotation ann = anns[i];
@@ -101,7 +99,7 @@ class CollectorBase
         }
         return c;
     }
-
+    
     protected final static boolean _ignorableAnnotation(Annotation a) {
         return (a instanceof Target) || (a instanceof Retention);
     }

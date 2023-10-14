@@ -1,15 +1,15 @@
 package perf;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 public class ManualReadPerfWithMedia extends ObjectReaderTestBase
 {
     @Override
     protected int targetSizeMegs() { return 8; }
-
+    
     public static void main(String[] args) throws Exception
     {
         if (args.length != 0) {
@@ -32,9 +32,9 @@ public class ManualReadPerfWithMedia extends ObjectReaderTestBase
         input.addPhoto(new MediaItem.Photo("http://a.com", "title1", 200, 100, MediaItem.Size.LARGE));
         input.addPhoto(new MediaItem.Photo("http://b.org", "title2", 640, 480, MediaItem.Size.SMALL));
 
-        JsonMapper m1 = new JsonMapper();
+        ObjectMapper m1 = new ObjectMapper();
         m1.setAnnotationIntrospector(new NoFormatIntrospector());
-        JsonMapper m2 = new JsonMapper();
+        ObjectMapper m2 = new ObjectMapper();
         new ManualReadPerfWithRecord().testFromBytes(m1, "JSON-as-Object", input, MediaItem.class,
                 m2, "JSON-as-Array", input, MediaItem.class);
     }

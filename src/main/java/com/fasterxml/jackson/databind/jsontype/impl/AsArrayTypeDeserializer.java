@@ -23,9 +23,6 @@ public class AsArrayTypeDeserializer
 {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * @since 2.8
-     */
     public AsArrayTypeDeserializer(JavaType bt, TypeIdResolver idRes,
             String typePropertyName, boolean typeIdVisible, JavaType defaultImpl)
     {
@@ -35,13 +32,13 @@ public class AsArrayTypeDeserializer
     public AsArrayTypeDeserializer(AsArrayTypeDeserializer src, BeanProperty property) {
         super(src, property);
     }
-
+    
     @Override
     public TypeDeserializer forProperty(BeanProperty prop) {
         // usually if it's null:
         return (prop == _property) ? this : new AsArrayTypeDeserializer(this, prop);
     }
-
+    
     @Override
     public As getTypeInclusion() { return As.WRAPPER_ARRAY; }
 
@@ -60,17 +57,17 @@ public class AsArrayTypeDeserializer
     public Object deserializeTypedFromObject(JsonParser jp, DeserializationContext ctxt) throws IOException {
         return _deserialize(jp, ctxt);
     }
-
+    
     @Override
     public Object deserializeTypedFromScalar(JsonParser jp, DeserializationContext ctxt) throws IOException {
         return _deserialize(jp, ctxt);
-    }
+    }    
 
     @Override
     public Object deserializeTypedFromAny(JsonParser jp, DeserializationContext ctxt) throws IOException {
         return _deserialize(jp, ctxt);
-    }
-
+    }    
+    
     /*
     /***************************************************************
     /* Internal methods
@@ -101,35 +98,31 @@ public class AsArrayTypeDeserializer
                 //   internal and external properties
                 //  TODO: but does it need to be injected in external case? Why not?
                 && !_usesExternalId()
-                && p.hasToken(JsonToken.START_OBJECT)) {
+                && p.isExpectedStartObjectToken()) {
             // but what if there's nowhere to add it in? Error? Or skip? For now, skip.
-            TokenBuffer tb = ctxt.bufferForInputBuffering(p);
+            TokenBuffer tb = TokenBuffer.forInputBuffering(p, ctxt);
             tb.writeStartObject(); // recreate START_OBJECT
             tb.writeFieldName(_typePropertyName);
             tb.writeString(typeId);
-            // 02-Jul-2016, tatu: Depending on for JsonParserSequence is initialized it may
+            // 02-Jul-2016, tatu: Depending on how JsonParserSequence is initialized it may
             //   try to access current token; ensure there isn't one
             p.clearCurrentToken();
-            p = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
+            p = JsonParserSequence.createFlattened(false, tb.asParser(ctxt, p), p);
             p.nextToken();
-        }
-        // [databind#2467] (2.10): Allow missing value to be taken as "just use null value"
-        if (hadStartArray && p.currentToken() == JsonToken.END_ARRAY) {
-            return deser.getNullValue(ctxt);
         }
         Object value = deser.deserialize(p, ctxt);
         // And then need the closing END_ARRAY
         if (hadStartArray && p.nextToken() != JsonToken.END_ARRAY) {
             ctxt.reportWrongTokenException(baseType(), JsonToken.END_ARRAY,
-                    "expected closing `JsonToken.END_ARRAY` after type information and deserialized value");
+                    "expected closing END_ARRAY after type information and deserialized value");
             // 05-May-2016, tatu: Not 100% what to do if exception is stored for
             //     future, and not thrown immediately: should probably skip until END_ARRAY
 
             // ... but for now, fall through
         }
         return value;
-    }
-
+    }    
+    
     protected String _locateTypeId(JsonParser p, DeserializationContext ctxt) throws IOException
     {
         if (!p.isExpectedStartArrayToken()) {
@@ -139,33 +132,21 @@ public class AsArrayTypeDeserializer
                 return _idResolver.idFromBaseType();
             }
              ctxt.reportWrongTokenException(baseType(), JsonToken.START_ARRAY,
-                     "need Array value to contain `As.WRAPPER_ARRAY` type information for class "+baseTypeName());
+                     "need JSON Array to contain As.WRAPPER_ARRAY type information for class "+baseTypeName());
              return null;
         }
         // And then type id as a String
         JsonToken t = p.nextToken();
-        if ((t == JsonToken.VALUE_STRING)
-                // 25-Nov-2022, tatu: [databind#1761] Also accept other scalars
-            || ((t != null) && t.isScalarValue())) {
+        if (t == JsonToken.VALUE_STRING) {
             String result = p.getText();
             p.nextToken();
             return result;
         }
-
-        // 11-Nov-2020, tatu: I don't think this branch ever gets executed by
-        //    unit tests so do not think it would actually work; commented out
-        //    in 2.12.0
-/*        if (_defaultImpl != null) {
-            p.nextToken();
+        if (_defaultImpl != null) {
             return _idResolver.idFromBaseType();
         }
-        */
-
-        // 11-Nov-202, tatu: points to wrong place since we don't pass JsonParser
-        //   we actually use (which is usually TokenBuffer created)... should fix
         ctxt.reportWrongTokenException(baseType(), JsonToken.VALUE_STRING,
-                "need String, Number of Boolean value that contains type id (for subtype of %s)",
-                baseTypeName());
+                "need JSON String that contains type id (for subtype of %s)", baseTypeName());
         return null;
     }
 

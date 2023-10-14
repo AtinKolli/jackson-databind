@@ -24,14 +24,9 @@ public abstract class PropertySerializerMap
      * Configuration setting that determines what happens when maximum
      * size (currently 8) is reached: if true, will "start from beginning";
      * if false, will simply stop adding new entries.
-     *
-     * @since 2.5
      */
     protected final boolean _resetWhenFull;
 
-    /**
-     * @since 2.5
-     */
     protected PropertySerializerMap(boolean resetWhenFull) {
         _resetWhenFull = resetWhenFull;
     }
@@ -52,10 +47,8 @@ public abstract class PropertySerializerMap
      * serializer (one that is directly attached to a property).
      * Will both find serializer
      * and construct new map instance if warranted, and return both.
-     *
-     * @since 2.3
-     *
-     * @throws JsonMappingException
+     * 
+     * @throws JsonMappingException 
      */
     public final SerializerAndMapResult findAndAddPrimarySerializer(Class<?> type,
             SerializerProvider provider, BeanProperty property)
@@ -78,16 +71,16 @@ public abstract class PropertySerializerMap
      * serializer (one that is not directly attached to a property).
      * Will both find serializer
      * and construct new map instance if warranted, and return both.
-     *
+     * 
      * @since 2.3
-     *
-     * @throws JsonMappingException
+     * 
+     * @throws JsonMappingException 
      */
     public final SerializerAndMapResult findAndAddSecondarySerializer(Class<?> type,
             SerializerProvider provider, BeanProperty property)
         throws JsonMappingException
     {
-        JsonSerializer<Object> serializer = provider.findContentValueSerializer(type, property);
+        JsonSerializer<Object> serializer = provider.findValueSerializer(type, property);
         return new SerializerAndMapResult(serializer, newWith(type, serializer));
     }
 
@@ -95,7 +88,7 @@ public abstract class PropertySerializerMap
             SerializerProvider provider, BeanProperty property)
         throws JsonMappingException
     {
-        JsonSerializer<Object> serializer = provider.findContentValueSerializer(type, property);
+        JsonSerializer<Object> serializer = provider.findValueSerializer(type, property);
         return new SerializerAndMapResult(serializer, newWith(type.getRawClass(), serializer));
     }
 
@@ -105,10 +98,10 @@ public abstract class PropertySerializerMap
      * have {@link com.fasterxml.jackson.databind.jsontype.TypeSerializer} wrapped
      * around it. Will both find the serializer
      * and construct new map instance if warranted, and return both.
-     *
+     * 
      * @since 2.5
-     *
-     * @throws JsonMappingException
+     * 
+     * @throws JsonMappingException 
      */
     public final SerializerAndMapResult findAndAddRootValueSerializer(Class<?> type,
             SerializerProvider provider)
@@ -134,7 +127,7 @@ public abstract class PropertySerializerMap
      * serializer (possible attached indirectly to a property)
      * Will both find serializer
      * and construct new map instance if warranted, and return both.
-     *
+     * 
      * @since 2.7
      */
     public final SerializerAndMapResult findAndAddKeySerializer(Class<?> type,
@@ -144,36 +137,27 @@ public abstract class PropertySerializerMap
         JsonSerializer<Object> serializer = provider.findKeySerializer(type, property);
         return new SerializerAndMapResult(serializer, newWith(type, serializer));
     }
-
+    
     /**
      * Method that can be used to 'register' a serializer that caller has resolved
      * without help of this map.
-     *
+     * 
      * @since 2.5
      */
     public final SerializerAndMapResult addSerializer(Class<?> type, JsonSerializer<Object> serializer) {
         return new SerializerAndMapResult(serializer, newWith(type, serializer));
     }
 
-    /**
-     * @since 2.5
-     */
     public final SerializerAndMapResult addSerializer(JavaType type, JsonSerializer<Object> serializer) {
         return new SerializerAndMapResult(serializer, newWith(type.getRawClass(), serializer));
     }
 
     public abstract PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer);
 
-    /**
-     * @since 2.5
-     */
     public static PropertySerializerMap emptyForProperties() {
         return Empty.FOR_PROPERTIES;
     }
 
-    /**
-     * @since 2.5
-     */
     public static PropertySerializerMap emptyForRootValues() {
         return Empty.FOR_ROOT_VALUES;
     }
@@ -192,7 +176,7 @@ public abstract class PropertySerializerMap
     {
         public final JsonSerializer<Object> serializer;
         public final PropertySerializerMap map;
-
+        
         public SerializerAndMapResult(JsonSerializer<Object> serializer,
                 PropertySerializerMap map)
         {
@@ -236,11 +220,11 @@ public abstract class PropertySerializerMap
         protected Empty(boolean resetWhenFull) {
             super(resetWhenFull);
         }
-
+        
         @Override
         public JsonSerializer<Object> serializerFor(Class<?> type) {
             return null; // empty, nothing to find
-        }
+        }        
 
         @Override
         public PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
@@ -306,7 +290,7 @@ public abstract class PropertySerializerMap
                 return _serializer2;
             }
             return null;
-        }
+        }        
 
         @Override
         public PropertySerializerMap newWith(Class<?> type, JsonSerializer<Object> serializer) {
@@ -318,7 +302,7 @@ public abstract class PropertySerializerMap
             return new Multi(this, ts);
         }
     }
-
+    
     private final static class Multi extends PropertySerializerMap
     {
         /**
@@ -330,7 +314,7 @@ public abstract class PropertySerializerMap
          * limit. 8 sounds like a reasonable stab for now.
          */
         private final static int MAX_ENTRIES = 8;
-
+        
         private final TypeAndSerializer[] _entries;
 
         public Multi(PropertySerializerMap base, TypeAndSerializer[] entries) {
@@ -341,32 +325,11 @@ public abstract class PropertySerializerMap
         @Override
         public JsonSerializer<Object> serializerFor(Class<?> type)
         {
-            // Always have first 3 populated so
-            TypeAndSerializer entry;
-            entry = _entries[0];
-            if (entry.type == type) return entry.serializer;
-            entry = _entries[1];
-            if (entry.type == type) return entry.serializer;
-            entry = _entries[2];
-            if (entry.type == type) return entry.serializer;
-
-            switch (_entries.length) {
-            case 8:
-                entry = _entries[7];
-                if (entry.type == type) return entry.serializer;
-            case 7:
-                entry = _entries[6];
-                if (entry.type == type) return entry.serializer;
-            case 6:
-                entry = _entries[5];
-                if (entry.type == type) return entry.serializer;
-            case 5:
-                entry = _entries[4];
-                if (entry.type == type) return entry.serializer;
-            case 4:
-                entry = _entries[3];
-                if (entry.type == type) return entry.serializer;
-            default:
+            for (int i = 0, len = _entries.length; i < len; ++i) {
+                TypeAndSerializer entry = _entries[i];
+                if (entry.type == type) {
+                    return entry.serializer;
+                }
             }
             return null;
         }

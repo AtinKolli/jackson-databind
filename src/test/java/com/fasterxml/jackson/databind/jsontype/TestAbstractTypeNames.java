@@ -9,7 +9,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 
 /**
  * Unit tests for checking how combination of interfaces, implementation
@@ -89,13 +88,14 @@ public class TestAbstractTypeNames  extends BaseMapTest
             public String toString() { return "sub!"; }
         };
     }
-
+    
     /*
     /**********************************************************
-    /* Test methods
+    /* Unit tests
     /**********************************************************
      */
 
+    // Testing [JACKSON-498], partial fix
     public void testEmptyCollection() throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
@@ -113,7 +113,7 @@ public class TestAbstractTypeNames  extends BaseMapTest
         mapper = new ObjectMapper();
         mapper.registerSubtypes(DefaultEmployee.class);
         mapper.registerSubtypes(DefaultUser.class);
-
+        
         User result = mapper.readValue(json, User.class);
         assertNotNull(result);
         assertEquals(DefaultEmployee.class, result.getClass());
@@ -123,14 +123,12 @@ public class TestAbstractTypeNames  extends BaseMapTest
         assertEquals(DefaultUser.class, friends.get(0).getClass());
         assertEquals(DefaultEmployee.class, friends.get(1).getClass());
     }
-
+    
     // [JACKSON-584]: change anonymous non-static inner type into static type:
     public void testInnerClassWithType() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .activateDefaultTyping(NoCheckSubTypeValidator.instance,
-                        DefaultTyping.NON_FINAL)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enableDefaultTyping(DefaultTyping.NON_FINAL);
         String json = mapper.writeValueAsString(new BeanWithAnon());
         BeanWithAnon result = mapper.readValue(json, BeanWithAnon.class);
         assertEquals(BeanWithAnon.class, result.getClass());

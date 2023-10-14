@@ -1,21 +1,15 @@
 package com.fasterxml.jackson.databind.deser.std;
 
 import java.io.IOException;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-
 import com.fasterxml.jackson.core.*;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
-import com.fasterxml.jackson.databind.cfg.CoercionAction;
-import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.deser.NullValueProvider;
 import com.fasterxml.jackson.databind.deser.impl.NullsConstantProvider;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.util.AccessPattern;
 import com.fasterxml.jackson.databind.util.ObjectBuffer;
 
@@ -44,7 +38,7 @@ public final class StringArrayDeserializer
     protected JsonDeserializer<String> _elementDeserializer;
 
     /**
-     * Handler we need for dealing with null values as elements
+     * Handler we need for dealing with nulls.
      *
      * @since 2.9
      */
@@ -66,7 +60,7 @@ public final class StringArrayDeserializer
      * @since 2.9
      */
     protected final boolean _skipNullValues;
-
+    
     public StringArrayDeserializer() {
         this(null, null, null);
     }
@@ -79,11 +73,6 @@ public final class StringArrayDeserializer
         _nullProvider = nuller;
         _unwrapSingle = unwrapSingle;
         _skipNullValues = NullsConstantProvider.isSkipper(nuller);
-    }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return LogicalType.Array;
     }
 
     @Override // since 2.9
@@ -128,7 +117,7 @@ public final class StringArrayDeserializer
             deser = null;
         }
         if ((_elementDeserializer == deser)
-                && (Objects.equals(_unwrapSingle, unwrapSingle))
+                && (_unwrapSingle == unwrapSingle)
                 && (_nullProvider == nuller)) {
             return this;
         }
@@ -165,7 +154,7 @@ public final class StringArrayDeserializer
                         }
                         value = (String) _nullProvider.getNullValue(ctxt);
                     } else {
-                        value = _parseString(p, ctxt, _nullProvider);
+                        value = _parseString(p, ctxt);
                     }
                 }
                 if (ix >= chunk.length) {
@@ -199,7 +188,7 @@ public final class StringArrayDeserializer
             ix = old.length;
             chunk = buffer.resetAndStart(old, ix);
         }
-
+        
         final JsonDeserializer<String> deser = _elementDeserializer;
 
         try {
@@ -286,7 +275,7 @@ public final class StringArrayDeserializer
                         }
                         value = (String) _nullProvider.getNullValue(ctxt);
                     } else {
-                        value = _parseString(p, ctxt, _nullProvider);
+                        value = _parseString(p, ctxt);
                     }
                 }
                 if (ix >= chunk.length) {
@@ -310,37 +299,17 @@ public final class StringArrayDeserializer
                 ((_unwrapSingle == null) &&
                         ctxt.isEnabled(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY));
         if (canWrap) {
-            String value;
-            if (p.hasToken(JsonToken.VALUE_NULL)) {
-                value = (String) _nullProvider.getNullValue(ctxt);
-            } else {
-                if (p.hasToken(JsonToken.VALUE_STRING)) {
-                    String textValue = p.getText();
-                    // https://github.com/FasterXML/jackson-dataformat-xml/issues/513
-                    if (textValue.isEmpty()) {
-                        final CoercionAction act = ctxt.findCoercionAction(logicalType(), handledType(),
-                                CoercionInputShape.EmptyString);
-                        if (act != CoercionAction.Fail) {
-                            return (String[]) _deserializeFromEmptyString(p, ctxt, act, handledType(),
-                                    "empty String (\"\")");
-                        }
-                    } else if (_isBlank(textValue)) {
-                        final CoercionAction act = ctxt.findCoercionFromBlankString(logicalType(), handledType(),
-                                CoercionAction.Fail);
-                        if (act != CoercionAction.Fail) {
-                            return (String[]) _deserializeFromEmptyString(p, ctxt, act, handledType(),
-                                    "blank String (all whitespace)");
-                        }
-                    }
-                    // if coercion failed, we can still add it to an array
-                }
-
-                value = _parseString(p, ctxt, _nullProvider);
-            }
+            String value = p.hasToken(JsonToken.VALUE_NULL)
+                    ? (String) _nullProvider.getNullValue(ctxt)
+                    : _parseString(p, ctxt);
             return new String[] { value };
         }
-        if (p.hasToken(JsonToken.VALUE_STRING)) {
-            return _deserializeFromString(p, ctxt);
+        if (p.hasToken(JsonToken.VALUE_STRING)
+                    && ctxt.isEnabled(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT)) {
+            String str = p.getText();
+            if (str.length() == 0) {
+                return null;
+            }
         }
         return (String[]) ctxt.handleUnexpectedToken(_valueClass, p);
     }

@@ -14,8 +14,6 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 public class BooleanNode
     extends ValueNode
 {
-    private static final long serialVersionUID = 2L;
-
     // // Just need two instances...
 
     public final static BooleanNode TRUE = new BooleanNode(true);
@@ -28,11 +26,6 @@ public class BooleanNode
      * NOTE: visibility raised to `protected` in 2.9.3 to allow custom subtypes.
      */
     protected BooleanNode(boolean v) { _value = v; }
-
-    // To support JDK serialization, recovery of Singleton instance
-    protected Object readResolve() {
-        return _value ? TRUE : FALSE;
-    }
 
     public static BooleanNode getTrue() { return TRUE; }
     public static BooleanNode getFalse() { return FALSE; }
@@ -67,7 +60,7 @@ public class BooleanNode
     public boolean asBoolean(boolean defaultValue) {
         return _value;
     }
-
+    
     @Override
     public int asInt(int defaultValue) {
         return _value ? 1 : 0;
@@ -80,7 +73,7 @@ public class BooleanNode
     public double asDouble(double defaultValue) {
         return _value ? 1.0 : 0.0;
     }
-
+    
     @Override
     public final void serialize(JsonGenerator g, SerializerProvider provider) throws IOException {
         g.writeBoolean(_value);

@@ -11,8 +11,6 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 /**
  * Base class for {@link JsonMappingException}s that are specifically related
  * to problems related to binding an individual property.
- *
- * @since 2.3
  */
 @SuppressWarnings("serial")
 public abstract class PropertyBindingException
@@ -22,7 +20,7 @@ public abstract class PropertyBindingException
      * Class that does not contain mapping for the unrecognized property.
      */
     protected final Class<?> _referringClass;
-
+    
     /**
      *<p>
      * Note: redundant information since it is also included in the
@@ -42,9 +40,6 @@ public abstract class PropertyBindingException
      */
     protected transient String _propertiesAsString;
 
-    /**
-     * @since 2.7
-     */
     protected PropertyBindingException(JsonParser p, String msg, JsonLocation loc,
             Class<?> referringClass, String propName,
             Collection<Object> propertyIds)
@@ -53,17 +48,6 @@ public abstract class PropertyBindingException
         _referringClass = referringClass;
         _propertyName = propName;
         _propertyIds = propertyIds;
-    }
-
-    /**
-     * @deprecated Since 2.7
-     */
-    @Deprecated // since 2.7
-    protected PropertyBindingException(String msg, JsonLocation loc,
-            Class<?> referringClass, String propName,
-            Collection<Object> propertyIds)
-    {
-        this(null, msg, loc, referringClass, propName, propertyIds);
     }
 
     /*
@@ -117,7 +101,7 @@ public abstract class PropertyBindingException
     /* Extended API
     /**********************************************************
      */
-
+    
     /**
      * Method for accessing type (class) that is missing definition to allow
      * binding of the unrecognized property.
@@ -125,7 +109,7 @@ public abstract class PropertyBindingException
     public Class<?> getReferringClass() {
         return _referringClass;
     }
-
+    
     /**
      * Convenience method for accessing logical property name that could
      * not be mapped. Note that it is the last path reference in the
@@ -133,8 +117,8 @@ public abstract class PropertyBindingException
      */
     public String getPropertyName() {
         return _propertyName;
-    }
-
+    }    
+    
     public Collection<Object> getKnownPropertyIds()
     {
         if (_propertyIds == null) {

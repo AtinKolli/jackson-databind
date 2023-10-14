@@ -43,6 +43,7 @@ public class AnyPropSorting518Test extends BaseMapTest
         extra.put("y", 4);
         extra.put("x", 3);
         String json = MAPPER.writeValueAsString(new Bean(1, 2, extra));
-        assertEquals(a2q("{'a':1,'b':2,'x':3,'y':4}"), json);
+        assertEquals(aposToQuotes("{'a':1,'b':2,'x':3,'y':4}"),
+                json);
     }
 }

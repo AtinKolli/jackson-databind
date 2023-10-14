@@ -3,9 +3,10 @@ package com.fasterxml.jackson.databind.ser.filter;
 import java.io.*;
 
 import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.core.json.JsonFactory;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.cfg.CacheProvider;
+import com.fasterxml.jackson.databind.cfg.GeneratorSettings;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider;
 import com.fasterxml.jackson.databind.ser.SerializerFactory;
@@ -30,13 +31,15 @@ public class NullSerializationTest
     static class Bean2 {
         public String type = null;
     }
-
+    
     @SuppressWarnings("serial")
     static class MyNullProvider extends DefaultSerializerProvider
     {
-        public MyNullProvider() { super(); }
-        public MyNullProvider(MyNullProvider base, SerializationConfig config, SerializerFactory jsf) {
-            super(base, config, jsf);
+        public MyNullProvider() { super(new JsonFactory()); }
+        public MyNullProvider(MyNullProvider base, SerializationConfig config, 
+                GeneratorSettings genSettings,
+                SerializerFactory jsf) {
+            super(base, config, genSettings, jsf);
         }
 
         // not really a proper impl, but has to do
@@ -44,15 +47,11 @@ public class NullSerializationTest
         public DefaultSerializerProvider copy() {
             return this;
         }
-
+        
         @Override
-        public DefaultSerializerProvider withCaches(CacheProvider cacheProvider) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DefaultSerializerProvider createInstance(SerializationConfig config, SerializerFactory jsf) {
-            return new MyNullProvider(this, config, jsf);
+        public DefaultSerializerProvider createInstance(SerializationConfig config,
+                GeneratorSettings genSettings, SerializerFactory jsf) {
+            return new MyNullProvider(this, config, genSettings, jsf);
         }
 
         @Override
@@ -76,7 +75,7 @@ public class NullSerializationTest
     @JsonSerialize(nullsUsing=NullSerializer.class)
     static class NullValuedType { }
 */
-
+    
     /*
     /**********************************************************
     /* Test methods
@@ -84,7 +83,7 @@ public class NullSerializationTest
      */
 
     private final ObjectMapper MAPPER = objectMapper();
-
+    
     public void testSimple() throws Exception
     {
         assertEquals("null", MAPPER.writeValueAsString(null));
@@ -92,7 +91,7 @@ public class NullSerializationTest
 
     public void testOverriddenDefaultNulls() throws Exception
     {
-        DefaultSerializerProvider sp = new DefaultSerializerProvider.Impl();
+        DefaultSerializerProvider sp = new DefaultSerializerProvider.Impl(new JsonFactory());
         sp.setNullValueSerializer(new NullSerializer());
         ObjectMapper m = new ObjectMapper();
         m.setSerializerProvider(sp);

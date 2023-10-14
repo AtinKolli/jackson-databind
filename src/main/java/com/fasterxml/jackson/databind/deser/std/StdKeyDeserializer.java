@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.deser.std;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
@@ -10,11 +9,10 @@ import java.net.URL;
 import java.util.*;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.io.NumberInput;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
-import com.fasterxml.jackson.databind.cfg.EnumFeature;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 import com.fasterxml.jackson.databind.util.EnumResolver;
@@ -58,7 +56,7 @@ public class StdKeyDeserializer extends KeyDeserializer
      * Some types that are deserialized using a helper deserializer.
      */
     protected final FromStringDeserializer<?> _deser;
-
+    
     protected StdKeyDeserializer(int kind, Class<?> cls) {
         this(kind, cls, null);
     }
@@ -74,13 +72,9 @@ public class StdKeyDeserializer extends KeyDeserializer
         int kind;
 
         // first common types:
-        if (raw == String.class || raw == Object.class
-                || raw == CharSequence.class
-                // see [databind#2115]:
-                || raw == Serializable.class) {
+        if (raw == String.class || raw == Object.class || raw == CharSequence.class) {
             return StringKD.forType(raw);
-        }
-        if (raw == UUID.class) {
+        } else if (raw == UUID.class) {
             kind = TYPE_UUID;
         } else if (raw == Integer.class) {
             kind = TYPE_INT;
@@ -137,11 +131,9 @@ public class StdKeyDeserializer extends KeyDeserializer
             }
         } catch (Exception re) {
             return ctxt.handleWeirdKey(_keyClass, key, "not a valid representation, problem: (%s) %s",
-                    re.getClass().getName(),
-                    ClassUtil.exceptionMessage(re));
+                    re.getClass().getName(), re.getMessage());
         }
-        if (ClassUtil.isEnumType(_keyClass)
-                && ctxt.getConfig().isEnabled(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)) {
+        if (_keyClass.isEnum() && ctxt.getConfig().isEnabled(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)) {
             return null;
         }
         return ctxt.handleWeirdKey(_keyClass, key, "not a valid representation");
@@ -252,11 +244,11 @@ public class StdKeyDeserializer extends KeyDeserializer
      */
 
     protected int _parseInt(String key) throws IllegalArgumentException {
-        return NumberInput.parseInt(key);
+        return Integer.parseInt(key);
     }
 
     protected long _parseLong(String key) throws IllegalArgumentException {
-        return NumberInput.parseLong(key);
+        return Long.parseLong(key);
     }
 
     protected double _parseDouble(String key) throws IllegalArgumentException {
@@ -265,8 +257,7 @@ public class StdKeyDeserializer extends KeyDeserializer
 
     // @since 2.9
     protected Object _weirdKey(DeserializationContext ctxt, String key, Exception e) throws IOException {
-        return ctxt.handleWeirdKey(_keyClass, key, "problem: %s",
-                ClassUtil.exceptionMessage(e));
+        return ctxt.handleWeirdKey(_keyClass, key, "problem: %s", e.getMessage());
     }
 
     /*
@@ -281,7 +272,7 @@ public class StdKeyDeserializer extends KeyDeserializer
         private static final long serialVersionUID = 1L;
         private final static StringKD sString = new StringKD(String.class);
         private final static StringKD sObject = new StringKD(Object.class);
-
+        
         private StringKD(Class<?> nominalType) { super(-1, nominalType); }
 
         public static StringKD forType(Class<?> nominalType)
@@ -296,10 +287,10 @@ public class StdKeyDeserializer extends KeyDeserializer
         }
 
         @Override
-        public Object deserializeKey(String key, DeserializationContext ctxt) throws IOException {
+        public Object deserializeKey(String key, DeserializationContext ctxt) throws IOException, JsonProcessingException {
             return key;
         }
-    }
+    }    
 
     /*
     /**********************************************************
@@ -321,7 +312,7 @@ public class StdKeyDeserializer extends KeyDeserializer
         final protected Class<?> _keyClass;
 
         protected final JsonDeserializer<?> _delegate;
-
+        
         protected DelegatingKD(Class<?> cls, JsonDeserializer<?> deser) {
             _keyClass = cls;
             _delegate = deser;
@@ -335,7 +326,7 @@ public class StdKeyDeserializer extends KeyDeserializer
             if (key == null) { // is this even legal call?
                 return null;
             }
-            TokenBuffer tb = ctxt.bufferForInputBuffering();
+            TokenBuffer tb = new TokenBuffer(ctxt.getParser(), ctxt);
             tb.writeString(key);
             try {
                 // Ugh... should not have to give parser which may or may not be correct one...
@@ -353,7 +344,7 @@ public class StdKeyDeserializer extends KeyDeserializer
 
         public Class<?> getKeyClass() { return _keyClass; }
     }
-
+     
     @JacksonStdImpl
     final static class EnumKD extends StdKeyDeserializer
     {
@@ -366,56 +357,19 @@ public class StdKeyDeserializer extends KeyDeserializer
         /**
          * Lazily constructed alternative in case there is need to
          * use 'toString()' method as the source.
-         * <p>
-         * Note: this will be final in Jackson 3.x, by removing deprecated {@link #_getToStringResolver(DeserializationContext)}
-         * 
+         *
          * @since 2.7.3
          */
-        protected volatile EnumResolver _byToStringResolver;
-
-        /**
-         * Lazily constructed alternative in case there is need to
-         * parse using enum index method as the source.
-         *
-         * @since 2.15
-         */
-        protected volatile EnumResolver _byIndexResolver;
-
-        /**
-         * Look up map with <b>key</b> as <code>Enum.name()</code> converted by
-         * {@link EnumNamingStrategy#convertEnumToExternalName(String)}
-         * and <b>value</b> as Enums.
-         *
-         * @since 2.15
-         */
-        protected final EnumResolver _byEnumNamingResolver;
+        protected EnumResolver _byToStringResolver;
 
         protected final Enum<?> _enumDefaultValue;
-
+        
         protected EnumKD(EnumResolver er, AnnotatedMethod factory) {
             super(-1, er.getEnumClass());
             _byNameResolver = er;
             _factory = factory;
             _enumDefaultValue = er.getDefaultValue();
-            _byEnumNamingResolver = null;
-            _byToStringResolver = null;
         }
-
-        /**
-         * 
-         * @since 2.16
-         */
-        protected EnumKD(EnumResolver er, AnnotatedMethod factory, EnumResolver byEnumNamingResolver, 
-                         EnumResolver byToStringResolver, EnumResolver byIndexResolver) {
-            super(-1, er.getEnumClass());
-            _byNameResolver = er;
-            _factory = factory;
-            _enumDefaultValue = er.getDefaultValue();
-            _byEnumNamingResolver = byEnumNamingResolver;
-            _byToStringResolver = byToStringResolver;
-            _byIndexResolver = byIndexResolver;
-        }
-        
 
         @Override
         public Object _parse(String key, DeserializationContext ctxt) throws IOException
@@ -427,20 +381,15 @@ public class StdKeyDeserializer extends KeyDeserializer
                     ClassUtil.unwrapAndThrowAsIAE(e);
                 }
             }
-
-            EnumResolver res = _resolveCurrentResolver(ctxt);
+            EnumResolver res = ctxt.isEnabled(DeserializationFeature.READ_ENUMS_USING_TO_STRING)
+                    ? _getToStringResolver(ctxt) : _byNameResolver;
             Enum<?> e = res.findEnum(key);
-            // If enum is found, no need to try deser using index
-            if (e == null && ctxt.isEnabled(EnumFeature.READ_ENUM_KEYS_USING_INDEX)) {
-                res = _getIndexResolver(ctxt);
-                e = res.findEnum(key);
-            }
             if (e == null) {
                 if ((_enumDefaultValue != null)
                         && ctxt.isEnabled(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE)) {
                     e = _enumDefaultValue;
                 } else if (!ctxt.isEnabled(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL)) {
-                    return ctxt.handleWeirdKey(_keyClass, key, "not one of the values accepted for Enum class: %s",
+                    return ctxt.handleWeirdKey(_keyClass, key, "not one of values excepted for Enum class: %s",
                         res.getEnumIds());
                 }
                 // fall-through if problems are collected, not immediately thrown
@@ -448,66 +397,19 @@ public class StdKeyDeserializer extends KeyDeserializer
             return e;
         }
 
-        /**
-         * @since 2.15
-         */
-        protected EnumResolver _resolveCurrentResolver(DeserializationContext ctxt) {
-            if (_byEnumNamingResolver != null) {
-                return _byEnumNamingResolver;
-            }
-            return ctxt.isEnabled(DeserializationFeature.READ_ENUMS_USING_TO_STRING)
-                ? _getToStringResolver(ctxt)
-                : _byNameResolver;
-        }
-        
-        /**
-         * Since 2.16, {@link #_byToStringResolver} it is passed via 
-         * {@link #EnumKD(EnumResolver, AnnotatedMethod, EnumResolver, EnumResolver, EnumResolver)}, so there is no need for lazy
-         * initialization. But kept for backward-compatilibility reasons.
-         * 
-         * @deprecated Since 2.16
-         */
-        @Deprecated
         private EnumResolver _getToStringResolver(DeserializationContext ctxt)
         {
             EnumResolver res = _byToStringResolver;
             if (res == null) {
                 synchronized (this) {
-                    res = _byToStringResolver;
-                    if (res == null) {
-                        res = EnumResolver.constructUsingToString(ctxt.getConfig(),
-                            _byNameResolver.getEnumClass());
-                        _byToStringResolver = res;
-                    }
-                }
-            }
-            return res;
-        }
-
-        /**
-         * Since 2.16, {@link #_byIndexResolver} it is passed via 
-         * {@link #EnumKD(EnumResolver, AnnotatedMethod, EnumResolver, EnumResolver, EnumResolver)}, so there is no need for lazy
-         * initialization. But kept for backward-compatilibility reasons.
-         *
-         * @deprecated Since 2.16
-         */
-        @Deprecated
-        private EnumResolver _getIndexResolver(DeserializationContext ctxt) {
-            EnumResolver res = _byIndexResolver;
-            if (res == null) {
-                synchronized (this) {
-                    res = _byIndexResolver;
-                    if (res == null) {
-                        res = EnumResolver.constructUsingIndex(ctxt.getConfig(),
-                            _byNameResolver.getEnumClass());
-                        _byIndexResolver = res;
-                    }
+                    res = EnumResolver.constructUnsafeUsingToString(_byNameResolver.getEnumClass(),
+                            ctxt.getAnnotationIntrospector());
                 }
             }
             return res;
         }
     }
-
+    
     /**
      * Key deserializer that calls a single-string-arg constructor
      * to instantiate desired key type.

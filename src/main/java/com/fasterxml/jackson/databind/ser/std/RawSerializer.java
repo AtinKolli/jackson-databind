@@ -1,6 +1,5 @@
 package com.fasterxml.jackson.databind.ser.std;
 
-import java.lang.reflect.Type;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.*;
@@ -40,17 +39,6 @@ public class RawSerializer<T>
                 typeSer.typeId(value, JsonToken.VALUE_EMBEDDED_OBJECT));
         serialize(value, g, provider);
         typeSer.writeTypeSuffix(g, typeIdDef);
-    }
-
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider provider, Type typeHint)
-    {
-        // type not really known, but since it is a JSON string:
-        return createSchemaNode("string", true);
     }
 
     @Override

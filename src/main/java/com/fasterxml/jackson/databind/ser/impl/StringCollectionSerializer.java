@@ -31,7 +31,7 @@ public class StringCollectionSerializer
     /* Life-cycle
     /**********************************************************
      */
-
+    
     protected StringCollectionSerializer() {
         super(Collection.class);
     }
@@ -40,7 +40,7 @@ public class StringCollectionSerializer
             Boolean unwrapSingle)
     {
         super(src, unwrapSingle);
-    }
+    }        
 
     @Override
     public JsonSerializer<?> _withResolved(BeanProperty prop, Boolean unwrapSingle) {
@@ -50,7 +50,7 @@ public class StringCollectionSerializer
     @Override protected JsonNode contentSchema() {
         return createSchemaNode("string", true);
     }
-
+    
     @Override
     protected void acceptContentVisitor(JsonArrayFormatVisitor visitor) throws JsonMappingException
     {
@@ -62,11 +62,12 @@ public class StringCollectionSerializer
     /* Actual serialization
     /**********************************************************
      */
-
+    
     @Override
     public void serialize(Collection<String> value, JsonGenerator g,
             SerializerProvider provider) throws IOException
     {
+        g.setCurrentValue(value);
         final int len = value.size();
         if (len == 1) {
             if (((_unwrapSingle == null) &&
@@ -86,9 +87,9 @@ public class StringCollectionSerializer
             SerializerProvider provider, TypeSerializer typeSer)
         throws IOException
     {
+        g.setCurrentValue(value);
         WritableTypeId typeIdDef = typeSer.writeTypePrefix(g,
                 typeSer.typeId(value, JsonToken.START_ARRAY));
-        g.setCurrentValue(value);
         serializeContents(value, g, provider);
         typeSer.writeTypeSuffix(g, typeIdDef);
     }

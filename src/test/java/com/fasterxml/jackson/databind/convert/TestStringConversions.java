@@ -2,8 +2,6 @@ package com.fasterxml.jackson.databind.convert;
 
 import java.util.*;
 
-import static org.junit.Assert.*;
-
 import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -35,7 +33,7 @@ public class TestStringConversions
     public void testSimple()
     {
         assertEquals(Boolean.TRUE, MAPPER.convertValue("true", Boolean.class));
-        assertEquals(Integer.valueOf(-3), MAPPER.convertValue("-3", Integer.class));
+        assertEquals(Integer.valueOf(-3), MAPPER.convertValue("  -3 ", Integer.class));
         assertEquals(Long.valueOf(77), MAPPER.convertValue("77", Long.class));
 
         int[] ints = { 1, 2, 3 };
@@ -43,7 +41,7 @@ public class TestStringConversions
         Ints.add(1);
         Ints.add(2);
         Ints.add(3);
-
+        
         assertArrayEquals(ints, MAPPER.convertValue(Ints, int[].class));
     }
 
@@ -68,7 +66,7 @@ public class TestStringConversions
         byte[] result = MAPPER.convertValue(encoded, byte[].class);
         assertArrayEquals(input, result);
     }
-
+    
     public void testBytestoCharArray() throws Exception
     {
         byte[] input = new byte[] { 1, 2, 3, 4, 5, 6, 7 };

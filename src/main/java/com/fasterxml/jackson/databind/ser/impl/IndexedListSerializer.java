@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ser.std.AsArraySerializerBase;
  */
 @JacksonStdImpl
 public final class IndexedListSerializer
-    extends AsArraySerializerBase<List<?>>
+    extends AsArraySerializerBase<Object>
 {
     private static final long serialVersionUID = 1L;
 
@@ -45,27 +45,28 @@ public final class IndexedListSerializer
     /* Accessors
     /**********************************************************
      */
-
+    
     @Override
-    public boolean isEmpty(SerializerProvider prov, List<?> value) {
-        return value.isEmpty();
+    public boolean isEmpty(SerializerProvider prov, Object value) {
+        return ((List<?>)value).isEmpty();
     }
 
     @Override
-    public boolean hasSingleElement(List<?> value) {
-        return (value.size() == 1);
+    public boolean hasSingleElement(Object value) {
+        return (((List<?>)value).size() == 1);
     }
 
     @Override
     public ContainerSerializer<?> _withValueTypeSerializer(TypeSerializer vts) {
-        return new IndexedListSerializer(this,
+        return new IndexedListSerializer(this, 
                 _property, vts, _elementSerializer, _unwrapSingle);
     }
 
     @Override
-    public final void serialize(List<?> value, JsonGenerator gen, SerializerProvider provider)
+    public final void serialize(Object value0, JsonGenerator gen, SerializerProvider provider)
         throws IOException
     {
+        final List<?> value = (List<?>) value0;
         final int len = value.size();
         if (len == 1) {
             if (((_unwrapSingle == null) &&
@@ -79,11 +80,12 @@ public final class IndexedListSerializer
         serializeContents(value, gen, provider);
         gen.writeEndArray();
     }
-
+    
     @Override
-    public void serializeContents(List<?> value, JsonGenerator g, SerializerProvider provider)
+    public void serializeContents(Object value0, JsonGenerator g, SerializerProvider provider)
         throws IOException
     {
+        final List<?> value = (List<?>) value0;
         if (_elementSerializer != null) {
             serializeContentsUsing(value, g, provider, _elementSerializer);
             return;
@@ -123,7 +125,7 @@ public final class IndexedListSerializer
             wrapAndThrow(provider, e, value, i);
         }
     }
-
+    
     public void serializeContentsUsing(List<?> value, JsonGenerator jgen, SerializerProvider provider,
             JsonSerializer<Object> ser)
         throws IOException
@@ -182,6 +184,7 @@ public final class IndexedListSerializer
                 }
             }
         } catch (Exception e) {
+            // [JACKSON-55] Need to add reference information
             wrapAndThrow(provider, e, value, i);
         }
     }

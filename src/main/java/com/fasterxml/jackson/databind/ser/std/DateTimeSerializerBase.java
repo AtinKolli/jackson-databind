@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -62,8 +61,9 @@ public abstract class DateTimeSerializerBase<T>
     public JsonSerializer<?> createContextual(SerializerProvider serializers,
             BeanProperty property) throws JsonMappingException
     {
-        // Note! Should not skip if `property` null since that'd skip check
-        // for config overrides, in case of root value
+        if (property == null) {
+            return this;
+        }
         JsonFormat.Value format = findFormatOverrides(serializers, property, handledType());
         if (format == null) {
             return this;
@@ -148,16 +148,6 @@ df0.getClass().getName()));
 
     protected abstract long _timestamp(T value);
 
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider serializers, Type typeHint) {
-        //todo: (ryan) add a format for the date in the schema?
-        return createSchemaNode(_asTimestamp(serializers) ? "number" : "string", true);
-    }
-
     @Override
     public void acceptJsonFormatVisitor(JsonFormatVisitorWrapper visitor, JavaType typeHint) throws JsonMappingException
     {
@@ -179,11 +169,11 @@ df0.getClass().getName()));
     /* Helper methods
     /**********************************************************
      */
-
+    
     protected boolean _asTimestamp(SerializerProvider serializers)
     {
         if (_useTimestamp != null) {
-            return _useTimestamp;
+            return _useTimestamp.booleanValue();
         }
         if (_customFormat == null) {
             if (serializers != null) {
@@ -222,7 +212,7 @@ df0.getClass().getName()));
         //    While `ThreadLocal` could alternatively be used, it is likely that it would lead to
         //    higher memory footprint, but without much upside -- if we can not reuse, we'll just
         //    clone(), which has some overhead but not drastic one.
-
+        
         DateFormat f = _reusedCustomFormat.getAndSet(null);
         if (f == null) {
             f = (DateFormat) _customFormat.clone();

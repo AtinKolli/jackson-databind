@@ -30,6 +30,13 @@ public abstract class ConcreteBeanPropertyBase
     protected final PropertyMetadata _metadata;
 
     /**
+     * Lazily accessed value for per-property format override definition.
+     * 
+     * @since 2.8
+     */
+    protected transient JsonFormat.Value _propertyFormat;
+
+    /**
      * @since 2.9
      */
     protected transient List<PropertyName> _aliases;
@@ -40,6 +47,7 @@ public abstract class ConcreteBeanPropertyBase
 
     protected ConcreteBeanPropertyBase(ConcreteBeanPropertyBase src) {
         _metadata = src._metadata;
+        _propertyFormat = src._propertyFormat;
     }
 
     @Override
@@ -47,42 +55,34 @@ public abstract class ConcreteBeanPropertyBase
 
     @Override
     public PropertyMetadata getMetadata() { return _metadata; }
-
+    
     @Override
     public boolean isVirtual() { return false; }
 
     @Override
-    @Deprecated
-    public final JsonFormat.Value findFormatOverrides(AnnotationIntrospector intr) {
-        JsonFormat.Value f = null;
-        if (intr != null) {
-            AnnotatedMember member = getMember();
-            if (member != null) {
-                f = intr.findFormat(member);
-            }
-        }
-        if (f == null) {
-            f = EMPTY_FORMAT;
-        }
-        return f;
-    }
-
-    @Override
     public JsonFormat.Value findPropertyFormat(MapperConfig<?> config, Class<?> baseType)
     {
-        JsonFormat.Value v1 = config.getDefaultPropertyFormat(baseType);
-        JsonFormat.Value v2 = null;
-        AnnotationIntrospector intr = config.getAnnotationIntrospector();
-        if (intr != null) {
-            AnnotatedMember member = getMember();
-            if (member != null) {
-                v2 = intr.findFormat(member);
+        // 15-Apr-2016, tatu: Let's calculate lazily, retain; assumption being however that
+        //    baseType is always the same
+        JsonFormat.Value v = _propertyFormat;
+        if (v == null) {
+            JsonFormat.Value v1 = config.getDefaultPropertyFormat(baseType);
+            JsonFormat.Value v2 = null;
+            AnnotationIntrospector intr = config.getAnnotationIntrospector();
+            if (intr != null) {
+                AnnotatedMember member = getMember();
+                if (member != null) {
+                    v2 = intr.findFormat(member);
+                }
             }
+            if (v1 == null) {
+                v = (v2 == null) ? EMPTY_FORMAT : v2;
+            } else {
+                v = (v2 == null) ? v1 : v1.withOverrides(v2);
+            }
+            _propertyFormat = v;
         }
-        if (v1 == null) {
-            return (v2 == null) ? EMPTY_FORMAT : v2;
-        }
-        return (v2 == null) ? v1 : v1.withOverrides(v2);
+        return v;
     }
 
     @Override
@@ -112,10 +112,7 @@ public abstract class ConcreteBeanPropertyBase
         if (aliases == null) {
             AnnotationIntrospector intr = config.getAnnotationIntrospector();
             if (intr != null) {
-                final AnnotatedMember member = getMember();
-                if (member != null) {
-                    aliases = intr.findPropertyAliases(member);
-                }
+                aliases = intr.findPropertyAliases(getMember());
             }
             if (aliases == null) {
                 aliases = Collections.emptyList();

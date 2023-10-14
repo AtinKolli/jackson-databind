@@ -14,8 +14,6 @@ import com.fasterxml.jackson.databind.node.TestTreeDeserialization.Bean;
  */
 public class TreeReadViaMapperTest extends BaseMapTest
 {
-    private final ObjectMapper MAPPER = objectMapper();
-
     public void testSimple() throws Exception
     {
         final String JSON = SAMPLE_DOC_JSON_SPEC;
@@ -24,21 +22,21 @@ public class TreeReadViaMapperTest extends BaseMapTest
             JsonNode result;
 
             if (type == 0) {
-                result = MAPPER.readTree(new StringReader(JSON));
+                result = objectMapper().readTree(new StringReader(JSON));
             } else {
-                result = MAPPER.readTree(JSON);
+                result = objectMapper().readTree(JSON);
             }
 
             assertType(result, ObjectNode.class);
             assertEquals(1, result.size());
             assertTrue(result.isObject());
-
+            
             ObjectNode main = (ObjectNode) result;
             assertEquals("Image", main.fieldNames().next());
             JsonNode ob = main.elements().next();
             assertType(ob, ObjectNode.class);
             ObjectNode imageMap = (ObjectNode) ob;
-
+            
             assertEquals(5, imageMap.size());
             ob = imageMap.get("Width");
             assertTrue(ob.isIntegralNumber());
@@ -47,11 +45,11 @@ public class TreeReadViaMapperTest extends BaseMapTest
             ob = imageMap.get("Height");
             assertTrue(ob.isIntegralNumber());
             assertEquals(SAMPLE_SPEC_VALUE_HEIGHT, ob.intValue());
-
+            
             ob = imageMap.get("Title");
             assertTrue(ob.isTextual());
             assertEquals(SAMPLE_SPEC_VALUE_TITLE, ob.textValue());
-
+            
             ob = imageMap.get("Thumbnail");
             assertType(ob, ObjectNode.class);
             ObjectNode tn = (ObjectNode) ob;
@@ -64,7 +62,7 @@ public class TreeReadViaMapperTest extends BaseMapTest
             ob = tn.get("Width");
             assertTrue(ob.isTextual());
             assertEquals(SAMPLE_SPEC_VALUE_TN_WIDTH, ob.textValue());
-
+            
             ob = imageMap.get("IDs");
             assertTrue(ob.isArray());
             ArrayNode idList = (ArrayNode) ob;
@@ -92,8 +90,9 @@ public class TreeReadViaMapperTest extends BaseMapTest
 
     public void testMixed() throws IOException
     {
+        ObjectMapper om = new ObjectMapper();
         String JSON = "{\"node\" : { \"a\" : 3 }, \"x\" : 9 }";
-        Bean bean = MAPPER.readValue(JSON, Bean.class);
+        Bean bean = om.readValue(JSON, Bean.class);
 
         assertEquals(9, bean._x);
         JsonNode n = bean._node;
@@ -114,34 +113,22 @@ public class TreeReadViaMapperTest extends BaseMapTest
             +"},  \"type\": 3, \"url\": \"http://www.google.com\" } ],\n"
             +"\"name\": \"xyz\", \"type\": 1, \"url\" : null }\n  "
             ;
-        JsonFactory jf = new JsonFactory();
-        JsonParser p = jf.createParser(new StringReader(JSON));
-        JsonNode result = MAPPER.readTree(p);
+        final ObjectMapper mapper = objectMapper();
+        JsonParser p = mapper.createParser(new StringReader(JSON));
+        JsonNode result = mapper.readTree(p);
 
         assertTrue(result.isObject());
         assertEquals(4, result.size());
 
-        assertNull(MAPPER.readTree(p));
+        assertNull(mapper.readTree(p));
         p.close();
-    }
-
-    public void testNullViaParser() throws Exception
-    {
-        final String JSON = " null ";
-        JsonFactory jf = new JsonFactory();
-
-        try (JsonParser p = jf.createParser(new StringReader(JSON))) {
-            final JsonNode result = MAPPER.readTree(p);
-            assertTrue(result.isNull());
-        }
     }
 
     public void testMultiple() throws Exception
     {
-        String JSON = "12  \"string\" [ 1, 2, 3 ]";
-        JsonFactory jf = new JsonFactory();
-        JsonParser p = jf.createParser(new StringReader(JSON));
         final ObjectMapper mapper = objectMapper();
+        String JSON = "12  \"string\" [ 1, 2, 3 ]";
+        JsonParser p = mapper.createParser(new StringReader(JSON));
         JsonNode result = mapper.readTree(p);
 
         assertTrue(result.isIntegralNumber());
@@ -161,6 +148,28 @@ public class TreeReadViaMapperTest extends BaseMapTest
 
         assertNull(mapper.readTree(p));
         p.close();
+    }
+
+    // [databind#1406]
+    public void testNullFromEOFViaMapper() throws Exception
+    {
+        final ObjectMapper mapper = objectMapper();
+
+        assertNull(mapper.readTree(new StringReader("")));
+        assertNull(mapper.readTree(new ByteArrayInputStream(new byte[0])));
+    }
+
+    // [databind#1406]
+    public void testNullFromEOFViaObjectReader() throws Exception
+    {
+        final ObjectMapper mapper = objectMapper();
+
+        assertNull(mapper.readTree(new StringReader("")));
+        assertNull(mapper.readTree(new ByteArrayInputStream(new byte[0])));
+        assertNull(mapper.readerFor(JsonNode.class)
+                .readTree(new StringReader("")));
+        assertNull(mapper.readerFor(JsonNode.class)
+                .readTree(new ByteArrayInputStream(new byte[0])));
     }
 
     /*

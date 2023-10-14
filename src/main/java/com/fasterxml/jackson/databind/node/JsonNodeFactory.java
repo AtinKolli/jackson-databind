@@ -3,7 +3,6 @@ package com.fasterxml.jackson.databind.node;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.util.RawValue;
 
 /**
@@ -12,55 +11,49 @@ import com.fasterxml.jackson.databind.util.RawValue;
  * on type), as well as basic implementation of the methods.
  * Designed to be sub-classed if extended functionality (additions
  * to behavior of node types, mostly) is needed.
- *<p>
- * One configuration option in the default implementation is that
- * of whether
- * {@link DecimalNode} instances must be built with exact representations of
- * {@link BigDecimal} instances; or to use "normalized" instance.
- * This has quite an influence since, for instance, a {@link BigDecimal} (and,
- * therefore, a {@code DecimalNode}) constructed from input string {@code "1.0"} and
- * another constructed with input string {@code "1.00"} <b>will not</b> be
- * equal unless normalized since their scale differs (1 in the first case,
- * 2 in the second case).
- * Normalization, if enabled, means simply calling {@link BigDecimal#stripTrailingZeros()}.
- *<p>
- * Note that configuration of "normalization" changed in 2.15:
- * while {@code JsonNodeFactory} still has a default setting,
- * the intent is to deprecate and remove this, to be replaced by
- * new {@link com.fasterxml.jackson.databind.cfg.JsonNodeFeature#STRIP_TRAILING_BIGDECIMAL_ZEROES}
- * setting.
- * Default setting in 2.15 is to ENABLE normalization: this will likely
- * change at latest in Jackson 3.0 (to leave {@code BigDecimal} values as
- * they are).
- * Note, too, that this factory will no longer handle this normalization
- * (if enabled): caller (like {@link com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer})
- * is expected to handle it.
  */
 public class JsonNodeFactory
-    implements java.io.Serializable, // since 2.1
-        JsonNodeCreator // since 2.3
+    implements java.io.Serializable,
+        JsonNodeCreator
 {
-    // with 2.2
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Constant that defines maximum {@code JsonPointer} element index we
-     * use for inserts.
-     */
-    protected final static int MAX_ELEMENT_INDEX_FOR_INSERT = 9999;
-
-    @Deprecated // as of 2.15
     private final boolean _cfgBigDecimalExact;
+
+    private static final JsonNodeFactory decimalsNormalized
+        = new JsonNodeFactory(false);
+    private static final JsonNodeFactory decimalsAsIs
+        = new JsonNodeFactory(true);
 
     /**
      * Default singleton instance that construct "standard" node instances:
      * given that this class is stateless, a globally shared singleton
      * can be used.
      */
-    public final static JsonNodeFactory instance = new JsonNodeFactory();
+    public final static JsonNodeFactory instance = decimalsNormalized;
 
     /**
-     * @param bigDecimalExact see Class description on "BigDecimal normalization"
+     * Main constructor
+     *
+     * <p>The only argument to this constructor is a boolean telling whether
+     * {@link DecimalNode} instances must be built with exact representations of
+     * {@link BigDecimal} instances.</p>
+     *
+     * <p>This has quite an influence since, for instance, a BigDecimal (and,
+     * therefore, a DecimalNode) constructed from input string {@code "1.0"} and
+     * another constructed with input string {@code "1.00"} <b>will not</b> be
+     * equal, since their scale differs (1 in the first case, 2 in the second
+     * case).</p>
+     *
+     * <p>Note that setting the argument to {@code true} does <i>not</i>
+     * guarantee a strict inequality between JSON representations: input texts
+     * {@code "0.1"} and {@code "1e-1"}, for instance, yield two equivalent
+     * BigDecimal instances since they have the same scale (1).</p>
+     *
+     * <p>The no-arg constructor (and the default {@link #instance}) calls this
+     * constructor with {@code false} as an argument.</p>
+     *
+     * @param bigDecimalExact see description
      *
      * @see BigDecimal
      */
@@ -70,7 +63,8 @@ public class JsonNodeFactory
     }
 
     /**
-     * Default constructor.
+     * Default constructor
+     *
      * <p>This calls {@link #JsonNodeFactory(boolean)} with {@code false}
      * as an argument.</p>
      */
@@ -83,39 +77,12 @@ public class JsonNodeFactory
      * Return a factory instance with the desired behavior for BigDecimals
      * <p>See {@link #JsonNodeFactory(boolean)} for a full description.</p>
      *
-     * @param bigDecimalExact If {code true} DISABLE normalization of {@link BigDecimal} values;
-     *    if {code false} ENABLE normalization
-     * @return a factory instance with specified configuration
-     *
-     * @deprecated Use {@link com.fasterxml.jackson.databind.cfg.JsonNodeFeature#STRIP_TRAILING_BIGDECIMAL_ZEROES}
-     *   instead for configuring behavior.
+     * @param bigDecimalExact see description
+     * @return a factory instance
      */
-    @Deprecated
     public static JsonNodeFactory withExactBigDecimals(boolean bigDecimalExact)
     {
-        return new JsonNodeFactory(bigDecimalExact);
-    }
-
-    /*
-    /**********************************************************
-    /* Metadata/config access
-    /**********************************************************
-     */
-
-    /**
-     * @since 2.14
-     */
-    public int getMaxElementIndexForInsert() {
-        return MAX_ELEMENT_INDEX_FOR_INSERT;
-    }
-
-    /**
-     * Accessor needed by {@code JsonNodeDeserializer}.
-     *
-     * @since 2.15
-     */
-    public boolean willStripTrailingBigDecimalZeroes() {
-        return !_cfgBigDecimalExact;
+        return bigDecimalExact ? decimalsAsIs : decimalsNormalized;
     }
 
     /*
@@ -139,10 +106,6 @@ public class JsonNodeFactory
      */
     @Override
     public NullNode nullNode() { return NullNode.getInstance(); }
-
-    public JsonNode missingNode() {
-        return MissingNode.getInstance();
-    }
 
     /*
     /**********************************************************
@@ -277,10 +240,10 @@ public class JsonNodeFactory
     /**
      * Factory method for getting an instance of JSON numeric value
      * that expresses given unlimited precision floating point value
-     * <p>
-     * Note that regardless whether the factory has been built to normalize decimal
-     * values (see class JavaDoc), the {@link BigDecimal} argument will NOT be
-     * modified by this method -- caller will need to handle normalization, if any.
+     *
+     * <p>In the event that the factory has been built to normalize decimal
+     * values, the BigDecimal argument will be stripped off its trailing zeroes,
+     * using {@link BigDecimal#stripTrailingZeros()}.</p>
      *
      * @see #JsonNodeFactory(boolean)
      */
@@ -290,9 +253,25 @@ public class JsonNodeFactory
         if (v == null) {
             return nullNode();
         }
-        // 23-Jan-2023, tatu: As per [databind#3651] it's now up to caller
-        //   to do normalization, if any; we will construct node with given value
-        return DecimalNode.valueOf(v);
+
+        /*
+         * If the user wants the exact representation of this big decimal,
+         * return the value directly
+         */
+        if (_cfgBigDecimalExact)
+            return DecimalNode.valueOf(v);
+
+        /*
+         * If the user has asked to strip trailing zeroes, however, there is
+         * this bug to account for:
+         *
+         * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6480539
+         *
+         * In short: zeroes are never stripped out of 0! We therefore _have_
+         * to compare with BigDecimal.ZERO...
+         */
+        return v.compareTo(BigDecimal.ZERO) == 0 ? DecimalNode.ZERO
+            : DecimalNode.valueOf(v.stripTrailingZeros());
     }
 
     /*

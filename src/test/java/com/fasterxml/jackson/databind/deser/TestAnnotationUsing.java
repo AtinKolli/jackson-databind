@@ -30,7 +30,7 @@ public class TestAnnotationUsing
     @JsonDeserialize(using=ValueDeserializer.class)
     final static class ValueClass {
         int _a;
-
+        
         /* we'll test it by not having default no-arg ctor, and leaving
          * out single-int-arg ctor (because deserializer would use that too)
          */
@@ -79,7 +79,7 @@ public class TestAnnotationUsing
 
     @JsonDeserialize(keyUsing=MapKeyDeserializer.class, contentUsing=ValueDeserializer.class)
     static class MapKeyMap extends HashMap<Object,Object> { }
-
+    
     /*
     /**********************************************************************
     /* Deserializers
@@ -91,7 +91,7 @@ public class TestAnnotationUsing
         public ValueDeserializer() { super(ValueClass.class); }
         @Override
         public ValueClass deserialize(JsonParser jp, DeserializationContext ctxt)
-            throws IOException
+            throws IOException, JsonProcessingException
         {
             int i = jp.getIntValue();
             return new ValueClass(i, i);
@@ -103,7 +103,7 @@ public class TestAnnotationUsing
         public IntsDeserializer() { super(int[].class); }
         @Override
         public int[] deserialize(JsonParser jp, DeserializationContext ctxt)
-            throws IOException
+            throws IOException, JsonProcessingException
         {
             return new int[] { jp.getIntValue() };
         }
@@ -211,7 +211,7 @@ public class TestAnnotationUsing
         assertEquals(String[].class, en.getKey().getClass());
         assertEquals(Boolean.TRUE, en.getValue());
     }
-
+    
     // @since 1.8
     public void testRootValueWithCustomKey() throws Exception
     {

@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.introspect;
 
 import java.lang.reflect.*;
-import java.util.Objects;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.util.ClassUtil;
@@ -38,9 +37,9 @@ public final class AnnotatedField
     public AnnotatedField(TypeResolutionContext contextClass, Field field, AnnotationMap annMap)
     {
         super(contextClass, annMap);
-        _field = Objects.requireNonNull(field);
+        _field = field;
     }
-
+    
     @Override
     public AnnotatedField withAnnotations(AnnotationMap ann) {
         return new AnnotatedField(_typeContext, _field, ann);
@@ -55,7 +54,7 @@ public final class AnnotatedField
         _field = null;
         _serialization = ser;
     }
-
+    
     /*
     /**********************************************************
     /* Annotated impl
@@ -114,7 +113,7 @@ public final class AnnotatedField
                     +getFullName()+": "+e.getMessage(), e);
         }
     }
-
+    
     /*
     /**********************************************************
     /* Extended API, generic
@@ -127,20 +126,17 @@ public final class AnnotatedField
      * @since 2.6
      */
     public boolean isTransient() { return Modifier.isTransient(getModifiers()); }
-
+    
     @Override
     public int hashCode() {
-        return Objects.hashCode(_field);
+        return _field.getName().hashCode();
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (o == this) return true;
-        if (!ClassUtil.hasClass(o, getClass())) {
-            return false;
-        }
-        AnnotatedField other = (AnnotatedField) o;
-        return Objects.equals(_field, other._field);
+        return ClassUtil.hasClass(o, getClass())
+                && (((AnnotatedField) o)._field == _field);
     }
 
     @Override
@@ -172,7 +168,7 @@ public final class AnnotatedField
                         +"' from Class '"+clazz.getName());
         }
     }
-
+    
     /**
      * Helper class that is used as the workaround to persist
      * Field references. It basically just stores declaring class
@@ -188,7 +184,7 @@ public final class AnnotatedField
         public Serialization(Field f) {
             clazz = f.getDeclaringClass();
             name = f.getName();
-
+            
         }
     }
 }

@@ -9,11 +9,9 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.io.SerializedString;
 
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 public class SequenceWriterTest extends BaseMapTest
 {
@@ -21,7 +19,7 @@ public class SequenceWriterTest extends BaseMapTest
         public int a;
 
         public Bean(int value) { a = value; }
-
+        
         @Override
         public boolean equals(Object o) {
             if (o == null || o.getClass() != getClass()) return false;
@@ -38,14 +36,14 @@ public class SequenceWriterTest extends BaseMapTest
     @JsonTypeName("A")
     static class ImplA extends PolyBase {
         public int value;
-
+        
         public ImplA(int v) { value = v; }
     }
 
     @JsonTypeName("B")
     static class ImplB extends PolyBase {
         public int b;
-
+        
         public ImplB(int v) { b = v; }
     }
 
@@ -64,7 +62,7 @@ public class SequenceWriterTest extends BaseMapTest
         public int c = 3;
 
         boolean closed = false;
-
+        
         @Override
         public void close() throws IOException {
             closed = true;
@@ -76,7 +74,7 @@ public class SequenceWriterTest extends BaseMapTest
         public int x;
 
         public boolean closed;
-
+        
         @Override
         public void close() throws IOException {
             closed = true;
@@ -105,37 +103,18 @@ public class SequenceWriterTest extends BaseMapTest
             .writeAll(Arrays.asList(new Bean(5), new Bean(7)))
         ;
         w.close();
-        assertEquals(a2q("{'a':13}\n{'a':-6}\n{'a':3}\n{'a':1}\n{'a':5}\n{'a':7}"),
+        assertEquals(aposToQuotes("{'a':13}\n{'a':-6}\n{'a':3}\n{'a':1}\n{'a':5}\n{'a':7}"),
                 strw.toString());
 
         strw = new StringWriter();
-        JsonGenerator gen = WRITER.createGenerator(strw);
         w = WRITER
                 .withRootValueSeparator(new SerializedString("/"))
-                .writeValues(gen);
+                .writeValues(strw);
         w.write(new Bean(1))
             .write(new Bean(2));
         w.close();
-        gen.close();
-        assertEquals(a2q("{'a':1}/{'a':2}"),
+        assertEquals(aposToQuotes("{'a':1}/{'a':2}"),
                 strw.toString());
-    }
-
-    public void testSimpleNonArrayNoSeparator() throws Exception
-    {
-        final String EXP = a2q("{'a':1}{'a':2}");
-
-        // Also, ok to specify no separator
-        StringWriter strw = new StringWriter();
-        try (SequenceWriter seq = WRITER.withRootValueSeparator("")
-                .writeValues(strw)) {
-            seq.write(new Bean(1))
-                .write(new Bean(2));
-        }
-        assertEquals(EXP, strw.toString());
-
-        // 08-Mar-2021, tatu: Note that attempting to set RVS to `null`
-        //   will not work in 2.x.
     }
 
     public void testSimpleArray() throws Exception
@@ -146,19 +125,17 @@ public class SequenceWriterTest extends BaseMapTest
             .write(new Bean(2))
             .writeAll(new Bean[] { new Bean(-7), new Bean(2) });
         w.close();
-        assertEquals(a2q("[{'a':1},{'a':2},{'a':-7},{'a':2}]"),
+        assertEquals(aposToQuotes("[{'a':1},{'a':2},{'a':-7},{'a':2}]"),
                 strw.toString());
 
         strw = new StringWriter();
-        JsonGenerator gen = WRITER.createGenerator(strw);
-        w = WRITER.writeValuesAsArray(gen);
+        w = WRITER.writeValuesAsArray(strw);
         Collection<Bean> bean = Collections.singleton(new Bean(3));
         w.write(new Bean(1))
             .write(null)
             .writeAll((Iterable<Bean>) bean);
         w.close();
-        gen.close();
-        assertEquals(a2q("[{'a':1},null,{'a':3}]"),
+        assertEquals(aposToQuotes("[{'a':1},null,{'a':3}]"),
                 strw.toString());
     }
 
@@ -177,7 +154,7 @@ public class SequenceWriterTest extends BaseMapTest
         w.write(new ImplA(3))
             .write(new ImplA(4))
             .close();
-        assertEquals(a2q("{'type':'A','value':3}\n{'type':'A','value':4}"),
+        assertEquals(aposToQuotes("{'type':'A','value':3}\n{'type':'A','value':4}"),
                 strw.toString());
     }
 
@@ -190,7 +167,7 @@ public class SequenceWriterTest extends BaseMapTest
         w.write(new ImplA(-1))
             .write(new ImplA(6))
             .close();
-        assertEquals(a2q("[{'type':'A','value':-1},{'type':'A','value':6}]"),
+        assertEquals(aposToQuotes("[{'type':'A','value':-1},{'type':'A','value':6}]"),
                 strw.toString());
     }
 
@@ -205,15 +182,14 @@ public class SequenceWriterTest extends BaseMapTest
             .write(new ImplA(7));
         w.flush();
         w.close();
-        assertEquals(a2q("[{'type':'A','value':-1},{'type':'B','b':3},{'type':'A','value':7}]"),
+        assertEquals(aposToQuotes("[{'type':'A','value':-1},{'type':'B','b':3},{'type':'A','value':7}]"),
                 strw.toString());
     }
 
     @SuppressWarnings("resource")
     public void testSimpleCloseable() throws Exception
     {
-        JsonMapper mapper = JsonMapper.builder().enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build();
-        ObjectWriter w = mapper.writer()
+        ObjectWriter w = MAPPER.writer()
                 .with(SerializationFeature.CLOSE_CLOSEABLE);
         CloseableValue input = new CloseableValue();
         assertFalse(input.closed);
@@ -225,7 +201,7 @@ public class SequenceWriterTest extends BaseMapTest
         assertTrue(input.closed);
         seq.close();
         input.close();
-        assertEquals(a2q("{'closed':false,'x':0}"), out.toString());
+        assertEquals(aposToQuotes("{'x':0,'closed':false}"), out.toString());
     }
 
     public void testWithExplicitType() throws Exception
@@ -250,6 +226,6 @@ public class SequenceWriterTest extends BaseMapTest
 
         seq.close();
         seq.flush();
-        assertEquals(a2q("{'a':1,'b':2} {'a':1} {'a':1}"), out.toString());
+        assertEquals(aposToQuotes("{'a':1,'b':2} {'a':1} {'a':1}"), out.toString());
     }
 }

@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -9,7 +8,6 @@ import com.fasterxml.jackson.core.JsonParser.NumberType;
 import com.fasterxml.jackson.databind.BeanProperty;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
@@ -26,7 +24,6 @@ import com.fasterxml.jackson.databind.ser.ContextualSerializer;
  */
 @JacksonStdImpl
 public final class BooleanSerializer
-//In 2.9, removed use of intermediate type `NonTypedScalarSerializerBase`
     extends StdScalarSerializer<Object>
     implements ContextualSerializer
 {
@@ -47,17 +44,12 @@ public final class BooleanSerializer
     public JsonSerializer<?> createContextual(SerializerProvider serializers,
             BeanProperty property) throws JsonMappingException
     {
-        // 16-Mar-2021, tatu: As per [databind#3080], was passing wrapper type
-        //    always; should not have.
-        JsonFormat.Value format = findFormatOverrides(serializers, property,
-                handledType());
+        JsonFormat.Value format = findFormatOverrides(serializers,
+                property, Boolean.class);
         if (format != null) {
             JsonFormat.Shape shape = format.getShape();
             if (shape.isNumeric()) {
                 return new AsNumber(_forPrimitive);
-            }
-            if (shape == JsonFormat.Shape.STRING) {
-                return new ToStringSerializer(_handledType);
             }
         }
         return this;
@@ -75,15 +67,6 @@ public final class BooleanSerializer
         g.writeBoolean(Boolean.TRUE.equals(value));
     }
 
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-        return createSchemaNode("boolean", !_forPrimitive);
-    }
-
     @Override
     public void acceptJsonFormatVisitor(JsonFormatVisitorWrapper visitor, JavaType typeHint) throws JsonMappingException {
         visitor.expectBooleanFormat(typeHint);
@@ -92,7 +75,7 @@ public final class BooleanSerializer
     /**
      * Alternate implementation that is used when values are to be serialized
      * as numbers <code>0</code> (false) or <code>1</code> (true).
-     *
+     * 
      * @since 2.9
      */
     final static class AsNumber
@@ -149,5 +132,5 @@ public final class BooleanSerializer
             }
             return this;
         }
-    }
+}
 }

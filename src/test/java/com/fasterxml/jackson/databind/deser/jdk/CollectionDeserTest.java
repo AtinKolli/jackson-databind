@@ -4,16 +4,11 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 
 @SuppressWarnings("serial")
 public class CollectionDeserTest
@@ -52,15 +47,6 @@ public class CollectionDeserTest
         public Iterable<String> values;
     }
 
-    // [databind#2251]
-    static class ListAsAbstract {
-        public AbstractList<String> values;
-    }
-
-    static class SetAsAbstract {
-        public AbstractSet<String> values;
-    }
-
     static class ListAsIterableX {
         public Iterable<XBean> nums;
     }
@@ -69,7 +55,7 @@ public class CollectionDeserTest
         public List<Key> keys;
     }
 
-    // [databind#828]
+    // [Issue#828]
     @JsonDeserialize(using=SomeObjectDeserializer.class)
     static class SomeObject {}
 
@@ -83,34 +69,14 @@ public class CollectionDeserTest
         }
     }
 
-    // [databind#3068]: Exception wrapping (or not)
-    static class MyContainerModel {
-        @JsonProperty("processor-id")
-        public String id = "123";
-    }
-
-    static class MyJobModel {
-        public Map<String, MyContainerModel> containers = Collections.singletonMap("key",
-                new MyContainerModel());
-        public int maxChangeLogStreamPartitions = 13;
-    }
-
-    static class CustomException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        public CustomException(String s) {
-            super(s);
-        }
-    }
-
     /*
     /**********************************************************
     /* Test methods
     /**********************************************************
      */
 
-    private final static ObjectMapper MAPPER = newJsonMapper();
-
+    private final static ObjectMapper MAPPER = new ObjectMapper();
+    
     public void testUntypedList() throws Exception
     {
         // to get "untyped" default List, pass Object.class
@@ -162,7 +128,7 @@ public class CollectionDeserTest
     /// Test to verify that @JsonDeserialize.using works as expected
     public void testCustomDeserializer() throws IOException
     {
-        CustomList result = MAPPER.readValue(q("abc"), CustomList.class);
+        CustomList result = MAPPER.readValue(quote("abc"), CustomList.class);
         assertEquals(1, result.size());
         assertEquals("abc", result.get(0));
     }
@@ -180,14 +146,14 @@ public class CollectionDeserTest
         List<Integer> ints = mapper.readValue("4", List.class);
         assertEquals(1, ints.size());
         assertEquals(Integer.valueOf(4), ints.get(0));
-        List<String> strings = mapper.readValue(q("abc"), new TypeReference<ArrayList<String>>() { });
+        List<String> strings = mapper.readValue(quote("abc"), new TypeReference<ArrayList<String>>() { });
         assertEquals(1, strings.size());
         assertEquals("abc", strings.get(0));
         // and arrays:
         int[] intArray = mapper.readValue("-7", int[].class);
         assertEquals(1, intArray.length);
         assertEquals(-7, intArray[0]);
-        String[] stringArray = mapper.readValue(q("xyz"), String[].class);
+        String[] stringArray = mapper.readValue(quote("xyz"), String[].class);
         assertEquals(1, stringArray.length);
         assertEquals("xyz", stringArray[0]);
 
@@ -206,7 +172,7 @@ public class CollectionDeserTest
     public void testFromEmptyString() throws Exception
     {
         ObjectReader r = MAPPER.reader(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT);
-        List<?> result = r.forType(List.class).readValue(q(""));
+        List<?> result = r.forType(List.class).readValue(quote(""));
         assertNull(result);
     }
 
@@ -259,120 +225,63 @@ public class CollectionDeserTest
         try {
             MAPPER.readValue(OBJECTS_JSON, Key[].class);
             fail("Should not pass");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot deserialize");
-            assertEquals(1, e.getPath().size());
-            assertEquals(1, e.getPath().get(0).getIndex());
+            List<JsonMappingException.Reference> refs = e.getPath();
+            assertEquals(1, refs.size());
+            assertEquals(1, refs.get(0).getIndex());
         }
 
         try {
             MAPPER.readValue("[ \"xyz\", { } ]", String[].class);
             fail("Should not pass");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot deserialize");
-            assertEquals(1, e.getPath().size());
-            assertEquals(1, e.getPath().get(0).getIndex());
+            List<JsonMappingException.Reference> refs = e.getPath();
+            assertEquals(1, refs.size());
+            assertEquals(1, refs.get(0).getIndex());
         }
 
         try {
             MAPPER.readValue("{\"keys\":"+OBJECTS_JSON+"}", KeyListBean.class);
             fail("Should not pass");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot deserialize");
-            assertEquals(2, e.getPath().size());
+            List<JsonMappingException.Reference> refs = e.getPath();
+            assertEquals(2, refs.size());
             // Bean has no index, but has name:
-            assertEquals(-1, e.getPath().get(0).getIndex());
-            assertEquals("keys", e.getPath().get(0).getFieldName());
+            assertEquals(-1, refs.get(0).getIndex());
+            assertEquals("keys", refs.get(0).getFieldName());
 
             // and for List, reverse:
-            assertEquals(1, e.getPath().get(1).getIndex());
-            assertNull(e.getPath().get(1).getFieldName());
+            assertEquals(1, refs.get(1).getIndex());
+            assertNull(refs.get(1).getFieldName());
         }
     }
 
     // for [databind#828]
     public void testWrapExceptions() throws Exception
     {
-        final ObjectReader wrappingReader = MAPPER
-                .readerFor(new TypeReference<List<SomeObject>>() {})
-                .with(DeserializationFeature.WRAP_EXCEPTIONS);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enable(DeserializationFeature.WRAP_EXCEPTIONS);
 
         try {
-            wrappingReader.readValue("[{}]");
-        } catch (DatabindException exc) {
+            mapper.readValue("[{}]", new TypeReference<List<SomeObject>>() {});
+        } catch (JsonMappingException exc) {
             assertEquals("I want to catch this exception", exc.getOriginalMessage());
         } catch (RuntimeException exc) {
-            fail("The RuntimeException should have been wrapped with a DatabindException.");
+            fail("The RuntimeException should have been wrapped with a JsonMappingException.");
         }
 
-        final ObjectReader noWrapReader = MAPPER
-                .readerFor(new TypeReference<List<SomeObject>>() {})
-                .without(DeserializationFeature.WRAP_EXCEPTIONS);
+        ObjectMapper mapperNoWrap = new ObjectMapper();
+        mapperNoWrap.disable(DeserializationFeature.WRAP_EXCEPTIONS);
 
         try {
-            noWrapReader.readValue("[{}]");
-        } catch (DatabindException exc) {
+            mapperNoWrap.readValue("[{}]", new TypeReference<List<SomeObject>>() {});
+        } catch (JsonMappingException exc) {
             fail("It should not have wrapped the RuntimeException.");
         } catch (RuntimeException exc) {
             assertEquals("I want to catch this exception", exc.getMessage());
-        }
-    }
-
-    // [databind#2251]
-    public void testAbstractListAndSet() throws Exception
-    {
-        final String JSON = "{\"values\":[\"foo\", \"bar\"]}";
-
-        ListAsAbstract list = MAPPER.readValue(JSON, ListAsAbstract.class);
-        assertEquals(2, list.values.size());
-        assertEquals(ArrayList.class, list.values.getClass());
-
-        SetAsAbstract set = MAPPER.readValue(JSON, SetAsAbstract.class);
-        assertEquals(2, set.values.size());
-        assertEquals(HashSet.class, set.values.getClass());
-    }
-
-    // for [databind#3068]
-    public void testWrapExceptions3068() throws Exception
-    {
-        final SimpleModule module = new SimpleModule("SimpleModule", Version.unknownVersion())
-                .addDeserializer(MyContainerModel.class,
-                        new JsonDeserializer<MyContainerModel>() {
-                    @Override
-                    public MyContainerModel deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-                        throw new CustomException("Custom message");
-                    }
-                });
-
-        final ObjectMapper mapper = jsonMapperBuilder()
-                .addModule(module)
-                .build();
-        final String json = mapper.writeValueAsString(new MyJobModel());
-
-        // First, verify NO wrapping:
-        try {
-            mapper.readerFor(MyJobModel.class)
-                .without(DeserializationFeature.WRAP_EXCEPTIONS)
-                .readValue(json);
-            fail("Should not pass");
-        } catch (CustomException e) {
-            verifyException(e, "Custom message");
-        } catch (JacksonException e) {
-            fail("Should not have wrapped exception, got: "+e);
-        }
-
-        // and then wrapping
-        try {
-            mapper.readerFor(MyJobModel.class)
-                .with(DeserializationFeature.WRAP_EXCEPTIONS)
-                .readValue(json);
-            fail("Should not pass");
-        } catch (JacksonException e) {
-            verifyException(e, "Custom message");
-            assertEquals(JsonMappingException.class, e.getClass());
-            Throwable rootC = e.getCause();
-            assertNotNull(rootC);
-            assertEquals(CustomException.class, rootC.getClass());
         }
     }
 }

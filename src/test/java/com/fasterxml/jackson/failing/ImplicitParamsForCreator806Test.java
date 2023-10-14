@@ -24,7 +24,7 @@ public class ImplicitParamsForCreator806Test extends BaseMapTest
         protected int x, y;
 
         // annotation should NOT be needed with 2.6 any more (except for single-arg case)
-//        @com.fasterxml.jackson.annotation.JsonCreator
+        //@com.fasterxml.jackson.annotation.JsonCreator
         public XY(int x, int y) {
             this.x = x;
             this.y = y;
@@ -37,16 +37,14 @@ public class ImplicitParamsForCreator806Test extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper()
-            .setAnnotationIntrospector(new MyParamIntrospector())
-            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
-            ;
-
-    // for [databind#806]: problem is that renaming occurs too late for implicitly detected
-    // Creators
+    // for [databind#806]
     public void testImplicitNameWithNamingStrategy() throws Exception
     {
-        XY value = MAPPER.readValue(a2q("{'param_name0':1,'param_name1':2}"), XY.class);
+        ObjectMapper mapper = new ObjectMapper()
+            .setAnnotationIntrospector(new MyParamIntrospector())
+            .setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE)
+            ;
+        XY value = mapper.readValue(aposToQuotes("{'param_name0':1,'param_name1':2}"), XY.class);
         assertNotNull(value);
         assertEquals(1, value.x);
         assertEquals(2, value.y);

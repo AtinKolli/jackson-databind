@@ -1,13 +1,11 @@
 package com.fasterxml.jackson.databind.introspect;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.cfg.ConfigOverride;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
@@ -25,8 +23,6 @@ public class POJOPropertyBuilder
     /**
      * Marker value used to denote that no reference-property information found for
      * this property
-     *
-     * @since 2.9
      */
     private final static AnnotationIntrospector.ReferenceProperty NOT_REFEFERENCE_PROP =
             AnnotationIntrospector.ReferenceProperty.managed("");
@@ -87,7 +83,6 @@ public class POJOPropertyBuilder
         _forSerialization = forSerialization;
     }
 
-    // protected since 2.9 (was public before)
     protected POJOPropertyBuilder(POJOPropertyBuilder src, PropertyName newName)
     {
         _config = src._config;
@@ -138,9 +133,7 @@ public class POJOPropertyBuilder
         } else if (other._ctorParameters != null) {
             return 1;
         }
-        /* otherwise sort by external name (including sorting of
-         * ctor parameters)
-         */
+        // otherwise sort by external name (including sorting of ctor parameters)
         return getName().compareTo(other.getName());
     }
 
@@ -176,7 +169,7 @@ public class POJOPropertyBuilder
          *   occur, try commenting out full traversal code
          */
         AnnotatedMember member = getPrimaryMember();
-        return (member == null || _annotationIntrospector == null) ? null
+        return (member == null) ? null
                 : _annotationIntrospector.findWrapperName(member);
     	/*
         return fromMemberAnnotations(new WithMember<PropertyName>() {
@@ -217,30 +210,20 @@ public class POJOPropertyBuilder
      */
 
     @Override
-    public PropertyMetadata getMetadata()
-    {
+    public PropertyMetadata getMetadata() {
         if (_metadata == null) {
-            // 20-Jun-2020, tatu: Unfortunately strict checks lead to [databind#2757]
-            //   so we will need to try to avoid them at this point
-            final AnnotatedMember prim = getPrimaryMemberUnchecked();
-
-            if (prim == null) {
-                _metadata = PropertyMetadata.STD_REQUIRED_OR_OPTIONAL;
+            final Boolean b = _findRequired();
+            final String desc = _findDescription();
+            final Integer idx = _findIndex();
+            final String def = _findDefaultValue();
+            if (b == null && idx == null && def == null) {
+                _metadata = (desc == null) ? PropertyMetadata.STD_REQUIRED_OR_OPTIONAL
+                        : PropertyMetadata.STD_REQUIRED_OR_OPTIONAL.withDescription(desc);
             } else {
-                final Boolean b = _annotationIntrospector.hasRequiredMarker(prim);
-                final String desc = _annotationIntrospector.findPropertyDescription(prim);
-                final Integer idx = _annotationIntrospector.findPropertyIndex(prim);
-                final String def = _annotationIntrospector.findPropertyDefaultValue(prim);
-
-                if (b == null && idx == null && def == null) {
-                    _metadata = (desc == null) ? PropertyMetadata.STD_REQUIRED_OR_OPTIONAL
-                            : PropertyMetadata.STD_REQUIRED_OR_OPTIONAL.withDescription(desc);
-                } else {
-                    _metadata = PropertyMetadata.construct(b, desc, idx, def);
-                }
-                if (!_forSerialization) {
-                    _metadata = _getSetterInfo(_metadata, prim);
-                }
+                _metadata = PropertyMetadata.construct(b, desc, idx, def);
+            }
+            if (!_forSerialization) {
+                _metadata = _getSetterInfo(_metadata);
             }
         }
         return _metadata;
@@ -250,25 +233,23 @@ public class POJOPropertyBuilder
      * Helper method that contains logic for accessing and merging all setter
      * information that we needed, regarding things like possible merging
      * of property value, and handling of incoming nulls.
-     * Only called for deserialization purposes.
      */
-    protected PropertyMetadata _getSetterInfo(PropertyMetadata metadata,
-            AnnotatedMember primary)
+    protected PropertyMetadata _getSetterInfo(PropertyMetadata metadata)
     {
         boolean needMerge = true;
         Nulls valueNulls = null;
         Nulls contentNulls = null;
-
+        
         // Slightly confusing: first, annotations should be accessed via primary member
-        // (mutator); but accessor is needed for actual merge operation. So
-
+        // (mutator); but accessor is needed for actual merge operation. So:
+        AnnotatedMember prim = getPrimaryMember();
         AnnotatedMember acc = getAccessor();
 
-        if (primary != null) {
+        if (prim != null) {
             // Ok, first: does property itself have something to say?
             if (_annotationIntrospector != null) {
                 if (acc != null) {
-                    Boolean b = _annotationIntrospector.findMergeInfo(primary);
+                    Boolean b = _annotationIntrospector.findMergeInfo(prim);
                     if (b != null) {
                         needMerge = false;
                         if (b.booleanValue()) {
@@ -276,7 +257,7 @@ public class POJOPropertyBuilder
                         }
                     }
                 }
-                JsonSetter.Value setterInfo = _annotationIntrospector.findSetterInfo(primary);
+                JsonSetter.Value setterInfo = _annotationIntrospector.findSetterInfo(prim);
                 if (setterInfo != null) {
                     valueNulls = setterInfo.nonDefaultValueNulls();
                     contentNulls = setterInfo.nonDefaultContentNulls();
@@ -285,10 +266,7 @@ public class POJOPropertyBuilder
             // If not, config override?
             // 25-Oct-2016, tatu: Either this, or type of accessor...
             if (needMerge || (valueNulls == null) || (contentNulls == null)) {
-                // 20-Jun-2020, tatu: Related to [databind#2757], need to find type
-                //   but keeping mind that type for setters is trickier; and that
-                //   generic typing gets tricky as well.
-                Class<?> rawType = _rawTypeOf(primary);
+                Class<?> rawType = getRawPrimaryType();
                 ConfigOverride co = _config.getConfigOverride(rawType);
                 JsonSetter.Value setterInfo = co.getSetterInfo();
                 if (setterInfo != null) {
@@ -346,6 +324,7 @@ public class POJOPropertyBuilder
                     // 09-Feb-2017, tatu: Not sure if this or `null` but...
                     return TypeFactory.unknownType();
                 }
+                return m.getType();
             }
             return m.getType();
         }
@@ -416,9 +395,8 @@ public class POJOPropertyBuilder
         }
         // But if multiple, verify that they do not conflict...
         for (; next != null; next = next.next) {
-            /* [JACKSON-255] Allow masking, i.e. do not report exception if one
-             *   is in super-class from the other
-             */
+            // Allow masking, i.e. do not report exception if one
+            // is in super-class from the other
             Class<?> currClass = curr.value.getDeclaringClass();
             Class<?> nextClass = next.value.getDeclaringClass();
             if (currClass != nextClass) {
@@ -431,7 +409,7 @@ public class POJOPropertyBuilder
                 }
             }
             /* 30-May-2014, tatu: Three levels of precedence:
-             *
+             * 
              * 1. Regular getters ("getX")
              * 2. Is-getters ("isX")
              * 3. Implicit, possible getters ("x")
@@ -452,24 +430,11 @@ public class POJOPropertyBuilder
         _getters = curr.withoutNext();
         return curr.value;
     }
-
-    /**
-     * Variant of {@link #getGetter} that does NOT trigger pruning of
-     * getter candidates.
-     */
-    protected AnnotatedMethod getGetterUnchecked()
-    {
-        Linked<AnnotatedMethod> curr = _getters;
-        if (curr == null) {
-            return null;
-        }
-        return curr.value;
-    }
-
+    
     @Override
     public AnnotatedMethod getSetter()
     {
-        // Easy with zero or one setters...
+        // Easy with zero or one getters...
         Linked<AnnotatedMethod> curr = _setters;
         if (curr == null) {
             return null;
@@ -480,125 +445,56 @@ public class POJOPropertyBuilder
         }
         // But if multiple, verify that they do not conflict...
         for (; next != null; next = next.next) {
-            AnnotatedMethod selected = _selectSetter(curr.value, next.value);
-            if (selected == curr.value) {
-                continue;
+            // Allow masking, i.e. do not fail if one is in super-class from the other
+            Class<?> currClass = curr.value.getDeclaringClass();
+            Class<?> nextClass = next.value.getDeclaringClass();
+            if (currClass != nextClass) {
+                if (currClass.isAssignableFrom(nextClass)) { // next is more specific
+                    curr = next;
+                    continue;
+                }
+                if (nextClass.isAssignableFrom(currClass)) { // current more specific
+                    continue;
+                }
             }
-            if (selected == next.value) {
-                curr = next;
-                continue;
-            }
-            // 10-May-2021, tatu: unbreakable tie, for now; offline handling
-            return _selectSetterFromMultiple(curr, next);
-        }
+            AnnotatedMethod nextM = next.value;
+            AnnotatedMethod currM = curr.value;
 
+            /* 30-May-2014, tatu: Two levels of precedence:
+             * 
+             * 1. Regular setters ("setX(...)")
+             * 2. Implicit, possible setters ("x(...)")
+             */
+            int priNext = _setterPriority(nextM);
+            int priCurr = _setterPriority(currM);
+
+            if (priNext != priCurr) {
+                if (priNext < priCurr) {
+                    curr = next;
+                }
+                continue;
+            }
+            // 11-Dec-2015, tatu: As per [databind#1033] allow pluggable conflict resolution
+            if (_annotationIntrospector != null) {
+                AnnotatedMethod pref = _annotationIntrospector.resolveSetterConflict(_config,
+                        currM, nextM);
+                
+                // note: should be one of nextM/currM; but no need to check
+                if (pref == currM) {
+                    continue;
+                }
+                if (pref == nextM) {
+                    curr = next;
+                    continue;
+                }
+            }
+            throw new IllegalArgumentException(String.format(
+ "Conflicting setter definitions for property \"%s\": %s vs %s",
+ getName(), curr.value.getFullName(), next.value.getFullName()));
+        }
         // One more thing; to avoid having to do it again...
         _setters = curr.withoutNext();
         return curr.value;
-    }
-
-    /**
-     * Variant of {@link #getSetter} that does NOT trigger pruning of
-     * setter candidates.
-     */
-    protected AnnotatedMethod getSetterUnchecked()
-    {
-        Linked<AnnotatedMethod> curr = _setters;
-        if (curr == null) {
-            return null;
-        }
-        return curr.value;
-    }
-
-    /**
-     * Helper method called in cases where we have encountered two setter methods
-     * that have same precedence and cannot be resolved. This does not yet necessarily
-     * mean a failure since it is possible something with a higher precedence could
-     * still be found; handling is just separated into separate method for convenience.
-     *
-     * @param curr
-     * @param next
-     *
-     * @return Chosen setter method, if any
-     *
-     * @throws IllegalArgumentException If conflict could not be resolved
-     *
-     * @since 2.13
-     */
-    protected AnnotatedMethod _selectSetterFromMultiple(Linked<AnnotatedMethod> curr,
-            Linked<AnnotatedMethod> next)
-    {
-        // First: store reference to the initial possible conflict
-        List<AnnotatedMethod> conflicts = new ArrayList<>();
-        conflicts.add(curr.value);
-        conflicts.add(next.value);
-
-        next = next.next;
-        for (; next != null; next = next.next) {
-            AnnotatedMethod selected = _selectSetter(curr.value, next.value);
-            if (selected == curr.value) {
-                // No change, next was lower-precedence
-                continue;
-            }
-            if (selected == next.value) {
-                // Hooray! Found a higher-priority one; clear conflict list
-                conflicts.clear();
-                curr = next;
-                continue;
-            }
-            // Tie means one more non-resolved, add
-            conflicts.add(next.value);
-        }
-
-        // It is possible we resolved it; if so:
-        if (conflicts.isEmpty()) {
-            _setters = curr.withoutNext();
-            return curr.value;
-        }
-        // Otherwise
-        String desc = conflicts.stream().map(AnnotatedMethod::getFullName)
-                .collect(Collectors.joining(" vs "));
-        throw new IllegalArgumentException(String.format(
-                "Conflicting setter definitions for property \"%s\": %s",
-                getName(), desc));
-    }
-
-    // @since 2.13
-    protected AnnotatedMethod _selectSetter(AnnotatedMethod currM, AnnotatedMethod nextM)
-    {
-        // Allow masking, i.e. do not fail if one is in super-class from the other
-        final Class<?> currClass = currM.getDeclaringClass();
-        final Class<?> nextClass = nextM.getDeclaringClass();
-        if (currClass != nextClass) {
-            if (currClass.isAssignableFrom(nextClass)) { // next is more specific
-                return nextM;
-            }
-            if (nextClass.isAssignableFrom(currClass)) { // current more specific
-                return currM;
-            }
-        }
-
-        /* 30-May-2014, tatu: Two levels of precedence:
-         *
-         * 1. Regular setters ("setX(...)")
-         * 2. Implicit, possible setters ("x(...)")
-         */
-        // 25-Apr-2021, tatu: This is probably wrong, should not rely on
-        //    hard-coded "set" prefix here.
-        int priNext = _setterPriority(nextM);
-        int priCurr = _setterPriority(currM);
-
-        if (priNext != priCurr) {
-            // Smaller value, higher; so, if next has higher precedence:
-            if (priNext < priCurr) {
-                return nextM;
-            }
-            // otherwise current one has, proceed
-            return currM;
-        }
-        // 11-Dec-2015, tatu: As per [databind#1033] allow pluggable conflict resolution
-        return (_annotationIntrospector == null) ? null
-                : _annotationIntrospector.resolveSetterConflict(_config, currM, nextM);
     }
 
     @Override
@@ -629,19 +525,6 @@ public class POJOPropertyBuilder
         return field;
     }
 
-    /**
-     * Variant of {@link #getField} that does NOT trigger pruning of
-     * Field candidates.
-     */
-    protected AnnotatedField getFieldUnchecked()
-    {
-        Linked<AnnotatedField> curr = _fields;
-        if (curr == null) {
-            return null;
-        }
-        return curr.value;
-    }
-
     @Override
     public AnnotatedParameter getConstructorParameter()
     {
@@ -651,7 +534,7 @@ public class POJOPropertyBuilder
         /* Hmmh. Checking for constructor parameters is trickier; for one,
          * we must allow creator and factory method annotations.
          * If this is the case, constructor parameter has the precedence.
-         *
+         * 
          * So, for now, just try finding the first constructor parameter;
          * if none, first factory method. And don't check for dups, if we must,
          * can start checking for them later on.
@@ -687,45 +570,6 @@ public class POJOPropertyBuilder
         return m;
     }
 
-    // Sometimes we need to actually by-pass failures related to conflicting
-    // getters or setters (see [databind#2757] for specific example); if so,
-    // this method is to be used instead of `getPrimaryMember()`
-    // @since 2.11.1
-    protected AnnotatedMember getPrimaryMemberUnchecked() {
-        if (_forSerialization) { // Inlined `getAccessor()` logic:
-            // Inlined `getGetter()`:
-            if (_getters != null) {
-                return _getters.value;
-            }
-            // Inlined `getField()`:
-            if (_fields != null) {
-                return _fields.value;
-            }
-            return null;
-        }
-
-        // Otherwise, inlined `getMutator()` logic:
-
-        // Inlined `getConstructorParameter()`:
-        if (_ctorParameters != null) {
-            return _ctorParameters.value;
-        }
-        // Inlined `getSetter()`:
-        if (_setters != null) {
-            return _setters.value;
-        }
-        // Inlined `getField()`:
-        if (_fields != null) {
-            return _fields.value;
-        }
-        // but to support setterless-properties, also include part of
-        // `getAccessor()` not yet covered, `getGetter()`:
-        if (_getters != null) {
-            return _getters.value;
-        }
-        return null;
-    }
-
     protected int _getterPriority(AnnotatedMethod m)
     {
         final String name = m.getName();
@@ -758,12 +602,7 @@ public class POJOPropertyBuilder
 
     @Override
     public Class<?>[] findViews() {
-        return fromMemberAnnotations(new WithMember<Class<?>[]>() {
-            @Override
-            public Class<?>[] withMember(AnnotatedMember member) {
-                return _annotationIntrospector.findViews(member);
-            }
-        });
+        return _annotationIntrospector.findViews(getPrimaryMember());
     }
 
     @Override
@@ -777,39 +616,58 @@ public class POJOPropertyBuilder
             }
             return result;
         }
-        result = fromMemberAnnotations(new WithMember<AnnotationIntrospector.ReferenceProperty>() {
-            @Override
-            public AnnotationIntrospector.ReferenceProperty withMember(AnnotatedMember member) {
-                return _annotationIntrospector.findReferenceType(member);
-            }
-        });
+        AnnotatedMember m = getPrimaryMember();
+        result = (m == null) ? null : _annotationIntrospector.findReferenceType(m);
         _referenceInfo = (result == null) ? NOT_REFEFERENCE_PROP : result;
         return result;
     }
 
     @Override
     public boolean isTypeId() {
-        Boolean b = fromMemberAnnotations(new WithMember<Boolean>() {
-            @Override
-            public Boolean withMember(AnnotatedMember member) {
-                return _annotationIntrospector.isTypeId(member);
+        AnnotatedMember m = getPrimaryMember();
+        if (m != null) {
+            Boolean b = _annotationIntrospector.isTypeId(m);
+            if (b != null) {
+                return b.booleanValue();
             }
-        });
-        return (b != null) && b.booleanValue();
+        }
+        return false;
+    }
+
+    protected Boolean _findRequired() {
+        AnnotatedMember m = getPrimaryMember();
+        return (m == null) ? null
+                : _annotationIntrospector.hasRequiredMarker(m);
+    }
+    
+    protected String _findDescription() {
+        AnnotatedMember m = getPrimaryMember();
+        return (m == null) ? null
+                : _annotationIntrospector.findPropertyDescription(m);
+    }
+
+    protected Integer _findIndex() {
+        AnnotatedMember m = getPrimaryMember();
+        return (m == null) ? null
+                : _annotationIntrospector.findPropertyIndex(m);
+    }
+
+    protected String _findDefaultValue() {
+        AnnotatedMember m = getPrimaryMember();
+        return (m == null) ? null
+                : _annotationIntrospector.findPropertyDefaultValue(m);
     }
 
     @Override
     public ObjectIdInfo findObjectIdInfo() {
-        return fromMemberAnnotations(new WithMember<ObjectIdInfo>() {
-            @Override
-            public ObjectIdInfo withMember(AnnotatedMember member) {
-                ObjectIdInfo info = _annotationIntrospector.findObjectIdInfo(member);
-                if (info != null) {
-                    info = _annotationIntrospector.findObjectReferenceInfo(member, info);
-                }
-                return info;
+        AnnotatedMember m = getPrimaryMember();
+        if (m != null) {
+            ObjectIdInfo info = _annotationIntrospector.findObjectIdInfo(m);
+            if (info != null) {
+                return _annotationIntrospector.findObjectReferenceInfo(m, info);
             }
-        });
+        }
+        return null;
     }
 
     @Override
@@ -819,12 +677,13 @@ public class POJOPropertyBuilder
         // 17-Aug-2016, tatu: Do NOT include global, or per-type defaults, because
         //    not all of this information (specifically, enclosing type's settings)
         //    is available here
-        JsonInclude.Value v = (_annotationIntrospector == null) ?
-                null : _annotationIntrospector.findPropertyInclusion(a);
+        JsonInclude.Value v = _annotationIntrospector.findPropertyInclusion(a);
         return (v == null) ? JsonInclude.Value.empty() : v;
     }
 
     public JsonProperty.Access findAccess() {
+        // 25-Sep-2017, tatu: IMPORTANT! Called BEFORE merge occurs so MUST traverse
+        //    accessors separately
         return fromMemberAnnotationsExcept(new WithMember<JsonProperty.Access>() {
             @Override
             public JsonProperty.Access withMember(AnnotatedMember member) {
@@ -838,7 +697,7 @@ public class POJOPropertyBuilder
     /* Data aggregation
     /**********************************************************
      */
-
+    
     public void addField(AnnotatedField a, PropertyName name, boolean explName, boolean visible, boolean ignored) {
         _fields = new Linked<AnnotatedField>(a, _fields, name, explName, visible, ignored);
     }
@@ -896,19 +755,11 @@ public class POJOPropertyBuilder
         _ctorParameters = _removeIgnored(_ctorParameters);
     }
 
-    @Deprecated // since 2.12
-    public JsonProperty.Access removeNonVisible(boolean inferMutators) {
-        return removeNonVisible(inferMutators, null);
-    }
-
     /**
      * @param inferMutators Whether mutators can be "pulled in" by visible
-     *    accessors or not.
-     *
-     * @since 2.12 (earlier had different signature)
+     *    accessors or not. 
      */
-    public JsonProperty.Access removeNonVisible(boolean inferMutators,
-            POJOPropertiesCollector parent)
+    public JsonProperty.Access removeNonVisible(boolean inferMutators)
     {
         /* 07-Jun-2015, tatu: With 2.6, we will allow optional definition
          *  of explicit access type for property; if not "AUTO", it will
@@ -920,15 +771,6 @@ public class POJOPropertyBuilder
         }
         switch (acc) {
         case READ_ONLY:
-            // [databind#2719]: Need to add ignorals, first, keeping in mind
-            // we have not yet resolved explicit names, so include implicit
-            // and possible explicit names
-            if (parent != null) {
-                parent._collectIgnorals(getName());
-                for (PropertyName pn : findExplicitNames()) {
-                    parent._collectIgnorals(pn.getSimpleName());
-                }
-            }
             // Remove setters, creators for sure, but fields too if deserializing
             _setters = null;
             _ctorParameters = null;
@@ -950,7 +792,7 @@ public class POJOPropertyBuilder
         case AUTO: // the default case: base it on visibility
             _getters = _removeNonVisible(_getters);
             _ctorParameters = _removeNonVisible(_ctorParameters);
-
+    
             if (!inferMutators || (_getters == null)) {
                 _fields = _removeNonVisible(_fields);
                 _setters = _removeNonVisible(_setters);
@@ -961,13 +803,13 @@ public class POJOPropertyBuilder
 
     /**
      * Mutator that will simply drop any constructor parameters property may have.
-     *
+     * 
      * @since 2.5
      */
     public void removeConstructors() {
         _ctorParameters = null;
     }
-
+    
     /**
      * Method called to trim unnecessary entries, such as implicit
      * getter if there is an explict one available. This is important
@@ -1024,8 +866,6 @@ public class POJOPropertyBuilder
      *<pre>
      * nodes[index].value.getAllAnnotations()
      *</pre>
-     *
-     * @since 2.6
      */
     private <T extends AnnotatedMember> AnnotationMap _getAllAnnotations(Linked<T> node) {
         AnnotationMap ann = node.value.getAllAnnotations();
@@ -1076,7 +916,7 @@ public class POJOPropertyBuilder
         }
         return node.trimByVisibility();
     }
-
+        
     /*
     /**********************************************************
     /* Accessors for aggregate information
@@ -1120,7 +960,7 @@ public class POJOPropertyBuilder
         }
         return false;
     }
-
+    
     public boolean anyIgnorals() {
         return _anyIgnorals(_fields)
             || _anyIgnorals(_getters)
@@ -1139,41 +979,10 @@ public class POJOPropertyBuilder
         return false;
     }
 
-    // @since 2.14
-    public boolean anyExplicitsWithoutIgnoral() {
-        return _anyExplicitsWithoutIgnoral(_fields)
-                || _anyExplicitsWithoutIgnoral(_getters)
-                || _anyExplicitsWithoutIgnoral(_setters)
-                // as per [databind#1317], constructor names are special...
-                || _anyExplicitNamesWithoutIgnoral(_ctorParameters);
-    }
-
-    // For accessors other than constructor parameters
-    private <T> boolean _anyExplicitsWithoutIgnoral(Linked<T> n) {
-        for (; n != null; n = n.next) {
-            if (!n.isMarkedIgnored
-                && (n.name != null && n.name.hasSimpleName())) {
-                    return true;
-            }
-        }
-        return false;
-    }
-
-    // For constructor parameters
-    private <T> boolean _anyExplicitNamesWithoutIgnoral(Linked<T> n) {
-        for (; n != null; n = n.next) {
-            if (!n.isMarkedIgnored
-                && (n.name != null && n.isNameExplicit)) {
-                    return true;
-            }
-        }
-        return false;
-    }
-
     /**
      * Method called to find out set of explicit names for accessors
      * bound together due to implicit name.
-     *
+     * 
      * @since 2.4
      */
     public Set<PropertyName> findExplicitNames()
@@ -1194,7 +1003,7 @@ public class POJOPropertyBuilder
      * multiple distinct explicit names, and the property this builder represents
      * basically needs to be broken apart and replaced by a set of more than
      * one properties.
-     *
+     * 
      * @since 2.4
      */
     public Collection<POJOPropertyBuilder> explode(Collection<PropertyName> newNames)
@@ -1220,9 +1029,9 @@ public class POJOPropertyBuilder
                 if (!node.isVisible) {
                     continue;
                 }
-
-                throw new IllegalStateException("Conflicting/ambiguous property name definitions (implicit name "
-                        +ClassUtil.name(_name)+"): found multiple explicit names: "
+                
+                throw new IllegalStateException("Conflicting/ambiguous property name definitions (implicit name '"
+                        +_name+"'): found multiple explicit names: "
                         +newNames+", but also implicit accessor: "+node);
             }
             POJOPropertyBuilder prop = props.get(name);
@@ -1249,7 +1058,7 @@ public class POJOPropertyBuilder
             }
         }
     }
-
+    
     private Set<PropertyName> _findExplicitNames(Linked<? extends AnnotatedMember> node,
             Set<PropertyName> renamed)
     {
@@ -1270,7 +1079,7 @@ public class POJOPropertyBuilder
         }
         return renamed;
     }
-
+    
     // For trouble-shooting
     @Override
     public String toString()
@@ -1285,7 +1094,7 @@ public class POJOPropertyBuilder
         sb.append("]");
         return sb.toString();
     }
-
+    
     /*
     /**********************************************************
     /* Helper methods
@@ -1321,10 +1130,6 @@ public class POJOPropertyBuilder
 
     protected <T> T fromMemberAnnotationsExcept(WithMember<T> func, T defaultValue)
     {
-        if (_annotationIntrospector == null) {
-            return null;
-        }
-
         // NOTE: here we must ask ALL accessors, but the order varies between
         // serialization, deserialization
         if (_forSerialization) {
@@ -1381,26 +1186,6 @@ public class POJOPropertyBuilder
         return null;
     }
 
-    // Helper method needed to work around oddity in type access for
-    // `AnnotatedMethod`.
-    //
-    // @since 2.11.1
-    protected Class<?> _rawTypeOf(AnnotatedMember m) {
-        // AnnotatedMethod always returns return type, but for setters we
-        // actually need argument type
-        if (m instanceof AnnotatedMethod) {
-            AnnotatedMethod meh = (AnnotatedMethod) m;
-            if (meh.getParameterCount() > 0) {
-                // note: get raw type FROM full type since only that resolves
-                // generic types
-                return meh.getParameterType(0).getRawClass();
-            }
-        }
-        // same as above, must get fully resolved type to handled generic typing
-        // of fields etc.
-        return m.getType().getRawClass();
-    }
-
     /*
     /**********************************************************
     /* Helper classes
@@ -1418,11 +1203,11 @@ public class POJOPropertyBuilder
         implements Iterator<T>
     {
         private Linked<T> next;
-
+        
         public MemberIterator(Linked<T> first) {
             next = first;
         }
-
+        
         @Override
         public boolean hasNext() {
             return (next != null);
@@ -1440,9 +1225,9 @@ public class POJOPropertyBuilder
         public void remove() {
             throw new UnsupportedOperationException();
         }
-
+        
     }
-
+    
     /**
      * Node used for creating simple linked lists to efficiently store small sets
      * of things.
@@ -1456,7 +1241,7 @@ public class POJOPropertyBuilder
         public final boolean isNameExplicit;
         public final boolean isVisible;
         public final boolean isMarkedIgnored;
-
+        
         public Linked(T v, Linked<T> n,
                 PropertyName name, boolean explName, boolean visible, boolean ignored)
         {
@@ -1475,7 +1260,7 @@ public class POJOPropertyBuilder
                     explName = false;
                 }
             }
-
+            
             isNameExplicit = explName;
             isVisible = visible;
             isMarkedIgnored = ignored;
@@ -1487,21 +1272,21 @@ public class POJOPropertyBuilder
             }
             return new Linked<T>(value, null, name, isNameExplicit, isVisible, isMarkedIgnored);
         }
-
+        
         public Linked<T> withValue(T newValue) {
             if (newValue == value) {
                 return this;
             }
             return new Linked<T>(newValue, next, name, isNameExplicit, isVisible, isMarkedIgnored);
         }
-
+        
         public Linked<T> withNext(Linked<T> newNext) {
             if (newNext == next) {
                 return this;
             }
             return new Linked<T>(value, newNext, name, isNameExplicit, isVisible, isMarkedIgnored);
         }
-
+        
         public Linked<T> withoutIgnored() {
             if (isMarkedIgnored) {
                 return (next == null) ? null : next.withoutIgnored();
@@ -1514,7 +1299,7 @@ public class POJOPropertyBuilder
             }
             return this;
         }
-
+        
         public Linked<T> withoutNonVisible() {
             Linked<T> newNext = (next == null) ? null : next.withoutNonVisible();
             return isVisible ? withNext(newNext) : newNext;
@@ -1552,7 +1337,7 @@ public class POJOPropertyBuilder
             }
             return isVisible ? withNext(null) : newNext;
         }
-
+        
         @Override
         public String toString() {
             String msg = String.format("%s[visible=%b,ignore=%b,explicitName=%b]",

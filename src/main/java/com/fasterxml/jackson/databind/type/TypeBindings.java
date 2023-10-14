@@ -1,6 +1,6 @@
 package com.fasterxml.jackson.databind.type;
 
-import java.lang.reflect.TypeVariable;
+import java.lang.reflect.*;
 import java.util.*;
 
 import com.fasterxml.jackson.databind.JavaType;
@@ -23,7 +23,7 @@ public class TypeBindings
     // // // Pre-resolved instances for minor optimizations
 
     // // // Actual member information
-
+    
     /**
      * Array of type (type variable) names.
      */
@@ -40,15 +40,15 @@ public class TypeBindings
      * @since 2.3
      */
     private final String[] _unboundVariables;
-
+    
     private final int _hashCode;
-
+    
     /*
     /**********************************************************************
     /* Construction
     /**********************************************************************
      */
-
+    
     private TypeBindings(String[] names, JavaType[] types, String[] uvars)
     {
         _names = (names == null) ? NO_STRINGS : names;
@@ -56,9 +56,12 @@ public class TypeBindings
         if (_names.length != _types.length) {
             throw new IllegalArgumentException("Mismatching names ("+_names.length+"), types ("+_types.length+")");
         }
+        int h = 1;
+        for (int i = 0, len = _types.length; i < len; ++i) {
+            h += _types[i].hashCode();
+        }
         _unboundVariables = uvars;
-        // hashCode and equality are based solely on _types.
-        _hashCode = Arrays.hashCode(_types);
+        _hashCode = h;
     }
 
     public static TypeBindings emptyBindings() {
@@ -80,7 +83,7 @@ public class TypeBindings
     public static TypeBindings create(Class<?> erasedType, List<JavaType> typeList)
     {
         JavaType[] types = (typeList == null || typeList.isEmpty()) ?
-                NO_TYPES : typeList.toArray(NO_TYPES);
+                NO_TYPES : typeList.toArray(new JavaType[typeList.size()]);
         return create(erasedType, types);
     }
 
@@ -139,18 +142,7 @@ public class TypeBindings
         return new TypeBindings(new String[] { vars[0].getName(), vars[1].getName() },
                 new JavaType[] { typeArg1, typeArg2 }, null);
     }
-
-    /**
-     * Factory method for constructing bindings given names and associated types.
-     */
-    public static TypeBindings create(List<String> names, List<JavaType> types)
-    {
-        if (names == null || names.isEmpty() || types == null || types.isEmpty()) {
-            return EMPTY;
-        }
-        return new TypeBindings(names.toArray(NO_STRINGS), types.toArray(NO_TYPES), null);
-    }
-
+    
     /**
      * Alternate factory method that may be called if it is possible that type
      * does or does not require type parameters; this is mostly useful for
@@ -170,7 +162,7 @@ public class TypeBindings
         return new TypeBindings(new String[] { vars[0].getName() },
                 new JavaType[] { typeArg1 }, null);
     }
-
+    
     /**
      * Alternate factory method that may be called if it is possible that type
      * does or does not require type parameters; this is mostly useful for
@@ -198,7 +190,7 @@ public class TypeBindings
         }
         return new TypeBindings(names, types, null);
     }
-
+    
     /**
      * Method for creating an instance that has same bindings as this object,
      * plus an indicator for additional type variable that may be unbound within
@@ -211,28 +203,6 @@ public class TypeBindings
                 ? new String[1] : Arrays.copyOf(_unboundVariables, len+1);
         names[len] = name;
         return new TypeBindings(_names, _types, names);
-    }
-
-    /**
-     * Create a new instance with the same bindings as this object, except with
-     * the given variable removed. This is used to create generic types that are
-     * "partially raw", i.e. only have some variables bound.
-     *
-     * @since 2.16
-     */
-    public TypeBindings withoutVariable(String name)
-    {
-        int index = Arrays.asList(_names).indexOf(name);
-        if (index == -1) {
-            return this;
-        }
-        String[] newNames = Arrays.copyOf(_names, _names.length - 1);
-        JavaType[] newTypes = Arrays.copyOf(_types, _types.length - 1);
-        if (index != newNames.length) {
-            System.arraycopy(_names, index + 1, newNames, index, newNames.length - index);
-            System.arraycopy(_types, index + 1, newTypes, index, newTypes.length - index);
-        }
-        return new TypeBindings(newNames, newTypes, _unboundVariables);
     }
 
     /*
@@ -272,32 +242,14 @@ name, i, t.getRawClass()));
         return null;
     }
 
-    /**
-     * Returns true if a shallow search of the type bindings includes a placeholder
-     * type which uses reference equality, thus cannot produce cache hits. This
-     * is an optimization to avoid churning memory in the cache unnecessarily.
-     * Note that it is still possible for nested type information to contain such
-     * placeholder types (see NestedTypes1604Test for an example) so it's vital
-     * that they produce a distribution of hashCode values, even if they may push
-     * reusable data out of the cache.
-     */
-    private boolean invalidCacheKey() {
-        for (JavaType type : _types) {
-            if (type instanceof IdentityEqualityType) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public boolean isEmpty() {
         return (_types.length == 0);
     }
-
+    
     /**
      * Returns number of bindings contained
      */
-    public int size() {
+    public int size() { 
         return _types.length;
     }
 
@@ -346,17 +298,11 @@ name, i, t.getRawClass()));
      * Factory method that will create an object that can be used as a key for
      * caching purposes by {@link TypeFactory}
      *
-     * @return An object which can be used as a key in TypeFactory, or {@code null} if no key can be created.
-     *
      * @since 2.8
      */
     public Object asKey(Class<?> rawBase) {
         // safe to pass _types array without copy since it is not exposed via
         // any access, nor modified by this class
-        if (invalidCacheKey()) {
-            // If placeholders are present, no key may be returned because the key is unhelpful without context.
-            return null;
-        }
         return new AsKey(rawBase, _types, _hashCode);
     }
 
@@ -365,7 +311,7 @@ name, i, t.getRawClass()));
     /* Standard methods
     /**********************************************************************
      */
-
+    
     @Override public String toString()
     {
         if (_types.length == 0) {
@@ -394,8 +340,17 @@ name, i, t.getRawClass()));
             return false;
         }
         TypeBindings other = (TypeBindings) o;
-        // hashCode and equality are based solely on _types.
-        return _hashCode == other._hashCode && Arrays.equals(_types, other._types);
+        int len = _types.length;
+        if (len != other.size()) {
+            return false;
+        }
+        JavaType[] otherTypes = other._types;
+        for (int i = 0; i < len; ++i) {
+            if (!otherTypes[i].equals(_types[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /*
@@ -454,7 +409,7 @@ name, i, t.getRawClass()));
                 return VARS_ITERABLE;
             }
             return erasedType.getTypeParameters();
-        }
+        }    
 
         public static TypeVariable<?>[] paramsFor2(Class<?> erasedType)
         {
@@ -468,7 +423,7 @@ name, i, t.getRawClass()));
                 return VARS_LINKED_HASH_MAP;
             }
             return erasedType.getTypeParameters();
-        }
+        }    
     }
 
     /**
@@ -484,7 +439,7 @@ name, i, t.getRawClass()));
         public AsKey(Class<?> raw, JavaType[] params, int hash) {
             _raw = raw ;
             _params = params;
-            _hash = 31 * raw.hashCode() + hash;
+            _hash = hash;
         }
 
         @Override

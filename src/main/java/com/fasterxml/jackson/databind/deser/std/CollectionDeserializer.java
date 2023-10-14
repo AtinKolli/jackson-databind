@@ -2,18 +2,17 @@ package com.fasterxml.jackson.databind.deser.std;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+
 import com.fasterxml.jackson.core.*;
+
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
-import com.fasterxml.jackson.databind.cfg.CoercionAction;
-import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
 import com.fasterxml.jackson.databind.deser.*;
 import com.fasterxml.jackson.databind.deser.impl.ReadableObjectId.Referring;
+import com.fasterxml.jackson.databind.deser.std.ContainerDeserializerBase;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 
 /**
@@ -76,8 +75,6 @@ public class CollectionDeserializer
 
     /**
      * Constructor used when creating contextualized instances.
-     *
-     * @since 2.9
      */
     protected CollectionDeserializer(JavaType collectionType,
             JsonDeserializer<Object> valueDeser, TypeDeserializer valueTypeDeser,
@@ -106,8 +103,6 @@ public class CollectionDeserializer
 
     /**
      * Fluent-factory method call to construct contextual instance.
-     *
-     * @since 2.9
      */
     @SuppressWarnings("unchecked")
     protected CollectionDeserializer withResolved(JsonDeserializer<?> dd,
@@ -121,18 +116,13 @@ public class CollectionDeserializer
     }
 
     // Important: do NOT cache if polymorphic values
-    @Override // since 2.5
+    @Override
     public boolean isCachable() {
         // 26-Mar-2015, tatu: As per [databind#735], need to be careful
         return (_valueDeserializer == null)
                 && (_valueTypeDeserializer == null)
                 && (_delegateDeserializer == null)
                 ;
-    }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return LogicalType.Collection;
     }
 
     /*
@@ -180,7 +170,7 @@ _containerType,
                 JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
         // also, often value deserializer is resolved here:
         JsonDeserializer<?> valueDeser = _valueDeserializer;
-
+        
         // May have a content converter
         valueDeser = findConvertingContentDeserializer(ctxt, property, valueDeser);
         final JavaType vt = _containerType.getContentType();
@@ -195,7 +185,7 @@ _containerType,
             valueTypeDeser = valueTypeDeser.forProperty(property);
         }
         NullValueProvider nuller = findContentNullProvider(ctxt, property, valueDeser);
-        if ((!Objects.equals(unwrapSingle, _unwrapSingle))
+        if ( (unwrapSingle != _unwrapSingle)
                 || (nuller != _nullProvider)
                 || (delegateDeser != _delegateDeserializer)
                 || (valueDeser != _valueDeserializer)
@@ -238,18 +228,16 @@ _containerType,
             return (Collection<Object>) _valueInstantiator.createUsingDelegate(ctxt,
                     _delegateDeserializer.deserialize(p, ctxt));
         }
-        // 16-May-2020, tatu: As per [dataformats-text#199] need to first check for
-        //   possible Array-coercion and only after that String coercion
-        if (p.isExpectedStartArrayToken()) {
-            return _deserializeFromArray(p, ctxt, createDefaultInstance(ctxt));
-        }
         // Empty String may be ok; bit tricky to check, however, since
         // there is also possibility of "auto-wrapping" of single-element arrays.
         // Hence we only accept empty String here.
         if (p.hasToken(JsonToken.VALUE_STRING)) {
-            return _deserializeFromString(p, ctxt, p.getText());
+            String str = p.getText();
+            if (str.length() == 0) {
+                return (Collection<Object>) _valueInstantiator.createFromString(ctxt, str);
+            }
         }
-        return handleNonArray(p, ctxt, createDefaultInstance(ctxt));
+        return deserialize(p, ctxt, createDefaultInstance(ctxt));
     }
 
     /**
@@ -261,82 +249,16 @@ _containerType,
     {
         return (Collection<Object>) _valueInstantiator.createUsingDefault(ctxt);
     }
-
+    
     @Override
     public Collection<Object> deserialize(JsonParser p, DeserializationContext ctxt,
             Collection<Object> result)
         throws IOException
     {
         // Ok: must point to START_ARRAY (or equivalent)
-        if (p.isExpectedStartArrayToken()) {
-            return _deserializeFromArray(p, ctxt, result);
+        if (!p.isExpectedStartArrayToken()) {
+            return handleNonArray(p, ctxt, result);
         }
-        return handleNonArray(p, ctxt, result);
-    }
-
-    @Override
-    public Object deserializeWithType(JsonParser p, DeserializationContext ctxt,
-            TypeDeserializer typeDeserializer)
-        throws IOException
-    {
-        // In future could check current token... for now this should be enough:
-        return typeDeserializer.deserializeTypedFromArray(p, ctxt);
-    }
-
-    /**
-     * Logic extracted to deal with incoming String value.
-     *
-     * @since 2.12
-     */
-    @SuppressWarnings("unchecked")
-    protected Collection<Object> _deserializeFromString(JsonParser p, DeserializationContext ctxt,
-            String value)
-        throws IOException
-    {
-        final Class<?> rawTargetType = handledType();
-
-        // 05-Nov-2020, ckozak: As per [jackson-databind#2922] string values may be handled
-        // using handleNonArray, however empty strings may result in a null or empty collection
-        // depending on configuration.
-
-        // Start by verifying if we got empty/blank string since accessing
-        // CoercionAction may be costlier than String value we'll almost certainly
-        // need anyway
-        if (value.isEmpty()) {
-            CoercionAction act = ctxt.findCoercionAction(logicalType(), rawTargetType,
-                    CoercionInputShape.EmptyString);
-            // handleNonArray may successfully deserialize the result (if
-            // ACCEPT_SINGLE_VALUE_AS_ARRAY is enabled, for example) otherwise it
-            // is capable of failing just as well as _deserializeFromEmptyString.
-            if (act != null && act != CoercionAction.Fail) {
-                return (Collection<Object>) _deserializeFromEmptyString(
-                        p, ctxt, act, rawTargetType, "empty String (\"\")");
-            }
-            // note: `CoercionAction.Fail` falls through because we may need to allow
-            // `ACCEPT_SINGLE_VALUE_AS_ARRAY` handling later on
-        }
-        // 26-Mar-2021, tatu: Some day is today; as per [dataformat-xml#460],
-        //    we do need to support blank String too...
-        else if (_isBlank(value)) {
-            final CoercionAction act = ctxt.findCoercionFromBlankString(logicalType(), rawTargetType,
-                    CoercionAction.Fail);
-            if (act != CoercionAction.Fail) {
-                return (Collection<Object>) _deserializeFromEmptyString(
-                        p, ctxt, act, rawTargetType, "blank String (all whitespace)");
-            }
-            // note: `CoercionAction.Fail` falls through because we may need to allow
-            // `ACCEPT_SINGLE_VALUE_AS_ARRAY` handling later on
-        }
-        return handleNonArray(p, ctxt, createDefaultInstance(ctxt));
-    }
-
-    /**
-     * @since 2.12
-     */
-    protected Collection<Object> _deserializeFromArray(JsonParser p, DeserializationContext ctxt,
-            Collection<Object> result)
-        throws IOException
-    {
         // [databind#631]: Assign current value, to be accessible by custom serializers
         p.setCurrentValue(result);
 
@@ -378,6 +300,15 @@ _containerType,
         return result;
     }
 
+    @Override
+    public Object deserializeWithType(JsonParser p, DeserializationContext ctxt,
+            TypeDeserializer typeDeserializer)
+        throws IOException
+    {
+        // In future could check current token... for now this should be enough:
+        return typeDeserializer.deserializeTypedFromArray(p, ctxt);
+    }
+
     /**
      * Helper method called when current token is no START_ARRAY. Will either
      * throw an exception, or try to handle value as if member of implicit
@@ -393,15 +324,16 @@ _containerType,
                 ((_unwrapSingle == null) &&
                         ctxt.isEnabled(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY));
         if (!canWrap) {
-            return (Collection<Object>) ctxt.handleUnexpectedToken(_containerType, p);
+            return (Collection<Object>) ctxt.handleUnexpectedToken(_containerType.getRawClass(), p);
         }
         JsonDeserializer<Object> valueDes = _valueDeserializer;
         final TypeDeserializer typeDeser = _valueTypeDeserializer;
+        JsonToken t = p.currentToken();
 
         Object value;
 
         try {
-            if (p.hasToken(JsonToken.VALUE_NULL)) {
+            if (t == JsonToken.VALUE_NULL) {
                 // 03-Feb-2017, tatu: Hmmh. I wonder... let's try skipping here, too
                 if (_skipNullValues) {
                     return result;
@@ -413,10 +345,6 @@ _containerType,
                 value = valueDes.deserializeWithType(p, ctxt, typeDeser);
             }
         } catch (Exception e) {
-            boolean wrap = ctxt.isEnabled(DeserializationFeature.WRAP_EXCEPTIONS);
-            if (!wrap) {
-                ClassUtil.throwIfRTE(e);
-            }
             // note: pass Object.class, not Object[].class, as we need element type for error info
             throw JsonMappingException.wrapWithPath(e, Object.class, result.size());
         }
@@ -529,20 +457,20 @@ _containerType,
 
     /**
      * Helper class to maintain processing order of value. The resolved
-     * object associated with {@code #id} parameter from {@link #handleResolvedForwardReference(Object, Object)} 
-     * comes before the values in {@link #next}.
+     * object associated with {@link #_id} comes before the values in
+     * {@link #next}.
      */
     private final static class CollectionReferring extends Referring {
         private final CollectionReferringAccumulator _parent;
         public final List<Object> next = new ArrayList<Object>();
-
+        
         CollectionReferring(CollectionReferringAccumulator parent,
                 UnresolvedForwardReference reference, Class<?> contentType)
         {
             super(reference, contentType);
             _parent = parent;
         }
-
+        
         @Override
         public void handleResolvedForwardReference(Object id, Object value) throws IOException {
             _parent.resolveForwardReference(id, value);

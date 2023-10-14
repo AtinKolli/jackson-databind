@@ -35,12 +35,12 @@ public class AsWrapperTypeDeserializer
     protected AsWrapperTypeDeserializer(AsWrapperTypeDeserializer src, BeanProperty property) {
         super(src, property);
     }
-
+    
     @Override
     public TypeDeserializer forProperty(BeanProperty prop) {
         return (prop == _property) ? this : new AsWrapperTypeDeserializer(this, prop);
     }
-
+    
     @Override
     public As getTypeInclusion() { return As.WRAPPER_OBJECT; }
 
@@ -50,7 +50,7 @@ public class AsWrapperTypeDeserializer
     @Override
     public Object deserializeTypedFromObject(JsonParser jp, DeserializationContext ctxt) throws IOException {
         return _deserialize(jp, ctxt);
-    }
+    }    
 
     @Override
     public Object deserializeTypedFromArray(JsonParser jp, DeserializationContext ctxt) throws IOException {
@@ -66,7 +66,7 @@ public class AsWrapperTypeDeserializer
     public Object deserializeTypedFromAny(JsonParser jp, DeserializationContext ctxt) throws IOException {
         return _deserialize(jp, ctxt);
     }
-
+    
     /*
     /***************************************************************
     /* Internal methods
@@ -105,16 +105,16 @@ public class AsWrapperTypeDeserializer
         p.nextToken();
 
         // Minor complication: we may need to merge type id in?
-        if (_typeIdVisible && p.hasToken(JsonToken.START_OBJECT)) {
+        if (_typeIdVisible && p.isExpectedStartObjectToken()) {
             // but what if there's nowhere to add it in? Error? Or skip? For now, skip.
-            TokenBuffer tb = ctxt.bufferForInputBuffering(p);
+            TokenBuffer tb = TokenBuffer.forInputBuffering(p, ctxt);
             tb.writeStartObject(); // recreate START_OBJECT
             tb.writeFieldName(_typePropertyName);
             tb.writeString(typeId);
             // 02-Jul-2016, tatu: Depending on for JsonParserSequence is initialized it may
             //   try to access current token; ensure there isn't one
             p.clearCurrentToken();
-            p = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
+            p = JsonParserSequence.createFlattened(false, tb.asParser(ctxt, p), p);
             p.nextToken();
         }
 

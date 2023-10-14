@@ -26,20 +26,14 @@ public class UUIDDeserializer extends FromStringDeserializer<UUID>
 
     public UUIDDeserializer() { super(UUID.class); }
 
-    @Override // since 2.12
-    public Object getEmptyValue(DeserializationContext ctxt) {
-        return new UUID(0L, 0L);
-    }
-
     @Override
     protected UUID _deserialize(String id, DeserializationContext ctxt) throws IOException
     {
         // Adapted from java-uuid-generator (https://github.com/cowtowncoder/java-uuid-generator)
         // which is 5x faster than UUID.fromString(value), as oper "ManualReadPerfWithUUID"
         if (id.length() != 36) {
-            /* 14-Sep-2013, tatu: One trick we do allow, Base64-encoding, since we know
-             *   length it must have...
-             */
+            // 14-Sep-2013, tatu: One trick we do allow, Base64-encoding, since we know
+            //   length it must have...
             if (id.length() == 24) {
                 byte[] stuff = Base64Variants.getDefaultVariant().decode(id);
                 return _fromBytes(stuff, ctxt);
@@ -67,14 +61,15 @@ public class UUIDDeserializer extends FromStringDeserializer<UUID>
 
         return new UUID(hi, lo);
     }
-
+    
     @Override
     protected UUID _deserializeEmbedded(Object ob, DeserializationContext ctxt) throws IOException
     {
         if (ob instanceof byte[]) {
             return _fromBytes((byte[]) ob, ctxt);
         }
-        return super._deserializeEmbedded(ob, ctxt);
+        super._deserializeEmbedded(ob, ctxt);
+        return null; // never gets here
     }
 
     private UUID _badFormat(String uuidStr, DeserializationContext ctxt)
@@ -90,11 +85,11 @@ public class UUIDDeserializer extends FromStringDeserializer<UUID>
                 + (byteFromChars(str, index+4, ctxt) << 8)
                 + byteFromChars(str, index+6, ctxt);
     }
-
+    
     int shortFromChars(String str, int index, DeserializationContext ctxt) throws JsonMappingException {
         return (byteFromChars(str, index, ctxt) << 8) + byteFromChars(str, index+2, ctxt);
     }
-
+    
     int byteFromChars(String str, int index, DeserializationContext ctxt) throws JsonMappingException
     {
         final char c1 = str.charAt(index);

@@ -6,26 +6,23 @@ import java.io.Serializable;
 import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import com.fasterxml.jackson.core.*;
-
-import com.fasterxml.jackson.databind.util.ClassUtil;
 
 /**
  * Checked exception used to signal fatal problems with mapping of
  * content, distinct from low-level I/O problems (signaled using
  * simple {@link java.io.IOException}s) or data encoding/decoding
- * problems (signaled with {@link com.fasterxml.jackson.core.exc.StreamReadException},
- * {@link com.fasterxml.jackson.core.exc.StreamWriteException}).
+ * problems (signaled with {@link com.fasterxml.jackson.core.JsonParseException},
+ * {@link com.fasterxml.jackson.core.JsonGenerationException}).
  *<p>
  * One additional feature is the ability to denote relevant path
  * of references (during serialization/deserialization) to help in
  * troubleshooting.
  */
 public class JsonMappingException
-    extends DatabindException // @since 2.13
+    extends JsonProcessingException
 {
-    private static final long serialVersionUID = 3L;
+    private static final long serialVersionUID = 1L;
 
     /**
      * Let's limit length of reference chain, to limit damage in cases
@@ -34,9 +31,9 @@ public class JsonMappingException
     final static int MAX_REFS_TO_LIST = 1000;
 
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Helper classes
-    /**********************************************************************
+    /**********************************************************
      */
 
     /**
@@ -139,6 +136,13 @@ public class JsonMappingException
                     while (--arrays >= 0) {
                         sb.append("[]");
                     }
+                    /* was:
+                    String pkgName = ClassUtil.getPackageName(cls);
+                    if (pkgName != null) {
+                        sb.append(pkgName);
+                        sb.append('.');
+                    }
+                    */
                 }
                 sb.append('[');
                 if (_fieldName != null) {
@@ -175,9 +179,9 @@ public class JsonMappingException
     }
 
     /*
-    /**********************************************************************
+    /**********************************************************
     /* State/configuration
-    /**********************************************************************
+    /**********************************************************
      */
 
     /**
@@ -195,40 +199,13 @@ public class JsonMappingException
      * @since 2.7
      */
     protected transient Closeable _processor;
-
+    
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Life-cycle
-    /**********************************************************************
+    /**********************************************************
      */
 
-    /**
-     * @deprecated Since 2.7 Use variant that takes {@link JsonParser} instead
-     */
-    @Deprecated // since 2.7
-    public JsonMappingException(String msg) { super(msg); }
-
-    /**
-     * @deprecated Since 2.7 Use variant that takes {@link JsonParser} instead
-     */
-    @Deprecated // since 2.7
-    public JsonMappingException(String msg, Throwable rootCause) { super(msg, rootCause); }
-
-    /**
-     * @deprecated Since 2.7 Use variant that takes {@link JsonParser} instead
-     */
-    @Deprecated // since 2.7
-    public JsonMappingException(String msg, JsonLocation loc) { super(msg, loc); }
-
-    /**
-     * @deprecated Since 2.7 Use variant that takes {@link JsonParser} instead
-     */
-    @Deprecated // since 2.7
-    public JsonMappingException(String msg, JsonLocation loc, Throwable rootCause) { super(msg, loc, rootCause); }
-
-    /**
-     * @since 2.7
-     */
     public JsonMappingException(Closeable processor, String msg) {
         super(msg);
         _processor = processor;
@@ -240,95 +217,52 @@ public class JsonMappingException
         }
     }
 
-    /**
-     * @since 2.7
-     */
     public JsonMappingException(Closeable processor, String msg, Throwable problem) {
         super(msg, problem);
         _processor = processor;
-        // 31-Jan-2020: [databind#2482] Retain original location
-        if (problem instanceof JacksonException) {
-            _location = ((JacksonException) problem).getLocation();
-        } else if (processor instanceof JsonParser) {
+        if (processor instanceof JsonParser) {
             _location = ((JsonParser) processor).getTokenLocation();
         }
     }
 
-    /**
-     * @since 2.7
-     */
     public JsonMappingException(Closeable processor, String msg, JsonLocation loc) {
         super(msg, loc);
         _processor = processor;
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(JsonParser p, String msg) {
         return new JsonMappingException(p, msg);
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(JsonParser p, String msg, Throwable problem) {
         return new JsonMappingException(p, msg, problem);
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(JsonGenerator g, String msg) {
         return new JsonMappingException(g, msg, (Throwable) null);
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(JsonGenerator g, String msg, Throwable problem) {
         return new JsonMappingException(g, msg, problem);
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(DeserializationContext ctxt, String msg) {
-        return new JsonMappingException(_parser(ctxt), msg);
+        return new JsonMappingException(ctxt.getParser(), msg);
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(DeserializationContext ctxt, String msg, Throwable t) {
-        return new JsonMappingException(_parser(ctxt), msg, t);
+        return new JsonMappingException(ctxt.getParser(), msg, t);
     }
 
-    // @since 2.14
-    private static JsonParser _parser(DeserializationContext ctxt) {
-        return (ctxt == null) ? null : ctxt.getParser();
-    }
-
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(SerializerProvider ctxt, String msg) {
-        return new JsonMappingException(_generator(ctxt), msg);
+        return new JsonMappingException(ctxt.getGenerator(), msg);
     }
 
-    /**
-     * @since 2.7
-     */
     public static JsonMappingException from(SerializerProvider ctxt, String msg, Throwable problem) {
         /* 17-Aug-2015, tatu: As per [databind#903] this is bit problematic as
          *   SerializerProvider instance does not currently hold on to generator...
          */
-        return new JsonMappingException(_generator(ctxt), msg, problem);
-    }
-
-    // @since 2.14
-    private static JsonGenerator _generator(SerializerProvider ctxt) {
-        return (ctxt == null) ? null : ctxt.getGenerator();
+        return new JsonMappingException(ctxt.getGenerator(), msg, problem);
     }
 
     /**
@@ -338,14 +272,11 @@ public class JsonMappingException
      *<p>
      * NOTE: since 2.9 should usually NOT be used on input-side (deserialization)
      *    exceptions; instead use method(s) of <code>InputMismatchException</code>
-     *
-     * @since 2.1
      */
     public static JsonMappingException fromUnexpectedIOE(IOException src) {
         return new JsonMappingException(null,
                 String.format("Unexpected IOException (of type %s): %s",
-                        src.getClass().getName(),
-                        ClassUtil.exceptionMessage(src)));
+                        src.getClass().getName(), src.getMessage()));
     }
 
     /**
@@ -385,16 +316,15 @@ public class JsonMappingException
         if (src instanceof JsonMappingException) {
             jme = (JsonMappingException) src;
         } else {
-            // [databind#2128]: try to avoid duplication
-            String msg = ClassUtil.exceptionMessage(src);
+            String msg = src.getMessage();
             // Let's use a more meaningful placeholder if all we have is null
-            if (msg == null || msg.isEmpty()) {
+            if (msg == null || msg.length() == 0) {
                 msg = "(was "+src.getClass().getName()+")";
             }
             // 17-Aug-2015, tatu: Let's also pass the processor (parser/generator) along
             Closeable proc = null;
-            if (src instanceof JacksonException) {
-                Object proc0 = ((JacksonException) src).getProcessor();
+            if (src instanceof JsonProcessingException) {
+                Object proc0 = ((JsonProcessingException) src).getProcessor();
                 if (proc0 instanceof Closeable) {
                     proc = (Closeable) proc0;
                 }
@@ -405,18 +335,10 @@ public class JsonMappingException
         return jme;
     }
 
-    /**
-     * @since 2.13
-     */
-    public JsonMappingException withCause(Throwable cause) {
-        initCause(cause);
-        return this;
-    }
-
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Accessors/mutators
-    /**********************************************************************
+    /**********************************************************
      */
 
     /**
@@ -445,23 +367,24 @@ public class JsonMappingException
         _appendPathDesc(sb);
         return sb;
     }
-
+    
     /**
      * Method called to prepend a reference information in front of
      * current path
      */
-    @Override
-    public void prependPath(Object referrer, String fieldName) {
-        prependPath(new Reference(referrer, fieldName));
+    public void prependPath(Object referrer, String fieldName)
+    {
+        Reference ref = new Reference(referrer, fieldName);
+        prependPath(ref);
     }
-
     /**
      * Method called to prepend a reference information in front of
      * current path
      */
-    @Override
-    public void prependPath(Object referrer, int index) {
-        prependPath(new Reference(referrer, index));
+    public void prependPath(Object referrer, int index)
+    {
+        Reference ref = new Reference(referrer, index);
+        prependPath(ref);
     }
 
     public void prependPath(Reference r)
@@ -477,14 +400,14 @@ public class JsonMappingException
             _path.addFirst(r);
         }
     }
-
+    
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Overridden methods
-    /**********************************************************************
+    /**********************************************************
      */
 
-    @Override // since 2.8
+    @Override // since 2.7.5
     @JsonIgnore // as per [databind#1368]
     public Object getProcessor() { return _processor; }
 
@@ -492,7 +415,7 @@ public class JsonMappingException
     public String getLocalizedMessage() {
         return _buildMessage();
     }
-
+    
     /**
      * Method is overridden so that we can properly inject description
      * of problem path, if such is defined.
@@ -504,7 +427,9 @@ public class JsonMappingException
 
     protected String _buildMessage()
     {
-        // First: if we have no path info, let's just use parent's definition as is
+        /* First: if we have no path info, let's just use parent's
+         * definition as is
+         */
         String msg = super.getMessage();
         if (_path == null) {
             return msg;
@@ -528,9 +453,9 @@ public class JsonMappingException
     }
 
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Internal methods
-    /**********************************************************************
+    /**********************************************************
      */
 
     protected void _appendPathDesc(StringBuilder sb)

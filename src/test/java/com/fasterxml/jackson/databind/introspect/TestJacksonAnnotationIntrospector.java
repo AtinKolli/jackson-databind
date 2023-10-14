@@ -7,14 +7,14 @@ import java.util.*;
 import javax.xml.namespace.QName;
 
 import com.fasterxml.jackson.annotation.*;
-
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.*;
-import com.fasterxml.jackson.databind.cfg.MapperConfig;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import com.fasterxml.jackson.databind.introspect.AnnotatedClass;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder;
 import com.fasterxml.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
 import com.fasterxml.jackson.databind.type.TypeFactory;
@@ -98,7 +98,7 @@ public class TestJacksonAnnotationIntrospector
 
         @Override
         public void serialize(QName value, JsonGenerator jgen, SerializerProvider provider)
-                throws IOException
+                throws IOException, JsonProcessingException
         {
             jgen.writeString(value.toString());
         }
@@ -110,7 +110,7 @@ public class TestJacksonAnnotationIntrospector
         public QNameDeserializer() { super(QName.class); }
         @Override
         public QName deserialize(JsonParser jp, DeserializationContext ctxt)
-                throws IOException
+                throws IOException, JsonProcessingException
         {
             return QName.valueOf(jp.readValueAs(String.class));
         }
@@ -144,24 +144,14 @@ public class TestJacksonAnnotationIntrospector
             }
             return names;
         }
-
-        @Override
-        public String[] findEnumValues(MapperConfig<?> config, AnnotatedClass annotatedClass,
-                Enum<?>[] enumValues, String[] names) {
-            // kinda sorta wrong, but for testing's sake...
-            for (int i = 0, len = enumValues.length; i < len; ++i) {
-                names[i] = enumValues[i].name().toLowerCase();
-            }
-            return names;
-        }
     }
-
+    
     /*
     /**********************************************************
     /* Unit tests
     /**********************************************************
      */
-
+    
     /**
      * tests getting serializer/deserializer instances.
      */
@@ -208,7 +198,7 @@ public class TestJacksonAnnotationIntrospector
         ObjectMapper mapper = new ObjectMapper();
         mapper.setAnnotationIntrospector(new LcEnumIntrospector());
         assertEquals("\"value1\"", mapper.writeValueAsString(EnumExample.VALUE1));
-        EnumExample result = mapper.readValue(q("value1"), EnumExample.class);
+        EnumExample result = mapper.readValue(quote("value1"), EnumExample.class);
         assertEquals(EnumExample.VALUE1, result);
     }
 }

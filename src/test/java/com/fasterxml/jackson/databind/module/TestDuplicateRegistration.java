@@ -7,7 +7,7 @@ public class TestDuplicateRegistration extends BaseMapTest
 {
     static class MyModule extends com.fasterxml.jackson.databind.Module {
         public int regCount;
-
+        
         public MyModule() {
             super();
         }
@@ -28,11 +28,10 @@ public class TestDuplicateRegistration extends BaseMapTest
         }
     }
 
-    @SuppressWarnings("deprecation")
     public void testDuplicateRegistration() throws Exception
     {
         // by default, duplicate registration should be prevented
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = new ObjectMapper();
         assertTrue(mapper.isEnabled(MapperFeature.IGNORE_DUPLICATE_MODULE_REGISTRATIONS));
         MyModule module = new MyModule();
         mapper.registerModule(module);
@@ -45,15 +44,13 @@ public class TestDuplicateRegistration extends BaseMapTest
         mapper.registerModule(module);
         assertEquals(2, module.regCount);
 
-        final MyModule module2 = new MyModule();
         // and ditto for a new instance
-        @SuppressWarnings("unused")
-        ObjectMapper mapper2 = jsonMapperBuilder()
-                .disable(MapperFeature.IGNORE_DUPLICATE_MODULE_REGISTRATIONS)
-                .addModule(module2)
-                .addModule(module2)
-                .addModule(module2)
-                .build();
+        ObjectMapper mapper2 = new ObjectMapper();
+        mapper2.disable(MapperFeature.IGNORE_DUPLICATE_MODULE_REGISTRATIONS);
+        MyModule module2 = new MyModule();
+        mapper.registerModule(module2);
+        mapper.registerModule(module2);
+        mapper.registerModule(module2);
         assertEquals(3, module2.regCount);
     }
 }

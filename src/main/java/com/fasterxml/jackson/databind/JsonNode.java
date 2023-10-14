@@ -6,11 +6,8 @@ import java.math.BigInteger;
 import java.util.*;
 
 import com.fasterxml.jackson.core.*;
-
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.MissingNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 
 /**
@@ -33,7 +30,7 @@ import com.fasterxml.jackson.databind.util.ClassUtil;
  * {@link com.fasterxml.jackson.databind.node}.
  *<p>
  * Note that it is possible to "read" from nodes, using
- * method {@link TreeNode#traverse(ObjectCodec)}, which will result in
+ * method {@link TreeNode#traverse}, which will result in
  * a {@link JsonParser} being constructed. This can be used for (relatively)
  * efficient conversations between different representations; and it is what
  * core databind uses for methods like {@link ObjectMapper#treeToValue(TreeNode, Class)}
@@ -43,51 +40,12 @@ public abstract class JsonNode
     extends JsonSerializable.Base // i.e. implements JsonSerializable
     implements TreeNode, Iterable<JsonNode>
 {
-    /**
-     * Configuration setting used with {@link JsonNode#withObject(JsonPointer)}
-     * method overrides, to indicate which overwrites are acceptable if the
-     * path pointer indicates has incompatible nodes (for example, instead
-     * of Object node a Null node is encountered).
-     * Overwrite means that the existing value is replaced with compatible type,
-     * potentially losing existing values or even sub-trees.
-     *<p>
-     * Default value if {@code NULLS} which only allows Null-value nodes
-     * to be replaced but no other types.
-     *
-     * @since 2.14
-     */
-    public enum OverwriteMode {
-        /**
-         * Mode in which no values may be overwritten, not even {@code NullNode}s;
-         * only compatible paths may be traversed.
-         */
-        NONE,
-
-        /**
-         * Mode in which explicit {@code NullNode}s may be replaced but no other
-         * node types.
-         */
-        NULLS,
-
-        /**
-         * Mode in which all scalar value nodes may be replaced, but not
-         * Array or Object nodes.
-         */
-        SCALARS,
-
-        /**
-         * Mode in which all incompatible node types may be replaced, including
-         * Array and Object nodes where necessary.
-         */
-        ALL;
-    }
-
     /*
     /**********************************************************
     /* Construction, related
     /**********************************************************
      */
-
+    
     protected JsonNode() { }
 
     /**
@@ -101,8 +59,6 @@ public abstract class JsonNode
      * Note: return type is guaranteed to have same type as the
      * node method is called on; which is why method is declared
      * with local generic type.
-     *
-     * @since 2.0
      *
      * @return Node that is either a copy of this node (and all non-leaf
      *    children); or, for immutable leaf nodes, node itself.
@@ -122,17 +78,6 @@ public abstract class JsonNode
 
     @Override
     public int size() { return 0; }
-
-    /**
-     * Convenience method that is functionally same as:
-     *<pre>
-     *    size() == 0
-     *</pre>
-     * for all node types.
-     *
-     * @since 2.10
-     */
-    public boolean isEmpty() { return size() == 0; }
 
     @Override
     public final boolean isValueNode()
@@ -238,13 +183,11 @@ public abstract class JsonNode
 
     /**
      * Method for locating node specified by given JSON pointer instances.
-     * Method will never return null; if no matching node exists,
+     * Method will never return null; if no matching node exists, 
      *   will return a node for which {@link #isMissingNode()} returns true.
-     *
+     * 
      * @return Node that matches given JSON Pointer: if no match exists,
      *   will return a node for which {@link #isMissingNode()} returns true.
-     *
-     * @since 2.3
      */
     @Override
     public final JsonNode at(JsonPointer ptr)
@@ -269,30 +212,18 @@ public abstract class JsonNode
      * Note that if the same expression is used often, it is preferable to construct
      * {@link JsonPointer} instance once and reuse it: this method will not perform
      * any caching of compiled expressions.
-     *
+     * 
      * @param jsonPtrExpr Expression to compile as a {@link JsonPointer}
      *   instance
-     *
+     * 
      * @return Node that matches given JSON Pointer: if no match exists,
      *   will return a node for which {@link TreeNode#isMissingNode()} returns true.
-     *
-     * @since 2.3
      */
     @Override
     public final JsonNode at(String jsonPtrExpr) {
         return at(JsonPointer.compile(jsonPtrExpr));
     }
 
-    /**
-     * Helper method used by other methods for traversing the next step
-     * of given path expression, and returning matching value node if any:
-     * if no match, {@code null} is returned.
-     *
-     * @param ptr Path expression to use
-     *
-     * @return Either matching {@link JsonNode} for the first step of path or
-     *    {@code null} if no match (including case that this node is not a container)
-     */
     protected abstract JsonNode _at(JsonPointer ptr);
 
     /*
@@ -332,7 +263,7 @@ public abstract class JsonNode
     }
 
     /**
-     *
+     * 
      * @return True if this node represents an integral (integer)
      *   numeric JSON value
      */
@@ -351,7 +282,7 @@ public abstract class JsonNode
      * is possible that conversion would be possible from other numeric
      * types -- to check if this is possible, use
      * {@link #canConvertToInt()} instead.
-     *
+     * 
      * @return True if the value contained by this node is stored as Java short
      */
     public boolean isShort() { return false; }
@@ -363,7 +294,7 @@ public abstract class JsonNode
      * is possible that conversion would be possible from other numeric
      * types -- to check if this is possible, use
      * {@link #canConvertToInt()} instead.
-     *
+     * 
      * @return True if the value contained by this node is stored as Java int
      */
     public boolean isInt() { return false; }
@@ -374,8 +305,8 @@ public abstract class JsonNode
      * Note, however, that even if this method returns false, it
      * is possible that conversion would be possible from other numeric
      * types -- to check if this is possible, use
-     * {@link #canConvertToLong()} instead.
-     *
+     * {@link #canConvertToInt()} instead.
+     * 
      * @return True if the value contained by this node is stored as Java <code>long</code>
      */
     public boolean isLong() { return false; }
@@ -436,7 +367,7 @@ public abstract class JsonNode
      * from JSON String into Number; so even if this method returns false,
      * it is possible that {@link #asInt} could still succeed
      * if node is a JSON String representing integral number, or boolean.
-     *
+     * 
      * @since 2.0
      */
     public boolean canConvertToInt() { return false; }
@@ -452,34 +383,11 @@ public abstract class JsonNode
      * from JSON String into Number; so even if this method returns false,
      * it is possible that {@link #asLong} could still succeed
      * if node is a JSON String representing integral number, or boolean.
-     *
+     * 
      * @since 2.0
      */
     public boolean canConvertToLong() { return false; }
-
-    /**
-     * Method that can be used to check whether contained value
-     * is numeric (returns true for {@link #isNumber()}) and
-     * can be losslessly converted to integral number (specifically,
-     * {@link BigInteger} but potentially others, see
-     * {@link #canConvertToInt} and {@link #canConvertToInt}).
-     * Latter part allows floating-point numbers
-     * (for which {@link #isFloatingPointNumber()} returns {@code true})
-     * that do not have fractional part.
-     * Note that "not-a-number" values of {@code double} and {@code float}
-     * will return {@code false} as they can not be converted to matching
-     * integral representations.
-     *
-     * @return True if the value is an actual number with no fractional
-     *    part; false for non-numeric types, NaN representations of floating-point
-     *    numbers, and floating-point numbers with fractional part.
-     *
-     * @since 2.12
-     */
-    public boolean canConvertToExactIntegral() {
-        return isIntegralNumber();
-    }
-
+    
     /*
     /**********************************************************
     /* Public API, straight value access
@@ -567,7 +475,7 @@ public abstract class JsonNode
      *   nodes.
      */
     public long longValue() { return 0L; }
-
+    
     /**
      * Returns 32-bit floating value for this node, <b>if and only if</b>
      * this node is numeric ({@link #isNumber} returns true). For other
@@ -604,13 +512,9 @@ public abstract class JsonNode
     public BigDecimal decimalValue() { return BigDecimal.ZERO; }
 
     /**
-     * Returns integer value for this node (as {@link BigInteger}), <b>if and only if</b>
+     * Returns integer value for this node (as {@link BigDecimal}), <b>if and only if</b>
      * this node is numeric ({@link #isNumber} returns true). For other
      * types returns <code>BigInteger.ZERO</code>.
-     *<p>
-     * NOTE: In Jackson 2.x MAY throw {@link com.fasterxml.jackson.core.exc.StreamConstraintsException}
-     *   if the scale of the underlying {@link BigDecimal} is too large to convert (NOTE: thrown
-     *   "sneakily" in Jackson 2.x due to API compatibility restrictions)
      *
      * @return {@link BigInteger} value this node contains, if numeric node; <code>BigInteger.ZERO</code> for non-number nodes.
      */
@@ -635,14 +539,14 @@ public abstract class JsonNode
      * <code>defaultValue</code> in cases where null value would be returned;
      * either for missing nodes (trying to access missing property, or element
      * at invalid item for array) or explicit nulls.
-     *
+     * 
      * @since 2.4
      */
     public String asText(String defaultValue) {
         String str = asText();
         return (str == null) ? defaultValue : str;
     }
-
+    
     /**
      * Method that will try to convert value of this node to a Java <b>int</b>.
      * Numbers are coerced using default Java rules; booleans convert to 0 (false)
@@ -677,28 +581,28 @@ public abstract class JsonNode
      * and 1 (true), and Strings are parsed using default Java language integer
      * parsing rules.
      *<p>
-     * If representation cannot be converted to a long (including structured types
+     * If representation cannot be converted to an long (including structured types
      * like Objects and Arrays),
      * default value of <b>0</b> will be returned; no exceptions are thrown.
      */
     public long asLong() {
         return asLong(0L);
     }
-
+    
     /**
      * Method that will try to convert value of this node to a Java <b>long</b>.
      * Numbers are coerced using default Java rules; booleans convert to 0 (false)
      * and 1 (true), and Strings are parsed using default Java language integer
      * parsing rules.
      *<p>
-     * If representation cannot be converted to a long (including structured types
+     * If representation cannot be converted to an long (including structured types
      * like Objects and Arrays),
      * specified <b>defaultValue</b> will be returned; no exceptions are thrown.
      */
     public long asLong(long defaultValue) {
         return defaultValue;
     }
-
+    
     /**
      * Method that will try to convert value of this node to a Java <b>double</b>.
      * Numbers are coerced using default Java rules; booleans convert to 0.0 (false)
@@ -712,7 +616,7 @@ public abstract class JsonNode
     public double asDouble() {
         return asDouble(0.0);
     }
-
+    
     /**
      * Method that will try to convert value of this node to a Java <b>double</b>.
      * Numbers are coerced using default Java rules; booleans convert to 0.0 (false)
@@ -740,7 +644,7 @@ public abstract class JsonNode
     public boolean asBoolean() {
         return asBoolean(false);
     }
-
+    
     /**
      * Method that will try to convert value of this node to a Java <b>boolean</b>.
      * JSON booleans map naturally; integer numbers other than 0 map to true, and
@@ -753,153 +657,6 @@ public abstract class JsonNode
      */
     public boolean asBoolean(boolean defaultValue) {
         return defaultValue;
-    }
-
-    /*
-    /**********************************************************************
-    /* Public API, extended traversal (2.10) with "required()"
-    /**********************************************************************
-     */
-
-    /**
-     * Method that may be called to verify that {@code this} node is NOT so-called
-     * "missing node": that is, one for which {@link #isMissingNode()} returns {@code true}.
-     * If not missing node, {@code this} is returned to allow chaining; otherwise
-     * {@link IllegalArgumentException} is thrown.
-     *
-     * @return {@code this} node to allow chaining
-     *
-     * @throws IllegalArgumentException if this node is "missing node"
-     *
-     * @since 2.10
-     */
-    public <T extends JsonNode> T require() throws IllegalArgumentException {
-        return _this();
-    }
-
-    /**
-     * Method that may be called to verify that {@code this} node is neither so-called
-     * "missing node" (that is, one for which {@link #isMissingNode()} returns {@code true})
-     * nor "null node" (one for which {@link #isNull()} returns {@code true}).
-     * If non-null non-missing node, {@code this} is returned to allow chaining; otherwise
-     * {@link IllegalArgumentException} is thrown.
-     *
-     * @return {@code this} node to allow chaining
-     *
-     * @throws IllegalArgumentException if this node is either "missing node" or "null node"
-     *
-     * @since 2.10
-     */
-    public <T extends JsonNode> T requireNonNull() throws IllegalArgumentException {
-        return _this();
-    }
-
-    /**
-     * Method is functionally equivalent to
-     *{@code
-     *   path(fieldName).required()
-     *}
-     * and can be used to check that this node is an {@code ObjectNode} (that is, represents
-     * JSON Object value) and has value for specified property with key {@code fieldName}
-     * (but note that value may be explicit JSON null value).
-     * If this node is Object Node and has value for specified property, matching value
-     * is returned; otherwise {@link IllegalArgumentException} is thrown.
-     *
-     * @param propertyName Name of property to access
-     *
-     * @return Value of the specified property of this Object node
-     *
-     * @throws IllegalArgumentException if this node is not an Object node or if it does not
-     *   have value for specified property
-     *
-     * @since 2.10
-     */
-    public JsonNode required(String propertyName) throws IllegalArgumentException {
-        return _reportRequiredViolation("Node of type `%s` has no fields", getClass().getName());
-    }
-
-    /**
-     * Method is functionally equivalent to
-     *{@code
-     *   path(index).required()
-     *}
-     * and can be used to check that this node is an {@code ArrayNode} (that is, represents
-     * JSON Array value) and has value for specified {@code index}
-     * (but note that value may be explicit JSON null value).
-     * If this node is Array Node and has value for specified index, value at index
-     * is returned; otherwise {@link IllegalArgumentException} is thrown.
-     *
-     * @param index Index of the value of this Array node to access
-     *
-     * @return Value at specified index of this Array node
-     *
-     * @throws IllegalArgumentException if this node is not an Array node or if it does not
-     *   have value for specified index
-     *
-     * @since 2.10
-     */
-    public JsonNode required(int index) throws IllegalArgumentException {
-        return _reportRequiredViolation("Node of type `%s` has no indexed values", getClass().getName());
-    }
-
-    /**
-     * Method is functionally equivalent to
-     *{@code
-     *   at(pathExpr).required()
-     *}
-     * and can be used to check that there is an actual value node at specified {@link JsonPointer}
-     * starting from {@code this} node
-     * (but note that value may be explicit JSON null value).
-     * If such value node exists it is returned;
-     * otherwise {@link IllegalArgumentException} is thrown.
-     *
-     * @param pathExpr {@link JsonPointer} expression (as String) to use for finding value node
-     *
-     * @return Matching value node for given expression
-     *
-     * @throws IllegalArgumentException if no value node exists at given {@code JSON Pointer} path
-     *
-     * @since 2.10
-     */
-    public JsonNode requiredAt(String pathExpr) throws IllegalArgumentException {
-        return requiredAt(JsonPointer.compile(pathExpr));
-    }
-
-    /**
-     * Method is functionally equivalent to
-     *{@code
-     *   at(path).required()
-     *}
-     * and can be used to check that there is an actual value node at specified {@link JsonPointer}
-     * starting from {@code this} node
-     * (but note that value may be explicit JSON null value).
-     * If such value node exists it is returned;
-     * otherwise {@link IllegalArgumentException} is thrown.
-     *
-     * @param path {@link JsonPointer} expression to use for finding value node
-     *
-     * @return Matching value node for given expression
-     *
-     * @throws IllegalArgumentException if no value node exists at given {@code JSON Pointer} path
-     *
-     * @since 2.10
-     */
-    public final JsonNode requiredAt(final JsonPointer path) throws IllegalArgumentException {
-        JsonPointer currentExpr = path;
-        JsonNode curr = this;
-
-        // Note: copied from `at()`
-        while (true) {
-            if (currentExpr.matches()) {
-                return curr;
-            }
-            curr = curr._at(currentExpr); // lgtm [java/dereferenced-value-may-be-null]
-            if (curr == null) {
-                _reportRequiredViolation("No node at '%s' (unmatched part: '%s')",
-                        path, currentExpr);
-            }
-            currentExpr = currentExpr.tail();
-        }
     }
 
     /*
@@ -924,7 +681,7 @@ public abstract class JsonNode
      * method will return <code>true</code> for such properties.
      *
      * @param fieldName Name of element to check
-     *
+     * 
      * @return True if this node is a JSON Object node, and has a property
      *   entry with specified name (with any value, including null value)
      */
@@ -950,7 +707,7 @@ public abstract class JsonNode
      * null values.
      *
      * @param index Index to check
-     *
+     * 
      * @return True if this node is a JSON Object node, and has a property
      *   entry with specified name (with any value, including null value)
      */
@@ -964,9 +721,9 @@ public abstract class JsonNode
      *<p>
      * This method is functionally equivalent to:
      *<pre>
-     *   node.get(fieldName) != null &amp;&amp; !node.get(fieldName).isNull()
+     *   node.get(fieldName) != null &lt;&lt; !node.get(fieldName).isNull()
      *</pre>
-     *
+     * 
      * @since 2.1
      */
     public boolean hasNonNull(String fieldName) {
@@ -980,9 +737,9 @@ public abstract class JsonNode
      *<p>
      * This method is equivalent to:
      *<pre>
-     *   node.get(index) != null &amp;&amp; !node.get(index).isNull()
+     *   node.get(index) != null &lt;&lt; !node.get(index).isNull()
      *</pre>
-     *
+     * 
      * @since 2.1
      */
     public boolean hasNonNull(int index) {
@@ -1022,21 +779,6 @@ public abstract class JsonNode
         return ClassUtil.emptyIterator();
     }
 
-    /**
-     * Accessor that will return properties of {@code ObjectNode}
-     * similar to how {@link Map#entrySet()} works; 
-     * for other node types will return empty {@link java.util.Set}.
-     *
-     * @return Set of properties, if this node is an {@code ObjectNode}
-     * ({@link JsonNode#isObject()} returns {@code true}); empty
-     * {@link java.util.Set} otherwise.
-     *
-     * @since 2.15
-     */
-    public Set<Map.Entry<String, JsonNode>> properties() {
-        return Collections.emptySet();
-    }
-
     /*
     /**********************************************************
     /* Public API, find methods
@@ -1047,9 +789,9 @@ public abstract class JsonNode
      * Method for finding a JSON Object field with specified name in this
      * node or its child nodes, and returning value it has.
      * If no matching field is found in this node or its descendants, returns null.
-     *
+     * 
      * @param fieldName Name of field to look for
-     *
+     * 
      * @return Value of first matching node found, if any; null if none
      */
     public abstract JsonNode findValue(String fieldName);
@@ -1060,7 +802,7 @@ public abstract class JsonNode
      * so possible children of result nodes are <b>not</b> included.
      * If no matching fields are found in this node or its descendants, returns
      * an empty List.
-     *
+     * 
      * @param fieldName Name of field to look for
      */
     public final List<JsonNode> findValues(String fieldName)
@@ -1084,28 +826,28 @@ public abstract class JsonNode
         }
         return result;
     }
-
+    
     /**
      * Method similar to {@link #findValue}, but that will return a
      * "missing node" instead of null if no field is found. Missing node
      * is a specific kind of node for which {@link #isMissingNode}
      * returns true; and all value access methods return empty or
      * missing value.
-     *
+     * 
      * @param fieldName Name of field to look for
-     *
+     * 
      * @return Value of first matching node found; or if not found, a
      *    "missing node" (non-null instance that has no value)
      */
     public abstract JsonNode findPath(String fieldName);
-
+    
     /**
      * Method for finding a JSON Object that contains specified field,
      * within this node or its descendants.
      * If no matching field is found in this node or its descendants, returns null.
-     *
+     * 
      * @param fieldName Name of field to look for
-     *
+     * 
      * @return Value of first matching node found, if any; null if none
      */
     public abstract JsonNode findParent(String fieldName);
@@ -1114,9 +856,9 @@ public abstract class JsonNode
      * Method for finding a JSON Object that contains specified field,
      * within this node or its descendants.
      * If no matching field is found in this node or its descendants, returns null.
-     *
+     * 
      * @param fieldName Name of field to look for
-     *
+     * 
      * @return Value of first matching node found, if any; null if none
      */
     public final List<JsonNode> findParents(String fieldName)
@@ -1139,347 +881,31 @@ public abstract class JsonNode
      */
 
     /**
-     * Method that works in one of possible ways, depending on whether
-     * {@code exprOrProperty} is a valid {@link JsonPointer} expression or
-     * not (valid expression is either empty String {@code ""} or starts
-     * with leading slash {@code /} character).
-     * If it is, works as a short-cut to:
-     *<pre>
-     *  withObject(JsonPointer.compile(exprOrProperty));
-     *</pre>
-     * If it is NOT a valid {@link JsonPointer} expression, value is taken
-     * as a literal Object property name and calls is alias for
-     *<pre>
-     *  withObjectProperty(exprOrProperty);
-     *</pre>
-     *
-     * @param exprOrProperty {@link JsonPointer} expression to use (if valid as one),
-     *    or, if not (no leading "/"), property name to match.
-     *
-     * @return {@link ObjectNode} found or created
-     *
-     * @since 2.14 (but semantics before 2.16 did NOT allow for non-JsonPointer expressions)
+     * Method that can be called on Object nodes, to access a property
+     * that has Object value; or if no such property exists, to create,
+     * add and return such Object node.
+     * If the node method is called on is not Object node,
+     * or if property exists and has value that is not Object node,
+     * {@link UnsupportedOperationException} is thrown
      */
-    public ObjectNode withObject(String exprOrProperty) {
-        // To avoid abstract method, base implementation just fails
-        throw new UnsupportedOperationException("`withObject(String)` not implemented by `"
-                +getClass().getName()+"`");
+    public JsonNode with(String propertyName) {
+        throw new UnsupportedOperationException("JsonNode not of type ObjectNode (but "
+                +getClass().getName()+"), cannot call with() on it");
     }
 
     /**
-     * Short-cut equivalent to:
-     *<pre>
-     *  withObject(JsonPointer.compile(expr), overwriteMode, preferIndex);
-     *</pre>
-     *
-     * @since 2.14
+     * Method that can be called on Object nodes, to access a property
+     * that has <code>Array</code> value; or if no such property exists, to create,
+     * add and return such Array node.
+     * If the node method is called on is not Object node,
+     * or if property exists and has value that is not Array node,
+     * {@link UnsupportedOperationException} is thrown
      */
-    public final ObjectNode withObject(String expr,
-            OverwriteMode overwriteMode, boolean preferIndex) {
-        return withObject(JsonPointer.compile(expr), overwriteMode, preferIndex);
+    public JsonNode withArray(String propertyName) {
+        throw new UnsupportedOperationException("JsonNode not of type ObjectNode (but "
+                +getClass().getName()+"), cannot call withArray() on it");
     }
 
-    /**
-     * Same as {@link #withObject(JsonPointer, OverwriteMode, boolean)} but
-     * with defaults of {@code OvewriteMode#NULLS} (overwrite mode)
-     * and {@code true} for {@code preferIndex} (that is, will try to
-     * consider {@link JsonPointer} segments index if at all possible
-     * and only secondarily as property name
-     *
-     * @param ptr {@link JsonPointer} that indicates path to use for Object value to return
-     *   (potentially creating as necessary)
-     *
-     * @return {@link ObjectNode} found or created
-     *
-     * @since 2.14
-     */
-    public final ObjectNode withObject(JsonPointer ptr) {
-        return withObject(ptr, OverwriteMode.NULLS, true);
-    }
-
-    /**
-     * Method that can be called on Object or Array nodes, to access a Object-valued
-     * node pointed to by given {@link JsonPointer}, if such a node exists:
-     * or if not, an attempt is made to create one and return it.
-     * For example, on document
-     *<pre>
-     *  { "a" : {
-     *       "b" : {
-     *          "c" : 13
-     *       }
-     *    }
-     *  }
-     *</pre>
-     * calling method with {@link JsonPointer} of {@code /a/b} would return
-     * {@link ObjectNode}
-     *<pre>
-     *  { "c" : 13 }
-     *</pre>
-     *<p>
-     * In cases where path leads to "missing" nodes, a path is created.
-     * So, for example, on above document, and
-     * {@link JsonPointer} of {@code /a/x} an empty {@link ObjectNode} would
-     * be returned and the document would look like:
-     *<pre>
-     *  { "a" : {
-     *       "b" : {
-     *          "c" : 13
-     *       },
-     *       "x" : { }
-     *    }
-     *  }
-     *</pre>
-     * Finally, if the path is incompatible with the document -- there is an existing
-     * {@code JsonNode} through which expression cannot go -- a replacement is
-     * attempted if (and only if) conversion is allowed as per {@code overwriteMode}
-     * passed in. For example, with above document and expression of {@code /a/b/c},
-     * conversion is allowed if passing {@code OverwriteMode.SCALARS} or
-     * {@code OvewriteMode.ALL}, and resulting document would look like:
-     *<pre>
-     *  { "a" : {
-     *       "b" : {
-     *          "c" : { }
-     *       },
-     *       "x" : { }
-     *    }
-     *  }
-     *</pre>
-     * but if different modes ({@code NONE} or {@code NULLS}) is passed, an exception
-     * is thrown instead.
-     *
-     * @param ptr Pointer that indicates path to use for {@link ObjectNode} value to return
-     *   (potentially creating one as necessary)
-     * @param overwriteMode Defines which node types may be converted in case of
-     *    incompatible {@code JsonPointer} expression: if conversion not allowed,
-     *    {@link UnsupportedOperationException} is thrown.
-     * @param preferIndex When creating a path (for empty or replacement), and path
-     *    contains segment that may be an array index (simple integer number like
-     *    {@code 3}), whether to construct an {@link ArrayNode} ({@code true}) or
-     *    {@link ObjectNode} ({@code false}). In latter case matching property with
-     *    quoted number (like {@code "3"}) is used within Object.
-     *
-     * @return {@link ObjectNode} found or created
-     *
-     * @throws UnsupportedOperationException if a conversion would be needed for given
-     *    {@code JsonPointer}, document, but was not allowed for the type encountered
-     *
-     * @since 2.14
-     */
-    public ObjectNode withObject(JsonPointer ptr,
-            OverwriteMode overwriteMode, boolean preferIndex) {
-        // To avoid abstract method, base implementation just fails
-        throw new UnsupportedOperationException("`withObject(JsonPointer)` not implemented by `"
-                +getClass().getName()+"`");
-    }
-
-    /**
-     * Method similar to {@link #withObject(JsonPointer, OverwriteMode, boolean)} -- basically
-     * short-cut to:
-     *<pre>
-     *   withObject(JsonPointer.compile("/"+propName), OverwriteMode.NULLS, false);
-     *</pre>
-     * that is, only matches immediate property on {@link ObjectNode}
-     * and will either use an existing {@link ObjectNode} that is
-     * value of the property, or create one if no value or value is {@code NullNode}.
-     * <br>
-     * Will fail with an exception if:
-     * <ul>
-     *  <li>Node method called on is NOT {@link ObjectNode}
-     *   </li>
-     *  <li>Property has an existing value that is NOT {@code NullNode} (explicit {@code null})
-     *   </li>
-     * </ul>
-     *
-     * @param propName Name of property that has or will have {@link ObjectNode} as value
-     *
-     * @return {@link ObjectNode} value of given property (existing or created)
-     *
-     * @since 2.16
-     */
-    public ObjectNode withObjectProperty(String propName) {
-        // To avoid abstract method, base implementation just fails
-        throw new UnsupportedOperationException("`JsonNode` not of type `ObjectNode` (but `"
-                +getClass().getName()+")`, cannot call `withObjectProperty(String)` on it");
-    }
-
-    /**
-     * Method that works in one of possible ways, depending on whether
-     * {@code exprOrProperty} is a valid {@link JsonPointer} expression or
-     * not (valid expression is either empty String {@code ""} or starts
-     * with leading slash {@code /} character).
-     * If it is, works as a short-cut to:
-     *<pre>
-     *  withObject(JsonPointer.compile(exprOrProperty));
-     *</pre>
-     * If it is NOT a valid {@link JsonPointer} expression, value is taken
-     * as a literal Object property name and traversed like a single-segment
-     * {@link JsonPointer}.
-     *<p>
-     * NOTE: before Jackson 2.14 behavior was always that of non-expression usage;
-     * that is, {@code exprOrProperty} was always considered as a simple property name.
-     *
-     * @deprecated Since 2.14 use {@link #withObject(String)} instead
-     */
-    @Deprecated // since 2.14
-    public <T extends JsonNode> T with(String exprOrProperty) {
-        throw new UnsupportedOperationException("`JsonNode` not of type `ObjectNode` (but "
-                                +getClass().getName()+"), cannot call `with(String)` on it");
-    }
-
-    /**
-     * Method that works in one of possible ways, depending on whether
-     * {@code exprOrProperty} is a valid {@link JsonPointer} expression or
-     * not (valid expression is either empty String {@code ""} or starts
-     * with leading slash {@code /} character).
-     * If it is, works as a short-cut to:
-     *<pre>
-     *  withObject(JsonPointer.compile(exprOrProperty));
-     *</pre>
-     * If it is NOT a valid {@link JsonPointer} expression, value is taken
-     * as a literal Object property name and traversed like a single-segment
-     * {@link JsonPointer}.
-     *<p>
-     * NOTE: before Jackson 2.14 behavior was always that of non-expression usage;
-     * that is, {@code exprOrProperty} was always considered as a simple property name.
-     *
-     * @param exprOrProperty Either {@link JsonPointer} expression for full access (if valid
-     *   pointer expression), or the name of property for the {@link ArrayNode}.
-     *
-     * @return {@link ArrayNode} found or created
-     */
-    public <T extends JsonNode> T withArray(String exprOrProperty) {
-        throw new UnsupportedOperationException("`JsonNode` not of type `ObjectNode` (but `"
-                +getClass().getName()+")`, cannot call `withArray()` on it");
-    }
-
-    /**
-     * Short-cut equivalent to:
-     *<pre>
-     *  withArray(JsonPointer.compile(expr), overwriteMode, preferIndex);
-     *</pre>
-     *
-     * @since 2.14
-     */
-    public ArrayNode withArray(String expr,
-            OverwriteMode overwriteMode, boolean preferIndex) {
-        return withArray(JsonPointer.compile(expr), overwriteMode, preferIndex);
-    }
-
-    /**
-     * Same as {@link #withArray(JsonPointer, OverwriteMode, boolean)} but
-     * with defaults of {@code OvewriteMode#NULLS} (overwrite mode)
-     * and {@code true} for {@code preferIndex}.
-     *
-     * @param ptr Pointer that indicates path to use for {@link ArrayNode} to return
-     *   (potentially creating as necessary)
-     *
-     * @return {@link ArrayNode} found or created
-     *
-     * @since 2.14
-     */
-    public final ArrayNode withArray(JsonPointer ptr) {
-        return withArray(ptr, OverwriteMode.NULLS, true);
-    }
-
-    /**
-     * Method that can be called on Object or Array nodes, to access a Array-valued
-     * node pointed to by given {@link JsonPointer}, if such a node exists:
-     * or if not, an attempt is made to create one and return it.
-     * For example, on document
-     *<pre>
-     *  { "a" : {
-     *       "b" : [ 1, 2 ]
-     *    }
-     *  }
-     *</pre>
-     * calling method with {@link JsonPointer} of {@code /a/b} would return
-     * {@code Array}
-     *<pre>
-     *  [ 1, 2 ]
-     *</pre>
-     *<p>
-     * In cases where path leads to "missing" nodes, a path is created.
-     * So, for example, on above document, and
-     * {@link JsonPointer} of {@code /a/x} an empty {@code ArrayNode} would
-     * be returned and the document would look like:
-     *<pre>
-     *  { "a" : {
-     *       "b" : [ 1, 2 ],
-     *       "x" : [ ]
-     *    }
-     *  }
-     *</pre>
-     * Finally, if the path is incompatible with the document -- there is an existing
-     * {@code JsonNode} through which expression cannot go -- a replacement is
-     * attempted if (and only if) conversion is allowed as per {@code overwriteMode}
-     * passed in. For example, with above document and expression of {@code /a/b/0},
-     * conversion is allowed if passing {@code OverwriteMode.SCALARS} or
-     * {@code OvewriteMode.ALL}, and resulting document would look like:
-     *<pre>
-     *  { "a" : {
-     *       "b" : [ [ ], 2 ],
-     *       "x" : [ ]
-     *    }
-     *  }
-     *</pre>
-     * but if different modes ({@code NONE} or {@code NULLS}) is passed, an exception
-     * is thrown instead.
-     *
-     * @param ptr Pointer that indicates path to use for {@link ArrayNode} value to return
-     *   (potentially creating it as necessary)
-     * @param overwriteMode Defines which node types may be converted in case of
-     *    incompatible {@code JsonPointer} expression: if conversion not allowed,
-     *    an exception is thrown.
-     * @param preferIndex When creating a path (for empty or replacement), and path
-     *    contains segment that may be an array index (simple integer number like
-     *    {@code 3}), whether to construct an {@link ArrayNode} ({@code true}) or
-     *    {@link ObjectNode} ({@code false}). In latter case matching property with
-     *    quoted number (like {@code "3"}) is used within Object.
-     *
-     * @return {@link ArrayNode} found or created
-     *
-     * @throws UnsupportedOperationException if a conversion would be needed for given
-     *    {@code JsonPointer}, document, but was not allowed for the type encountered
-     *
-     * @since 2.14
-     */
-    public ArrayNode withArray(JsonPointer ptr,
-            OverwriteMode overwriteMode, boolean preferIndex) {
-        // To avoid abstract method, base implementation just fails
-        throw new UnsupportedOperationException("`withArray(JsonPointer)` not implemented by "
-                +getClass().getName());
-    }
-
-    /**
-     * Method similar to {@link #withArray(JsonPointer, OverwriteMode, boolean)} -- basically
-     * short-cut to:
-     *<pre>
-     *   withArray(JsonPointer.compile("/"+propName), OverwriteMode.NULLS, false);
-     *</pre>
-     * that is, only matches immediate property on {@link ObjectNode}
-     * and will either use an existing {@link ArrayNode} that is
-     * value of the property, or create one if no value or value is {@code NullNode}.
-     * <br>
-     * Will fail with an exception if:
-     * <ul>
-     *  <li>Node method called on is NOT {@link ObjectNode}
-     *   </li>
-     *  <li>Property has an existing value that is NOT {@code NullNode} (explicit {@code null})
-     *   </li>
-     * </ul>
-     *
-     * @param propName Name of property that has or will have {@link ArrayNode} as value
-     *
-     * @return {@link ArrayNode} value of given property (existing or created)
-     *
-     * @since 2.16
-     */
-    public ArrayNode withArrayProperty(String propName) {
-        // To avoid abstract method, base implementation just fails
-        throw new UnsupportedOperationException("`JsonNode` not of type `ObjectNode` (but `"
-                +getClass().getName()+")`, cannot call `withArrayProperty(String)` on it");
-    }
-    
     /*
     /**********************************************************
     /* Public API, comparison
@@ -1498,8 +924,8 @@ public abstract class JsonNode
      * Default implementation simply delegates to passed in <code>comparator</code>,
      * with <code>this</code> as the first argument, and <code>other</code> as
      * the second argument.
-     *
-     * @param comparator Object called to compare two scalar {@link JsonNode}
+     * 
+     * @param comparator Object called to compare two scalar {@link JsonNode} 
      *   instances, and return either 0 (are equals) or non-zero (not equal)
      *
      * @since 2.6
@@ -1507,18 +933,18 @@ public abstract class JsonNode
     public boolean equals(Comparator<JsonNode> comparator, JsonNode other) {
         return comparator.compare(this, other) == 0;
     }
-
+    
     /*
     /**********************************************************
     /* Overridden standard methods
     /**********************************************************
      */
-
+    
     /**
-     * Method that will produce (as of Jackson 2.10) valid JSON using
-     * default settings of databind, as String.
-     * If you want other kinds of JSON output (or output formatted using one of
-     * other Jackson-supported data formats) make sure to use
+     * Method that will produce developer-readable representation of the
+     * node; which may <b>or may not</b> be as valid JSON.
+     * If you want valid JSON output (or output formatted using one of
+     * other Jackson supported data formats) make sure to use
      * {@link ObjectMapper} or {@link ObjectWriter} to serialize an
      * instance, for example:
      *<pre>
@@ -1533,16 +959,6 @@ public abstract class JsonNode
     public abstract String toString();
 
     /**
-     * Alternative to {@link #toString} that will serialize this node using
-     * Jackson default pretty-printer.
-     *
-     * @since 2.10
-     */
-    public String toPrettyString() {
-        return toString();
-    }
-
-    /**
      * Equality for node objects is defined as full (deep) value
      * equality. This means that it is possible to compare complete
      * JSON trees for equality by comparing equality of root nodes.
@@ -1553,25 +969,4 @@ public abstract class JsonNode
      */
     @Override
     public abstract boolean equals(Object o);
-
-    /*
-    /**********************************************************************
-    /* Helper methods,  for sub-classes
-    /**********************************************************************
-     */
-
-    // @since 2.10
-    @SuppressWarnings("unchecked")
-    protected <T extends JsonNode> T _this() {
-        return (T) this;
-    }
-
-    /**
-     * Helper method that throws {@link IllegalArgumentException} as a result of
-     * violating "required-constraint" for this node (for {@link #required} or related
-     * methods).
-     */
-    protected <T> T _reportRequiredViolation(String msgTemplate, Object...args) {
-        throw new IllegalArgumentException(String.format(msgTemplate, args));
-    }
 }

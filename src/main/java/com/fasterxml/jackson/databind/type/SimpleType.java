@@ -1,7 +1,5 @@
 package com.fasterxml.jackson.databind.type;
 
-import java.util.*;
-
 import com.fasterxml.jackson.databind.JavaType;
 
 /**
@@ -41,8 +39,6 @@ public class SimpleType // note: until 2.6 was final
     /**
      * Simple copy-constructor, usually used when upgrading/refining a simple type
      * into more specialized type.
-     *
-     * @since 2.7
      */
     protected SimpleType(TypeBase base) {
         super(base);
@@ -52,27 +48,23 @@ public class SimpleType // note: until 2.6 was final
             JavaType superClass, JavaType[] superInts,
             Object valueHandler, Object typeHandler, boolean asStatic)
     {
-        super(cls, bindings,
-                superClass, superInts,
-                // TypeBase normalizes null bindings to the singleton returned by TypeBindings.emptyBindings()
-                // so we must compute the same hashCode in both cases.
-                (bindings == null ? TypeBindings.emptyBindings() : bindings).hashCode(),
-                valueHandler, typeHandler, asStatic);
+        super(cls, bindings, superClass, superInts,
+                0, valueHandler, typeHandler, asStatic);
     }
 
     /**
      * Pass-through constructor used by {@link ReferenceType}.
-     *
+     * 
      * @since 2.6
      */
     protected SimpleType(Class<?> cls, TypeBindings bindings,
             JavaType superClass, JavaType[] superInts, int extraHash,
             Object valueHandler, Object typeHandler, boolean asStatic)
     {
-        super(cls, bindings, superClass, superInts,
+        super(cls, bindings, superClass, superInts, 
                 extraHash, valueHandler, typeHandler, asStatic);
     }
-
+    
     /**
      * Method used by core Jackson classes: NOT to be used by application code:
      * it does NOT properly handle inspection of super-types, so neither parent
@@ -88,7 +80,7 @@ public class SimpleType // note: until 2.6 was final
                 null, null, null, null, false);
     }
 
-    /**
+    /*
      * Method that should NOT to be used by application code:
      * it does NOT properly handle inspection of super-types, so neither parent
      * Classes nor implemented Interfaces are accessible with resulting type
@@ -98,15 +90,12 @@ public class SimpleType // note: until 2.6 was final
      * Note that prior to 2.7, method usage was not limited and would typically
      * have worked acceptably: the problem comes from inability to resolve super-type
      * information, for which {@link TypeFactory} is needed.
-     *
-     * @deprecated Since 2.7
-     */
+     * 
     @Deprecated
     public static SimpleType construct(Class<?> cls)
     {
-        /* Let's add sanity checks, just to ensure no
-         * Map/Collection entries are constructed
-         */
+        // Let's add sanity checks, just to ensure no
+        // Map/Collection entries are constructed
         if (Map.class.isAssignableFrom(cls)) {
             throw new IllegalArgumentException("Cannot construct SimpleType for a Map (class: "+cls.getName()+")");
         }
@@ -121,12 +110,13 @@ public class SimpleType // note: until 2.6 was final
         return new SimpleType(cls, b,
                 _buildSuperClass(cls.getSuperclass(), b), null, null, null, false);
     }
+    */
 
     @Override
     public JavaType withContentType(JavaType contentType) {
         throw new IllegalArgumentException("Simple types have no content types; cannot call withContentType()");
     }
-
+    
     @Override
     public SimpleType withTypeHandler(Object h) {
         if (_typeHandler == h) {
@@ -148,7 +138,7 @@ public class SimpleType // note: until 2.6 was final
         }
         return new SimpleType(_class, _bindings, _superClass, _superInterfaces, h, _typeHandler, _asStatic);
     }
-
+    
     @Override
     public  SimpleType withContentValueHandler(Object h) {
         // no content type, so:
@@ -175,10 +165,7 @@ public class SimpleType // note: until 2.6 was final
         sb.append(_class.getName());
 
         final int count = _bindings.size();
-
-        // 10-Apr-2021, tatu: [databind#3108] Ensure we have at least nominally
-        //   compatible type declaration (weak guarantee but better than nothing)
-        if ((count > 0) && _hasNTypeParameters(count)) {
+        if (count > 0) {
             sb.append('<');
             for (int i = 0; i < count; ++i) {
                 JavaType t = containedType(i);
@@ -200,7 +187,7 @@ public class SimpleType // note: until 2.6 was final
 
     @Override
     public boolean isContainerType() { return false; }
-
+    
     @Override
     public boolean hasContentType() { return false; }
 
@@ -208,7 +195,7 @@ public class SimpleType // note: until 2.6 was final
     public StringBuilder getErasedSignature(StringBuilder sb) {
         return _classSignature(_class, sb, true);
     }
-
+    
     @Override
     public StringBuilder getGenericSignature(StringBuilder sb)
     {
@@ -224,31 +211,6 @@ public class SimpleType // note: until 2.6 was final
         }
         sb.append(';');
         return sb;
-    }
-
-    /*
-    /**********************************************************
-    /* Internal methods
-    /**********************************************************
-     */
-
-    /**
-     * Helper method we need to recursively build skeletal representations
-     * of superclasses.
-     *
-     * @since 2.7 -- remove when not needed (2.8?)
-     */
-    private static JavaType _buildSuperClass(Class<?> superClass, TypeBindings b)
-    {
-        if (superClass == null) {
-            return null;
-        }
-        if (superClass == Object.class) {
-            return TypeFactory.unknownType();
-        }
-        JavaType superSuper = _buildSuperClass(superClass.getSuperclass(), b);
-        return new SimpleType(superClass, b,
-                superSuper, null, null, null, false);
     }
 
     /*
@@ -274,7 +236,7 @@ public class SimpleType // note: until 2.6 was final
 
         SimpleType other = (SimpleType) o;
 
-        // Classes must be identical...
+        // Classes must be identical... 
         if (other._class != this._class) return false;
 
         // And finally, generic bindings, if any

@@ -21,12 +21,12 @@ public interface Deserializers
 
     /**
      * Method called to locate deserializer for specified {@link java.lang.Enum} type.
-     *
+     * 
      * @param type Type of {@link java.lang.Enum} instances to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
      *    other information typically needed for building deserializers
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findEnumDeserializer(Class<?> type,
@@ -35,11 +35,11 @@ public interface Deserializers
 
     /**
      * Method called to locate deserializer for specified JSON tree node type.
-     *
+     * 
      * @param nodeType Specific type of JSON tree nodes to deserialize
      *  (subtype of {@link com.fasterxml.jackson.databind.JsonNode})
      * @param config Configuration in effect
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findTreeNodeDeserializer(Class<? extends JsonNode> nodeType,
@@ -49,24 +49,24 @@ public interface Deserializers
     /**
      * Method called to locate deserializer for specified value type which does not belong to any other
      * category (not an Enum, Collection, Map, Array, reference value or tree node)
-     *
+     * 
      * @param type Bean type to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
      *    other information typically needed for building deserializers
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findBeanDeserializer(JavaType type,
             DeserializationConfig config, BeanDescription beanDesc)
         throws JsonMappingException;
-
+    
     // // // Then container types
-
+    
     /**
      * Method called to locate deserializer for value that is of referential
      * type,
-     *
+     * 
      * @param refType Specific referential type to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the reference type that contains class annotations and
@@ -74,7 +74,7 @@ public interface Deserializers
      * @param contentTypeDeserializer Possible type deserializer for referenced value
      * @param contentDeserializer Value deserializer to use for referenced value, if indicated
      *    by property annotation
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      *
      * @since 2.7
@@ -91,7 +91,7 @@ public interface Deserializers
      * annotations, typically), but usually are not.
      * Type deserializer for element is passed if one is needed based on contextual information
      * (annotations on declared element class; or on field or method type is associated with).
-     *
+     * 
      * @param type Type of array instances to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
@@ -102,7 +102,7 @@ public interface Deserializers
      * @param elementDeserializer Deserializer to use for elements, if explicitly defined (by using
      *    annotations, for exmple). May be null, in which case it should be resolved here (or using
      *    {@link ResolvableDeserializer} callback)
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findArrayDeserializer(ArrayType type,
@@ -110,7 +110,7 @@ public interface Deserializers
             TypeDeserializer elementTypeDeserializer, JsonDeserializer<?> elementDeserializer)
         throws JsonMappingException;
 
-
+    
     /**
      * Method called to locate serializer for specified {@link java.util.Collection} (List, Set etc) type.
      *<p>
@@ -118,7 +118,7 @@ public interface Deserializers
      * annotations, typically), but usually are not.
      * Type deserializer for element is passed if one is needed based on contextual information
      * (annotations on declared element class; or on field or method type is associated with).
-     *
+     * 
      * @param type Type of collection instances to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
@@ -129,7 +129,7 @@ public interface Deserializers
      * @param elementDeserializer Deserializer to use for elements, if explicitly defined (by using
      *    annotations, for exmple). May be null, in which case it should be resolved here (or using
      *    {@link ResolvableDeserializer} callback)
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findCollectionDeserializer(CollectionType type,
@@ -146,7 +146,7 @@ public interface Deserializers
      * annotations, typically), but usually are not.
      * Type deserializer for element is passed if one is needed based on contextual information
      * (annotations on declared element class; or on field or method type is associated with).
-     *
+     * 
      * @param type Type of instances to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
@@ -157,7 +157,7 @@ public interface Deserializers
      * @param elementDeserializer Deserializer to use for elements, if explicitly defined (by using
      *    annotations, for exmple). May be null, in which case it should be resolved here (or using
      *    {@link ResolvableDeserializer} callback)
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findCollectionLikeDeserializer(CollectionLikeType type,
@@ -177,7 +177,7 @@ public interface Deserializers
      * a specific configuration override (annotations) to indicate instance to use.
      * Otherwise null is passed, and key deserializer needs to be obtained later during
      * resolution (using {@link ResolvableDeserializer#resolve}).
-     *
+     * 
      * @param type Type of {@link java.util.Map} instances to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
@@ -190,7 +190,7 @@ public interface Deserializers
      * @param elementDeserializer Deserializer to use for elements, if explicitly defined (by using
      *    annotations, for exmple). May be null, in which case it should be resolved here (or using
      *    {@link ResolvableDeserializer} callback)
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findMapDeserializer(MapType type,
@@ -213,7 +213,7 @@ public interface Deserializers
      * a specific configuration override (annotations) to indicate instance to use.
      * Otherwise null is passed, and key deserializer needs to be obtained later during
      * resolution (using {@link ResolvableDeserializer#resolve}).
-     *
+     * 
      * @param type Type of {@link java.util.Map} instances to deserialize
      * @param config Configuration in effect
      * @param beanDesc Definition of the enumeration type that contains class annotations and
@@ -226,7 +226,7 @@ public interface Deserializers
      * @param elementDeserializer Deserializer to use for elements, if explicitly defined (by using
      *    annotations, for exmple). May be null, in which case it should be resolved here (or using
      *    {@link ResolvableDeserializer} callback)
-     *
+     * 
      * @return Deserializer to use for the type; or null if this provider does not know how to construct it
      */
     public JsonDeserializer<?> findMapLikeDeserializer(MapLikeType type,
@@ -235,29 +235,10 @@ public interface Deserializers
             TypeDeserializer elementTypeDeserializer, JsonDeserializer<?> elementDeserializer)
         throws JsonMappingException;
 
-    /**
-     * Method that may be called to check whether this deserializer provider would provide
-     * deserializer for values of given type, without attempting to construct (and possibly
-     * fail in some cases) actual deserializer. Mostly needed to support validation
-     * of polymorphic type ids.
-     *<p>
-     * Note: implementations should take care NOT to claim supporting types that they do
-     * not recognize as this could to incorrect assumption of safe support by caller.
-     *<p>
-     * Method added in Jackson 2.13 now that Java 8 default implementations are available
-     * for use with interface definitions.
-     *
-     * @since 2.13
-     */
-    public default boolean hasDeserializerFor(DeserializationConfig config,
-            Class<?> valueType) {
-        return false;
-    }
-
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Helper classes
-    /**********************************************************************
+    /**********************************************************
      */
 
     /**
@@ -267,8 +248,7 @@ public interface Deserializers
      * of methods are not needed (especially enumeration and array deserializers are
      * very rarely overridden).
      */
-    public abstract static class Base
-        implements Deserializers
+    public static class Base implements Deserializers
     {
         @Override
         public JsonDeserializer<?> findEnumDeserializer(Class<?> type,
@@ -277,7 +257,7 @@ public interface Deserializers
         {
             return null;
         }
-
+        
         @Override
         public JsonDeserializer<?> findTreeNodeDeserializer(Class<? extends JsonNode> nodeType,
                 DeserializationConfig config, BeanDescription beanDesc)
@@ -286,15 +266,16 @@ public interface Deserializers
             return null;
         }
 
-        @Override
+        @Override // since 2.7
         public JsonDeserializer<?> findReferenceDeserializer(ReferenceType refType,
                 DeserializationConfig config, BeanDescription beanDesc,
                 TypeDeserializer contentTypeDeserializer, JsonDeserializer<?> contentDeserializer)
-            throws JsonMappingException
-        {
-            return null;
+            throws JsonMappingException {
+            // 21-Oct-2015, tatu: For backwards compatibility, let's delegate to "bean" variant,
+            //    for 2.7 -- remove work-around from 2.8 or later
+            return findBeanDeserializer(refType, config, beanDesc);
         }
-
+        
         @Override
         public JsonDeserializer<?> findBeanDeserializer(JavaType type,
                 DeserializationConfig config, BeanDescription beanDesc)
@@ -302,7 +283,7 @@ public interface Deserializers
         {
             return null;
         }
-
+        
         @Override
         public JsonDeserializer<?> findArrayDeserializer(ArrayType type,
                 DeserializationConfig config, BeanDescription beanDesc,

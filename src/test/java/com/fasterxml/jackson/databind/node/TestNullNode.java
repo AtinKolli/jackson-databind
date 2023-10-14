@@ -17,11 +17,6 @@ public class TestNullNode extends NodeTestBase
         public void setArray(ArrayNode n) { _array = n; }
     }
 
-    @SuppressWarnings("serial")
-    static class MyNull extends NullNode { }
-
-    private final ObjectMapper MAPPER = sharedMapper();
-
     public void testBasicsWithNullNode() throws Exception
     {
         // Let's use something that doesn't add much beyond JsonNode base
@@ -36,11 +31,6 @@ public class TestNullNode extends NodeTestBase
         assertFalse(n.isPojo());
         assertFalse(n.isMissingNode());
 
-        assertFalse(n.isNumber());
-        assertFalse(n.canConvertToInt());
-        assertFalse(n.canConvertToLong());
-        assertFalse(n.canConvertToExactIntegral());
-
         // fallback accessors
         assertFalse(n.booleanValue());
         assertNull(n.numberValue());
@@ -50,7 +40,6 @@ public class TestNullNode extends NodeTestBase
         assertEquals(BigInteger.ZERO, n.bigIntegerValue());
 
         assertEquals(0, n.size());
-        assertTrue(n.isEmpty());
         assertFalse(n.elements().hasNext());
         assertFalse(n.fieldNames().hasNext());
         // path is never null; but does point to missing node
@@ -69,7 +58,7 @@ public class TestNullNode extends NodeTestBase
     public void testNullHandling() throws Exception
     {
         // First, a stand-alone null
-        JsonNode n = MAPPER.readTree("null");
+        JsonNode n = objectReader().readTree("null");
         assertNotNull(n);
         assertTrue(n.isNull());
         assertFalse(n.isNumber());
@@ -80,7 +69,7 @@ public class TestNullNode extends NodeTestBase
         n = objectMapper().readTree("null");
         assertNotNull(n);
         assertTrue(n.isNull());
-
+        
         // Then object property
         ObjectNode root = (ObjectNode) objectReader().readTree("{\"x\":null}");
         assertEquals(1, root.size());
@@ -91,32 +80,21 @@ public class TestNullNode extends NodeTestBase
 
     public void testNullSerialization() throws Exception
     {
+        ObjectMapper mapper = new ObjectMapper();
         StringWriter sw = new StringWriter();
-        MAPPER.writeValue(sw, NullNode.instance);
+        mapper.writeValue(sw, NullNode.instance);
         assertEquals("null", sw.toString());
     }
 
     public void testNullHandlingCovariance() throws Exception
     {
         String JSON = "{\"object\" : null, \"array\" : null }";
-        CovarianceBean bean = MAPPER.readValue(JSON, CovarianceBean.class);
+        CovarianceBean bean = objectMapper().readValue(JSON, CovarianceBean.class);
 
         ObjectNode on = bean._object;
         assertNull(on);
 
         ArrayNode an = bean._array;
         assertNull(an);
-    }
-
-    @SuppressWarnings("unlikely-arg-type")
-    public void testNullEquality() throws Exception
-    {
-        JsonNode n = MAPPER.nullNode();
-        assertTrue(n.isNull());
-        assertEquals(n, new MyNull());
-        assertEquals(new MyNull(), n);
-
-        assertFalse(n.equals(null));
-        assertFalse(n.equals("foo"));
     }
 }

@@ -2,8 +2,6 @@ package com.fasterxml.jackson.databind.deser.std;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
-import java.util.Arrays;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -11,13 +9,9 @@ import com.fasterxml.jackson.core.*;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
-import com.fasterxml.jackson.databind.cfg.CoercionAction;
-import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.deser.NullValueProvider;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.ArrayType;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.util.AccessPattern;
 import com.fasterxml.jackson.databind.util.ObjectBuffer;
 
@@ -30,6 +24,8 @@ public class ObjectArrayDeserializer
     implements ContextualDeserializer
 {
     private static final long serialVersionUID = 1L;
+
+    protected final static Object[] NO_OBJECTS = new Object[0];
 
     // // Configuration
 
@@ -56,27 +52,20 @@ public class ObjectArrayDeserializer
      */
     protected final TypeDeserializer _elementTypeDeserializer;
 
-    /**
-     * @since 2.12
-     */
-    protected final Object[] _emptyValue;
-
     /*
     /**********************************************************
     /* Life-cycle
     /**********************************************************
      */
 
-    public ObjectArrayDeserializer(JavaType arrayType0,
+    public ObjectArrayDeserializer(JavaType arrayType,
             JsonDeserializer<Object> elemDeser, TypeDeserializer elemTypeDeser)
     {
-        super(arrayType0, null, null);
-        ArrayType arrayType = (ArrayType) arrayType0;
+        super(arrayType, null, null);
         _elementClass = arrayType.getContentType().getRawClass();
         _untyped = (_elementClass == Object.class);
         _elementDeserializer = elemDeser;
         _elementTypeDeserializer = elemTypeDeser;
-        _emptyValue = arrayType.getEmptyArray();
     }
 
     protected ObjectArrayDeserializer(ObjectArrayDeserializer base,
@@ -86,7 +75,6 @@ public class ObjectArrayDeserializer
         super(base, nuller, unwrapSingle);
         _elementClass = base._elementClass;
         _untyped = base._untyped;
-        _emptyValue = base._emptyValue;
 
         _elementDeserializer = elemDeser;
         _elementTypeDeserializer = elemTypeDeser;
@@ -109,7 +97,7 @@ public class ObjectArrayDeserializer
     public ObjectArrayDeserializer withResolved(TypeDeserializer elemTypeDeser,
             JsonDeserializer<?> elemDeser, NullValueProvider nuller, Boolean unwrapSingle)
     {
-        if ((Objects.equals(unwrapSingle, _unwrapSingle)) && (nuller == _nullProvider)
+        if ((unwrapSingle == _unwrapSingle) && (nuller == _nullProvider)
                 && (elemDeser == _elementDeserializer)
                 && (elemTypeDeser == _elementTypeDeserializer)) {
             return this;
@@ -126,19 +114,11 @@ public class ObjectArrayDeserializer
         return (_elementDeserializer == null) && (_elementTypeDeserializer == null);
     }
 
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return LogicalType.Array;
-    }
-
     @Override
     public JsonDeserializer<?> createContextual(DeserializationContext ctxt,
             BeanProperty property) throws JsonMappingException
     {
         JsonDeserializer<?> valueDeser = _elementDeserializer;
-        // 07-May-2020, tatu: Is the argument `containerType.getRawClass()` right here?
-        //    In a way seems like it should rather refer to value class... ?
-        //    (as it's individual value of element type, not Container)...
         Boolean unwrapSingle = findFormatFeature(ctxt, property, _containerType.getRawClass(),
                 JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
         // May have a content converter
@@ -177,9 +157,7 @@ public class ObjectArrayDeserializer
     // need to override as we can't expose ValueInstantiator
     @Override // since 2.9
     public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
-        // 03-Jul-2020, tatu: Must be assignment-compatible; can not just return `new Object[0]`
-        //   if element type is different
-        return _emptyValue;
+        return NO_OBJECTS;
     }
 
     /*
@@ -187,7 +165,7 @@ public class ObjectArrayDeserializer
     /* JsonDeserializer API
     /**********************************************************
      */
-
+    
     @Override
     public Object[] deserialize(JsonParser p, DeserializationContext ctxt)
         throws IOException
@@ -207,7 +185,7 @@ public class ObjectArrayDeserializer
             while ((t = p.nextToken()) != JsonToken.END_ARRAY) {
                 // Note: must handle null explicitly here; value deserializers won't
                 Object value;
-
+                
                 if (t == JsonToken.VALUE_NULL) {
                     if (_skipNullValues) {
                         continue;
@@ -259,7 +237,8 @@ public class ObjectArrayDeserializer
                 return intoValue;
             }
             final int offset = intoValue.length;
-            Object[] result = Arrays.copyOf(intoValue, offset + arr.length);
+            Object[] result = new Object[offset + arr.length];
+            System.arraycopy(intoValue, 0, result, 0, offset);
             System.arraycopy(arr, 0, result, offset, arr.length);
             return result;
         }
@@ -273,7 +252,7 @@ public class ObjectArrayDeserializer
         try {
             while ((t = p.nextToken()) != JsonToken.END_ARRAY) {
                 Object value;
-
+                
                 if (t == JsonToken.VALUE_NULL) {
                     if (_skipNullValues) {
                         continue;
@@ -310,7 +289,7 @@ public class ObjectArrayDeserializer
     /* Internal methods
     /**********************************************************
      */
-
+    
     protected Byte[] deserializeFromBase64(JsonParser p, DeserializationContext ctxt)
         throws IOException
     {
@@ -327,58 +306,42 @@ public class ObjectArrayDeserializer
     protected Object[] handleNonArray(JsonParser p, DeserializationContext ctxt)
         throws IOException
     {
+        // Empty String can become null...
+        if (p.hasToken(JsonToken.VALUE_STRING)
+                && ctxt.isEnabled(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT)) {
+            String str = p.getText();
+            if (str.length() == 0) {
+                return null;
+            }
+        }
+
         // Can we do implicit coercion to a single-element array still?
         boolean canWrap = (_unwrapSingle == Boolean.TRUE) ||
                 ((_unwrapSingle == null) &&
                         ctxt.isEnabled(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY));
         if (!canWrap) {
-            // 2 exceptions with Strings:
-            if (p.hasToken(JsonToken.VALUE_STRING)) {
-                // One exception; byte arrays are generally serialized as base64, so that should be handled
-                // note: not `byte[]`, but `Byte[]` -- former is primitive array
-                if (_elementClass == Byte.class) {
-                    return deserializeFromBase64(p, ctxt);
-                }
-                // Second: empty (and maybe blank) String
-                return _deserializeFromString(p, ctxt);
+            // One exception; byte arrays are generally serialized as base64, so that should be handled
+            JsonToken t = p.currentToken();
+            if (t == JsonToken.VALUE_STRING
+                    // note: not `byte[]`, but `Byte[]` -- former is primitive array
+                    && _elementClass == Byte.class) {
+                return deserializeFromBase64(p, ctxt);
             }
-            return (Object[]) ctxt.handleUnexpectedToken(_containerType, p);
+            return (Object[]) ctxt.handleUnexpectedToken(_containerType.getRawClass(), p);
         }
-
+        JsonToken t = p.currentToken();
         Object value;
-        if (p.hasToken(JsonToken.VALUE_NULL)) {
+        
+        if (t == JsonToken.VALUE_NULL) {
             // 03-Feb-2017, tatu: Should this be skipped or not?
             if (_skipNullValues) {
-                return _emptyValue;
+                return NO_OBJECTS;
             }
             value = _nullProvider.getNullValue(ctxt);
+        } else if (_elementTypeDeserializer == null) {
+            value = _elementDeserializer.deserialize(p, ctxt);
         } else {
-            if (p.hasToken(JsonToken.VALUE_STRING)) {
-                String textValue = p.getText();
-                // https://github.com/FasterXML/jackson-dataformat-xml/issues/513
-                if (textValue.isEmpty()) {
-                    final CoercionAction act = ctxt.findCoercionAction(logicalType(), handledType(),
-                            CoercionInputShape.EmptyString);
-                    if (act != CoercionAction.Fail) {
-                        return (Object[]) _deserializeFromEmptyString(p, ctxt, act, handledType(),
-                                "empty String (\"\")");
-                    }
-                } else if (_isBlank(textValue)) {
-                    final CoercionAction act = ctxt.findCoercionFromBlankString(logicalType(), handledType(),
-                            CoercionAction.Fail);
-                    if (act != CoercionAction.Fail) {
-                        return (Object[]) _deserializeFromEmptyString(p, ctxt, act, handledType(),
-                                "blank String (all whitespace)");
-                    }
-                }
-                // if coercion failed, we can still add it to a list
-            }
-
-            if (_elementTypeDeserializer == null) {
-                value = _elementDeserializer.deserialize(p, ctxt);
-            } else {
-                value = _elementDeserializer.deserializeWithType(p, ctxt, _elementTypeDeserializer);
-            }
+            value = _elementDeserializer.deserializeWithType(p, ctxt, _elementTypeDeserializer);
         }
         // Ok: bit tricky, since we may want T[], not just Object[]
         Object[] result;

@@ -6,18 +6,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.BaseMapTest;
+import com.fasterxml.jackson.databind.util.StdDateFormat;
 
-public class TestStdDateFormat
-    extends BaseMapTest
+public class TestStdDateFormat extends BaseMapTest
 {
-    @SuppressWarnings("deprecation")
-    public void testFactories() {
-        TimeZone tz = TimeZone.getTimeZone("GMT");
-        Locale loc = Locale.US;
-        assertNotNull(StdDateFormat.getISO8601Format(tz, loc));
-        assertNotNull(StdDateFormat.getRFC1123Format(tz, loc));
-    }
-
     // [databind#803]
     public void testLenientDefaults() throws Exception
     {
@@ -89,7 +81,7 @@ public class TestStdDateFormat
         assertEquals(2, m.groupCount());
         assertEquals(".2", m.group(1));
         assertEquals("+03:00", m.group(2));
-
+        
         m = p.matcher("1972-12-28T00:00:00.01-0300");
         assertTrue(m.matches());
         assertEquals(".01", m.group(1));
@@ -129,7 +121,7 @@ public class TestStdDateFormat
         dt = f.parse("2015-11-32");
         assertNotNull(dt);
     }
-
+    
     public void testInvalid() {
         StdDateFormat std = new StdDateFormat();
         try {

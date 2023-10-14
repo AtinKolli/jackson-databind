@@ -89,8 +89,8 @@ public class NestedTypes1604Test extends BaseMapTest
         }
     }
 
-    private final ObjectMapper objectMapper = newJsonMapper();
-
+    private final ObjectMapper objectMapper = newObjectMapper();
+    
     public void testIssue1604Simple() throws Exception
     {
         List<Inner> inners = new ArrayList<>();

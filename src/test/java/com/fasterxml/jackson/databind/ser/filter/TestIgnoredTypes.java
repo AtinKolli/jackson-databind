@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.*;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
@@ -27,7 +26,7 @@ public class TestIgnoredTypes extends BaseMapTest
     }
 
     // // And test for mix-in annotations
-
+    
     @JsonIgnoreType
     static class Person {
         public String name;
@@ -41,7 +40,7 @@ public class TestIgnoredTypes extends BaseMapTest
         public int value = 1;
         public Person person = new Person("Foo");
     }
-
+    
     @JsonIgnoreType
     static abstract class PersonMixin {
     }
@@ -59,37 +58,23 @@ public class TestIgnoredTypes extends BaseMapTest
         public Wrapped(int x0) { x = x0; }
     }
 
-    // [databind#2893]
-    @JsonIgnoreType
-    interface IgnoreMe { }
-
-    static class ChildOfIgnorable implements IgnoreMe {
-        public int value = 42;
-    }
-
-    static class ContainsIgnorable {
-        public ChildOfIgnorable ign = new ChildOfIgnorable();
-
-        public int x = 13;
-    }
-
     /*
     /**********************************************************
     /* Unit tests
     /**********************************************************
      */
-
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    
     public void testIgnoredType() throws Exception
     {
+        final ObjectMapper mapper = objectMapper();
+
         // First: should be ok in general, even though couldn't build deserializer (due to non-static inner class):
-        NonIgnoredType bean = MAPPER.readValue("{\"value\":13}", NonIgnoredType.class);
+        NonIgnoredType bean = mapper.readValue("{\"value\":13}", NonIgnoredType.class);
         assertNotNull(bean);
         assertEquals(13, bean.value);
 
         // And also ok to see something with that value; will just get ignored
-        bean = MAPPER.readValue("{ \"ignored\":[1,2,{}], \"value\":9 }", NonIgnoredType.class);
+        bean = mapper.readValue("{ \"ignored\":[1,2,{}], \"value\":9 }", NonIgnoredType.class);
         assertNotNull(bean);
         assertEquals(9, bean.value);
     }
@@ -97,20 +82,18 @@ public class TestIgnoredTypes extends BaseMapTest
     public void testSingleWithMixins() throws Exception {
         SimpleModule module = new SimpleModule();
         module.setMixInAnnotation(Person.class, PersonMixin.class);
-        ObjectMapper mapper = jsonMapperBuilder()
-                .addModule(module)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(module);
         PersonWrapper input = new PersonWrapper();
         String json = mapper.writeValueAsString(input);
         assertEquals("{\"value\":1}", json);
     }
-
+    
     public void testListWithMixins() throws Exception {
         SimpleModule module = new SimpleModule();
         module.setMixInAnnotation(Person.class, PersonMixin.class);
-        ObjectMapper mapper = jsonMapperBuilder()
-                .addModule(module)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(module);
         List<Person> persons = new ArrayList<Person>();
         persons.add(new Person("Bob"));
         String json = mapper.writeValueAsString(persons);
@@ -119,22 +102,16 @@ public class TestIgnoredTypes extends BaseMapTest
 
     public void testIgnoreUsingConfigOverride() throws Exception
     {
-        final ObjectMapper mapper = newJsonMapper();
+        final ObjectMapper mapper = objectMapper();
         mapper.configOverride(Wrapped.class).setIsIgnoredType(true);
 
         // serialize , first
         String json = mapper.writeValueAsString(new Wrapper());
-        assertEquals(a2q("{'value':3}"), json);
+        assertEquals(aposToQuotes("{'value':3}"), json);
 
         // then deserialize
-        Wrapper result = mapper.readValue(a2q("{'value':5,'wrapped':false}"),
+        Wrapper result = mapper.readValue(aposToQuotes("{'value':5,'wrapped':false}"),
                 Wrapper.class);
         assertEquals(5, result.value);
-    }
-
-    // [databind#2893]
-    public void testIgnoreTypeViaInterface() throws Exception
-    {
-        assertEquals(a2q("{'x':13}"), MAPPER.writeValueAsString(new ContainsIgnorable()));
     }
 }

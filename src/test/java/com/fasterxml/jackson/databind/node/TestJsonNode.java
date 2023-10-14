@@ -5,7 +5,6 @@ import java.util.Comparator;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 import com.fasterxml.jackson.databind.util.RawValue;
 
 /**
@@ -28,11 +27,6 @@ public class TestJsonNode extends NodeTestBase
         assertEquals("false", f.asText());
         assertEquals(JsonToken.VALUE_FALSE, f.asToken());
 
-        assertFalse(f.isNumber());
-        assertFalse(f.canConvertToInt());
-        assertFalse(f.canConvertToLong());
-        assertFalse(f.canConvertToExactIntegral());
-
         // and ditto for true
         BooleanNode t = BooleanNode.getTrue();
         assertNotNull(t);
@@ -46,7 +40,7 @@ public class TestJsonNode extends NodeTestBase
 
         assertNodeNumbers(f, 0, 0.0);
         assertNodeNumbers(t, 1, 1.0);
-
+    
         JsonNode result = objectMapper().readTree("true\n");
         assertFalse(result.isNull());
         assertFalse(result.isNumber());
@@ -74,11 +68,6 @@ public class TestJsonNode extends NodeTestBase
         byte[] data = new byte[3];
         data[1] = (byte) 3;
         BinaryNode n = BinaryNode.valueOf(data, 1, 1);
-        assertFalse(n.isNumber());
-        assertFalse(n.canConvertToInt());
-        assertFalse(n.canConvertToLong());
-        assertFalse(n.canConvertToExactIntegral());
-
         data[2] = (byte) 3;
         BinaryNode n2 = BinaryNode.valueOf(data, 2, 1);
         assertTrue(n.equals(n2));
@@ -94,8 +83,8 @@ public class TestJsonNode extends NodeTestBase
         assertStandardEquals(n);
         assertEquals(n, new POJONode("x"));
         assertEquals("x", n.asText());
-        // 10-Dec-2018, tatu: With 2.10, should serialize same as via ObjectMapper/ObjectWriter
-        assertEquals("\"x\"", n.toString());
+        // not sure if this is what it'll remain as but:
+        assertEquals("x", n.toString());
 
         assertEquals(new POJONode(null), new POJONode(null));
 
@@ -177,7 +166,7 @@ public class TestJsonNode extends NodeTestBase
 
         ArrayNode array3 = MAPPER.createArrayNode();
         array3.add(123);
-
+        
         assertFalse(root2.equals(cmp, nestedArray1));
         assertTrue(nestedArray1.equals(cmp, nestedArray1));
         assertFalse(nestedArray1.equals(cmp, root2));
@@ -188,7 +177,7 @@ public class TestJsonNode extends NodeTestBase
     public void testArrayWithDefaultTyping() throws Exception
     {
         ObjectMapper mapper = new ObjectMapper()
-            .activateDefaultTyping(NoCheckSubTypeValidator.instance);
+            .enableDefaultTyping();
 
         JsonNode array = mapper.readTree("[ 1, 2 ]");
         assertTrue(array.isArray());

@@ -9,9 +9,6 @@ import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
-import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 
 public class TestCreators2 extends BaseMapTest
 {
@@ -43,7 +40,7 @@ public class TestCreators2 extends BaseMapTest
         protected int x = 3;
         protected double d = -0.5;
         protected boolean b = true;
-
+        
         @JsonCreator
         public Primitives(@JsonProperty("x") int x,
                 @JsonProperty("d") double d,
@@ -54,7 +51,7 @@ public class TestCreators2 extends BaseMapTest
             this.b = b;
         }
     }
-
+    
     protected static class Test431Container {
         protected final List<Item431> items;
 
@@ -62,7 +59,7 @@ public class TestCreators2 extends BaseMapTest
         public Test431Container(@JsonProperty("items") final List<Item431> i) {
             items = i;
         }
-    }
+    }    
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     protected static class Item431 {
@@ -86,13 +83,13 @@ public class TestCreators2 extends BaseMapTest
     static class BrokenCreatorBean
     {
         protected String bar;
-
+        
         @JsonCreator
         public BrokenCreatorBean(@JsonProperty("bar") String bar1, @JsonProperty("bar") String bar2) {
             bar = ""+bar1+"/"+bar2;
         }
     }
-
+    
     // For [JACKSON-541]: should not need @JsonCreator if SerializationFeature.AUTO_DETECT_CREATORS is on.
     static class AutoDetectConstructorBean
     {
@@ -134,12 +131,12 @@ public class TestCreators2 extends BaseMapTest
     static class AbstractBaseImpl extends AbstractBase
     {
         protected Map<String,Object> props;
-
+        
         public AbstractBaseImpl(Map<String,Object> props) {
             this.props = props;
         }
     }
-
+    
     static interface Issue700Set extends java.util.Set<Object> { }
 
     static class Issue700Bean
@@ -193,7 +190,7 @@ public class TestCreators2 extends BaseMapTest
         try {
             MAPPER.readValue("{}", BustedCtor.class);
             fail("Expected exception");
-        } catch (ValueInstantiationException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, ": foobar");
             // also: should have nested exception
             Throwable t = e.getCause();
@@ -203,8 +200,6 @@ public class TestCreators2 extends BaseMapTest
             assertNotNull(t);
             assertEquals(IllegalArgumentException.class, t.getClass());
             assertEquals("foobar", t.getMessage());
-        } catch (Exception e) {
-            fail("Should have caught ValueInstantiationException, got: "+e);
         }
     }
 
@@ -215,6 +210,7 @@ public class TestCreators2 extends BaseMapTest
         assertEquals("abc", new String(test.bytes, "UTF-8"));
     }
 
+    // Test for [JACKSON-372]
     public void testMissingPrimitives() throws Exception
     {
         Primitives p = MAPPER.readValue("{}", Primitives.class);
@@ -229,7 +225,7 @@ public class TestCreators2 extends BaseMapTest
                 "{\"items\":\n"
                 +"[{\"bar\": 0,\n"
                 +"\"id\": \"id123\",\n"
-                +"\"foo\": 1\n"
+                +"\"foo\": 1\n" 
                 +"}]}",
                 Test431Container.class);
         assertNotNull(foo);
@@ -245,8 +241,8 @@ public class TestCreators2 extends BaseMapTest
         } catch (Exception e0) {
             e = e0;
         }
-        if (!(e instanceof ValueInstantiationException)) {
-            fail("Should have received ValueInstantiationException, caught "+e.getClass().getName());
+        if (!(e instanceof JsonMappingException)) {
+            fail("Should have received JsonMappingException, caught "+e.getClass().getName());
         }
         verifyException(e, "don't like that name");
         // Ok: also, let's ensure root cause is directly linked, without other extra wrapping:
@@ -263,10 +259,8 @@ public class TestCreators2 extends BaseMapTest
         try {
             MAPPER.readValue("{\"bar\":\"x\"}", BrokenCreatorBean.class);
             fail("Should have caught duplicate creator parameters");
-        } catch (InvalidDefinitionException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "duplicate creator property \"bar\"");
-            verifyException(e, "for type `com.fasterxml.jackson.databind.");
-            verifyException(e, "$BrokenCreatorBean`");
         }
     }
 
@@ -280,9 +274,9 @@ public class TestCreators2 extends BaseMapTest
     public void testIgnoredSingleArgCtor() throws Exception
     {
         try {
-            MAPPER.readValue(q("abc"), IgnoredCtor.class);
+            MAPPER.readValue(quote("abc"), IgnoredCtor.class);
             fail("Should have caught missing constructor problem");
-        } catch (MismatchedInputException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "no String-argument constructor/factory method");
         }
     }

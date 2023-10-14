@@ -7,11 +7,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
-import com.fasterxml.jackson.databind.testutil.NoCheckSubTypeValidator;
 
 public class PolymorphicViaRefTypeTest extends BaseMapTest
 {
-
+    
     @JsonSubTypes({
         @JsonSubTypes.Type(name = "impl5", value = ImplForAtomic.class)
     })
@@ -62,10 +61,8 @@ public class PolymorphicViaRefTypeTest extends BaseMapTest
 
     public void testAtomicRefViaDefaultTyping() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .activateDefaultTyping(NoCheckSubTypeValidator.instance,
-                        DefaultTyping.NON_FINAL)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enableDefaultTyping(DefaultTyping.NON_FINAL);
         AtomicStringWrapper data = new AtomicStringWrapper("foo");
         String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(data);
         AtomicStringWrapper result = mapper.readValue(json, AtomicStringWrapper.class);

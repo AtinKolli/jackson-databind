@@ -4,13 +4,16 @@ import java.util.*;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.SettableBeanProperty;
+import com.fasterxml.jackson.databind.deser.impl.BeanPropertyMap;
+import com.fasterxml.jackson.databind.deser.impl.ObjectIdReader;
+import com.fasterxml.jackson.databind.deser.impl.ObjectIdValueProperty;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
 // for [databind#884]
 public class BeanPropertyMapTest extends BaseMapTest
 {
     protected final static JavaType BOGUS_TYPE = TypeFactory.unknownType();
-
+    
     @SuppressWarnings("serial")
     static class MyObjectIdReader extends ObjectIdReader
     {
@@ -29,8 +32,7 @@ public class BeanPropertyMapTest extends BaseMapTest
         props.add(new ObjectIdValueProperty(new MyObjectIdReader("pk"), md));
         props.add(new ObjectIdValueProperty(new MyObjectIdReader("firstName"), md));
         BeanPropertyMap propMap = new BeanPropertyMap(false, props,
-                new HashMap<String,List<PropertyName>>(),
-                Locale.getDefault());
+                null, true);
         propMap = propMap.withProperty(new ObjectIdValueProperty(new MyObjectIdReader("@id"), md));
         assertNotNull(propMap);
     }

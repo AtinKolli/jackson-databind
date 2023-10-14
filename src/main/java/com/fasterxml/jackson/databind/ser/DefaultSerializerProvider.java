@@ -6,14 +6,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.annotation.ObjectIdGenerator;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.TokenStreamFactory;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.cfg.CacheProvider;
+import com.fasterxml.jackson.databind.cfg.GeneratorSettings;
 import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ser.impl.WritableObjectId;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 
@@ -31,7 +31,7 @@ import com.fasterxml.jackson.databind.util.ClassUtil;
  */
 public abstract class DefaultSerializerProvider
     extends SerializerProvider
-    implements java.io.Serializable // since 2.1; only because ObjectWriter needs it
+    implements java.io.Serializable // only because ObjectWriter needs it
 {
     private static final long serialVersionUID = 1L;
 
@@ -46,16 +46,8 @@ public abstract class DefaultSerializerProvider
      * Object Id handling is enabled.
      */
     protected transient Map<Object, WritableObjectId> _seenObjectIds;
-
+    
     protected transient ArrayList<ObjectIdGenerator<?>> _objectIdGenerators;
-
-    /**
-     * Generator used for serialization. Needed mostly for error reporting
-     * purposes.
-     *
-     * @since 2.8
-     */
-    protected transient JsonGenerator _generator;
 
     /*
     /**********************************************************
@@ -63,24 +55,18 @@ public abstract class DefaultSerializerProvider
     /**********************************************************
      */
 
-    protected DefaultSerializerProvider() { super(); }
+    protected DefaultSerializerProvider(TokenStreamFactory streamFactory) {
+        super(streamFactory);
+    }
 
     protected DefaultSerializerProvider(SerializerProvider src,
-            SerializationConfig config,SerializerFactory f) {
-        super(src, config, f);
+            SerializationConfig config, GeneratorSettings genSettings,
+            SerializerFactory f) {
+        super(src, config, genSettings, f);
     }
 
     protected DefaultSerializerProvider(DefaultSerializerProvider src) {
         super(src);
-    }
-
-    /**
-     * @since 2.16
-     */
-    protected DefaultSerializerProvider(DefaultSerializerProvider src,
-            CacheProvider cp) {
-        super(src,
-                new SerializerCache(cp.forSerializerCache(src._config)));
     }
 
     /**
@@ -89,15 +75,13 @@ public abstract class DefaultSerializerProvider
      * This is needed to retain state during serialization.
      */
     public abstract DefaultSerializerProvider createInstance(SerializationConfig config,
-            SerializerFactory jsf);
+            GeneratorSettings genSettings, SerializerFactory jsf);
 
     /**
      * Method needed to ensure that {@link ObjectMapper#copy} will work
      * properly; specifically, that caches are cleared, but settings
      * will otherwise remain identical; and that no sharing of state
      * occurs.
-     *
-     * @since 2.5
      */
     public DefaultSerializerProvider copy() {
         throw new IllegalStateException("DefaultSerializerProvider sub-class not overriding copy()");
@@ -108,7 +92,7 @@ public abstract class DefaultSerializerProvider
     /* Abstract method impls, factory methods
     /**********************************************************
      */
-
+    
     @Override
     public JsonSerializer<Object> serializerInstance(Annotated annotated, Object serDef)
             throws JsonMappingException
@@ -117,7 +101,7 @@ public abstract class DefaultSerializerProvider
             return null;
         }
         JsonSerializer<?> ser;
-
+        
         if (serDef instanceof JsonSerializer) {
             ser = (JsonSerializer<?>) serDef;
         } else {
@@ -171,37 +155,24 @@ public abstract class DefaultSerializerProvider
             return true;
         }
         // should let filter decide what to do with nulls:
-        // But just in case, let's handle unexpected (from our perspective) problems explicitly
+        // But just case, let's handle unexpected (from our perspective) problems explicitly
         try {
             return filter.equals(null);
-        } catch (Exception e) {
+        } catch (Throwable t) {
             String msg = String.format(
 "Problem determining whether filter of type '%s' should filter out `null` values: (%s) %s",
-filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(e));
-            reportBadDefinition(filter.getClass(), msg, e);
+filter.getClass().getName(), t.getClass().getName(), t.getMessage());
+            reportBadDefinition(filter.getClass(), msg, t);
             return false; // never gets here
         }
     }
 
     /*
     /**********************************************************
-    /* Extended API, life-cycle
-    /**********************************************************
-     */
-
-    /**
-     * Fluent factory method used for constructing a new instance with cache instances provided by {@link CacheProvider}.
-     *
-     * @since 2.16
-     */
-    public abstract DefaultSerializerProvider withCaches(CacheProvider cacheProvider);
-
-    /*
-    /**********************************************************
     /* Object Id handling
     /**********************************************************
      */
-
+    
     @Override
     public WritableObjectId findObjectId(Object forPojo, ObjectIdGenerator<?> generatorType)
     {
@@ -215,7 +186,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
         }
         // Not seen yet; must add an entry, return it. For that, we need generator
         ObjectIdGenerator<?> generator = null;
-
+        
         if (_objectIdGenerators == null) {
             _objectIdGenerators = new ArrayList<ObjectIdGenerator<?>>(8);
         } else {
@@ -240,8 +211,6 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
      * Overridable helper method used for creating {@link java.util.Map}
      * used for storing mappings from serializable objects to their
      * Object Ids.
-     *
-     * @since 2.3
      */
     protected Map<Object,WritableObjectId> _createObjectIdMap()
     {
@@ -256,7 +225,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
 
     /*
     /**********************************************************
-    /* Extended API: simple accessors
+    /* Extended API: simple accesors
     /**********************************************************
      */
 
@@ -277,7 +246,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
                 return true;
             }
         }
-
+        
         try {
             JsonSerializer<?> ser = _findExplicitUntypedSerializer(cls);
             return (ser != null);
@@ -311,7 +280,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
     /* Extended API called by ObjectMapper: value serialization
     /**********************************************************
      */
-
+    
     /**
      * The method to be called by {@link ObjectMapper} and {@link ObjectWriter}
      * for serializing given value, using serializers that
@@ -348,7 +317,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
      * using serializers that
      * this provider has access to (via caching and/or creating new serializers
      * as need be),
-     *
+     * 
      * @param rootType Type to use for locating serializer to use, instead of actual
      *    runtime type. Must be actual type, or one of its super types
      */
@@ -383,12 +352,10 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
      * for serializing given value (assumed to be of specified root type,
      * instead of runtime type of value), when it may know specific
      * {@link JsonSerializer} to use.
-     *
+     * 
      * @param rootType Type to use for locating serializer to use, instead of actual
      *    runtime type, if no serializer is passed
      * @param ser Root Serializer to use, if not null
-     *
-     * @since 2.1
      */
     public void serializeValue(JsonGenerator gen, Object value, JavaType rootType,
             JsonSerializer<Object> ser) throws IOException
@@ -507,8 +474,6 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
 
     /**
      * Helper method called when root value to serialize is null
-     *
-     * @since 2.3
      */
     protected void _serializeNull(JsonGenerator gen) throws IOException
     {
@@ -524,7 +489,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
         if (e instanceof IOException) {
             return (IOException) e;
         }
-        String msg = ClassUtil.exceptionMessage(e);
+        String msg = e.getMessage();
         if (msg == null) {
             msg = "[no message for "+e.getClass().getName()+"]";
         }
@@ -544,7 +509,7 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
      * Exact count depends on what kind of serializers get cached;
      * default implementation caches all serializers, including ones that
      * are eagerly constructed (for optimal access speed)
-     *<p>
+     *<p> 
      * The main use case for this method is to allow conditional flushing of
      * serializer cache, if certain number of entries is reached.
      */
@@ -588,33 +553,6 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
         findValueSerializer(javaType, null).acceptJsonFormatVisitor(visitor, javaType);
     }
 
-    /**
-     * The method to be called by {@link ObjectMapper}
-     * to generate <a href="http://json-schema.org/">JSON schema</a> for
-     * given type.
-     *
-     * @param type The type for which to generate schema
-     *
-     * @deprecated Should not be used any more
-     */
-    @Deprecated // since 2.6
-    public com.fasterxml.jackson.databind.jsonschema.JsonSchema generateJsonSchema(Class<?> type)
-        throws JsonMappingException
-    {
-        /* no need for embedded type information for JSON schema generation (all
-         * type information it needs is accessible via "untyped" serializer)
-         */
-        JsonSerializer<Object> ser = findValueSerializer(type, null);
-        JsonNode schemaNode = (ser instanceof com.fasterxml.jackson.databind.jsonschema.SchemaAware)
-            ? ((com.fasterxml.jackson.databind.jsonschema.SchemaAware) ser).getSchema(this, null)
-            : com.fasterxml.jackson.databind.jsonschema.JsonSchema.getDefaultSchemaNode();
-        if (!(schemaNode instanceof ObjectNode)) {
-            throw new IllegalArgumentException("Class " + type.getName()
-                    +" would not be serialized as a JSON object and therefore has no schema");
-        }
-        return new com.fasterxml.jackson.databind.jsonschema.JsonSchema((ObjectNode) schemaNode);
-    }
-
     /*
     /**********************************************************
     /* Helper classes
@@ -625,38 +563,33 @@ filter.getClass().getName(), e.getClass().getName(), ClassUtil.exceptionMessage(
      * Concrete implementation that defines factory method(s),
      * defined as final.
      */
-    public final static class Impl extends DefaultSerializerProvider {
+    public final static class Impl
+        extends DefaultSerializerProvider
+        implements java.io.Serializable
+    {
         private static final long serialVersionUID = 1L;
 
-        public Impl() { super(); }
+        public Impl(TokenStreamFactory streamFactory) { super(streamFactory); }
         public Impl(Impl src) { super(src); }
 
         protected Impl(SerializerProvider src, SerializationConfig config,
-                SerializerFactory f) {
-            super(src, config, f);
-        }
-
-        /**
-         * @since 2.16
-         */
-        protected Impl(Impl src, CacheProvider cp) {
-            super(src, cp);
+                GeneratorSettings genSettings, SerializerFactory f) {
+            super(src, config, genSettings, f);
         }
 
         @Override
         public DefaultSerializerProvider copy()
         {
+            if (getClass() != Impl.class) {
+                return super.copy();
+            }
             return new Impl(this);
         }
 
         @Override
-        public Impl createInstance(SerializationConfig config, SerializerFactory jsf) {
-            return new Impl(this, config, jsf);
-        }
-
-        @Override
-        public DefaultSerializerProvider withCaches(CacheProvider cp) {
-            return new Impl(this, cp);
+        public Impl createInstance(SerializationConfig config,
+                GeneratorSettings genSettings, SerializerFactory jsf) {
+            return new Impl(this, config, genSettings, jsf);
         }
     }
 }

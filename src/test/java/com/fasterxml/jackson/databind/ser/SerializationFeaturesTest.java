@@ -29,7 +29,7 @@ public class SerializationFeaturesTest
     private static class StringListBean {
         @SuppressWarnings("unused")
         public Collection<String> values;
-
+        
         public StringListBean(Collection<String> v) { values = v; }
     }
 
@@ -67,32 +67,27 @@ public class SerializationFeaturesTest
         char[] chars = new char[] { 'a','b','c' };
         ObjectMapper m = new ObjectMapper();
         // default: serialize as Strings
-        assertEquals(q("abc"), m.writeValueAsString(chars));
-
+        assertEquals(quote("abc"), m.writeValueAsString(chars));
+        
         // new feature: serialize as JSON array:
         m.configure(SerializationFeature.WRITE_CHAR_ARRAYS_AS_JSON_ARRAYS, true);
         assertEquals("[\"a\",\"b\",\"c\"]", m.writeValueAsString(chars));
     }
 
-    // Test for [JACKSON-401]
     public void testFlushingAutomatic() throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
         assertTrue(mapper.getSerializationConfig().isEnabled(SerializationFeature.FLUSH_AFTER_WRITE_VALUE));
         // default is to flush after writeValue()
         StringWriter sw = new StringWriter();
-        JsonGenerator g = mapper.createGenerator(sw);
-        mapper.writeValue(g, Integer.valueOf(13));
+        mapper.writeValue(sw, Integer.valueOf(13));
         assertEquals("13", sw.toString());
-        g.close();
 
         // ditto with ObjectWriter
         sw = new StringWriter();
-        g = mapper.createGenerator(sw);
         ObjectWriter ow = mapper.writer();
-        ow.writeValue(g, Integer.valueOf(99));
+        ow.writeValue(sw, Integer.valueOf(99));
         assertEquals("99", sw.toString());
-        g.close();
     }
 
     public void testFlushingNotAutomatic() throws IOException
@@ -129,7 +124,7 @@ public class SerializationFeaturesTest
         // Lists:
         ArrayList<String> strs = new ArrayList<String>();
         strs.add("xyz");
-        assertEquals(q("xyz"), writer.writeValueAsString(strs));
+        assertEquals(quote("xyz"), writer.writeValueAsString(strs));
         ArrayList<Integer> ints = new ArrayList<Integer>();
         ints.add(13);
         assertEquals("13", writer.writeValueAsString(ints));
@@ -145,7 +140,7 @@ public class SerializationFeaturesTest
         final Set<String> SET = new HashSet<String>();
         SET.add("foo");
         assertEquals(EXP_STRINGS, writer.writeValueAsString(new StringListBean(SET)));
-
+        
         // arrays:
         assertEquals("true", writer.writeValueAsString(new boolean[] { true }));
         assertEquals("[true,false]", writer.writeValueAsString(new boolean[] { true, false }));
@@ -153,7 +148,7 @@ public class SerializationFeaturesTest
 
         assertEquals("3", writer.writeValueAsString(new short[] { 3 }));
         assertEquals("[3,2]", writer.writeValueAsString(new short[] { 3, 2 }));
-
+        
         assertEquals("3", writer.writeValueAsString(new int[] { 3 }));
         assertEquals("[3,2]", writer.writeValueAsString(new int[] { 3, 2 }));
 
@@ -165,7 +160,7 @@ public class SerializationFeaturesTest
 
         assertEquals("0.5", writer.writeValueAsString(new float[] { 0.5f }));
         assertEquals("[0.5,2.5]", writer.writeValueAsString(new float[] { 0.5f, 2.5f }));
-
-        assertEquals(q("foo"), writer.writeValueAsString(new String[] { "foo" }));
+        
+        assertEquals(quote("foo"), writer.writeValueAsString(new String[] { "foo" }));
     }
 }

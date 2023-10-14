@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.Nulls;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 
 // for [databind#1402]; configurable null handling, for values themselves,
 // using generic types
@@ -40,11 +39,11 @@ public class NullConversionsGenericTest extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = newObjectMapper();
 
     public void testNullsToEmptyPojo() throws Exception
     {
-        GeneralEmpty<Point> result = MAPPER.readValue(a2q("{'value':null}"),
+        GeneralEmpty<Point> result = MAPPER.readValue(aposToQuotes("{'value':null}"),
                 new TypeReference<GeneralEmpty<Point>>() { });
         assertNotNull(result.value);
         Point p = result.value;
@@ -53,35 +52,23 @@ public class NullConversionsGenericTest extends BaseMapTest
 
         // and then also failing case with no suitable creator:
         try {
-            /* NoCtorWrapper nogo =*/ MAPPER.readValue(a2q("{'value':null}"),
+            /* NoCtorWrapper nogo =*/ MAPPER.readValue(aposToQuotes("{'value':null}"),
                     NoCtorWrapper.class);
             fail("Should not pass");
-        } catch (InvalidDefinitionException e) {
+        } catch (JsonMappingException e) {
             verifyException(e, "Cannot create empty instance");
         }
     }
 
-    // [databind#2023] two-part coercion from "" to `null` to skip/empty/exception should work
-    public void testEmptyStringToNullToEmptyPojo() throws Exception
-    {
-        GeneralEmpty<Point> result = MAPPER.readerFor(new TypeReference<GeneralEmpty<Point>>() { })
-                .with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT)
-                .readValue(a2q("{'value':''}"));
-        assertNotNull(result.value);
-        Point p = result.value;
-        assertEquals(0, p.x);
-        assertEquals(0, p.y);
-    }
-
     public void testNullsToEmptyCollection() throws Exception
     {
-        GeneralEmpty<List<String>> result = MAPPER.readValue(a2q("{'value':null}"),
+        GeneralEmpty<List<String>> result = MAPPER.readValue(aposToQuotes("{'value':null}"),
                 new TypeReference<GeneralEmpty<List<String>>>() { });
         assertNotNull(result.value);
         assertEquals(0, result.value.size());
 
         // but also non-String type, since impls vary
-        GeneralEmpty<List<Integer>> result2 = MAPPER.readValue(a2q("{'value':null}"),
+        GeneralEmpty<List<Integer>> result2 = MAPPER.readValue(aposToQuotes("{'value':null}"),
                 new TypeReference<GeneralEmpty<List<Integer>>>() { });
         assertNotNull(result2.value);
         assertEquals(0, result2.value.size());
@@ -89,7 +76,7 @@ public class NullConversionsGenericTest extends BaseMapTest
 
     public void testNullsToEmptyMap() throws Exception
     {
-        GeneralEmpty<Map<String,String>> result = MAPPER.readValue(a2q("{'value':null}"),
+        GeneralEmpty<Map<String,String>> result = MAPPER.readValue(aposToQuotes("{'value':null}"),
                 new TypeReference<GeneralEmpty<Map<String,String>>>() { });
         assertNotNull(result.value);
         assertEquals(0, result.value.size());
@@ -97,7 +84,7 @@ public class NullConversionsGenericTest extends BaseMapTest
 
     public void testNullsToEmptyArrays() throws Exception
     {
-        final String json = a2q("{'value':null}");
+        final String json = aposToQuotes("{'value':null}");
 
         GeneralEmpty<Object[]> result = MAPPER.readValue(json,
                 new TypeReference<GeneralEmpty<Object[]>>() { });

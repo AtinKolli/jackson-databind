@@ -7,7 +7,6 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 
 /**
  * Unit tests for verifying that field-backed properties can also be serialized
@@ -32,7 +31,7 @@ public class FieldSerializationTest
         // ignored, not detectable either
         @JsonIgnore public int a;
     }
-
+    
     static class SimpleFieldBean2
     {
         @JsonSerialize String[] values;
@@ -71,18 +70,18 @@ public class FieldSerializationTest
     public static class DupFieldBean
     {
         @JsonProperty("foo")
-        public int _z = 1;
+        public int _z;
 
         @JsonSerialize
-        private int foo = 2;
+        private int foo;
     }
 
     public static class DupFieldBean2
     {
-        public int z = 3;
+        public int z;
 
         @JsonProperty("z")
-        public int _z = 4;
+        public int _z;
     }
 
     @SuppressWarnings("hiding")
@@ -125,14 +124,14 @@ public class FieldSerializationTest
             this.state = state;
         }
     }
-
+    
     /*
     /**********************************************************
     /* Main tests, success
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testSimpleAutoDetect() throws Exception
     {
@@ -206,7 +205,7 @@ public class FieldSerializationTest
         Item240 bean = new Item240("a12", null);
         assertEquals(MAPPER.writeValueAsString(bean), "{\"id\":\"a12\"}");
     }
-
+    
     /*
     /**********************************************************
     /* Main tests, failure cases
@@ -216,19 +215,19 @@ public class FieldSerializationTest
     public void testFailureDueToDups() throws Exception
     {
         try {
-            String json = MAPPER.writeValueAsString(new DupFieldBean());
-            fail("Should not pass, got: "+json);
-        } catch (InvalidDefinitionException e) {
+            writeAndMap(MAPPER, new DupFieldBean());
+        } catch (JsonMappingException e) {
             verifyException(e, "Multiple fields representing");
         }
     }
 
-    // 21-Jan-2021, tatu: Resolvable as of 2.13 (and much earlier) since explicitly
-    //    annotated one takes precedence
-    public void testResolvedDuplicate() throws Exception
+    public void testFailureDueToDupField() throws Exception
     {
-        String json = MAPPER.writeValueAsString(new DupFieldBean2());
-        assertEquals(json, a2q("{'z':4}"));
+        try {
+            writeAndMap(MAPPER, new DupFieldBean2());
+        } catch (JsonMappingException e) {
+            verifyException(e, "Multiple fields representing");
+        }
     }
 }
 

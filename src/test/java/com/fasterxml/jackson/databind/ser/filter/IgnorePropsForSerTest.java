@@ -28,7 +28,7 @@ public class IgnorePropsForSerTest
         @JsonIgnoreProperties("y")
         public XY value = new XY();
     }
-
+    
     static class XY {
         public int x = 1;
         public int y = 2;
@@ -63,25 +63,6 @@ public class IgnorePropsForSerTest
         }
     }
 
-    // for [databind#1060]
-    static class IgnoreForListValuesXY {
-        @JsonIgnoreProperties({ "x" })
-        public List<XY> coordinates;
-
-        public IgnoreForListValuesXY() {
-            coordinates = Arrays.asList(new XY());
-        }
-    }
-
-    static class IgnoreForListValuesXYZ {
-        @JsonIgnoreProperties({ "y" })
-        public List<XYZ> coordinates;
-
-        public IgnoreForListValuesXYZ() {
-            coordinates = Arrays.asList(new XYZ());
-        }
-    }
-
     /*
     /****************************************************************
     /* Unit tests
@@ -89,7 +70,7 @@ public class IgnorePropsForSerTest
      */
 
     private final ObjectMapper MAPPER = objectMapper();
-
+    
     public void testExplicitIgnoralWithBean() throws Exception
     {
         IgnoreSome value = new IgnoreSome();
@@ -129,12 +110,12 @@ public class IgnorePropsForSerTest
         assertEquals("{\"value\":{\"z\":3}}",
                 MAPPER.writeValueAsString(new WrapperWithPropIgnoreUntyped()));
     }
-
+    
     public void testIgnoreWithMapProperty() throws Exception
     {
         assertEquals("{\"value\":{\"b\":2}}", MAPPER.writeValueAsString(new MapWrapper()));
     }
-
+    
     public void testIgnoreViaPropsAndClass() throws Exception
     {
         assertEquals("{\"value\":{\"y\":2}}",
@@ -147,18 +128,5 @@ public class IgnorePropsForSerTest
         mapper.configOverride(Point.class)
             .setIgnorals(JsonIgnoreProperties.Value.forIgnoredProperties("x"));
         assertEquals("{\"y\":3}", mapper.writeValueAsString(new Point(2, 3)));
-    }
-
-    // for [databind#1060]
-    // Ensure that `@JsonIgnoreProperties` applies to POJOs within lists, too
-    public void testIgnoreForListValues() throws Exception
-    {
-        // should apply to elements
-        assertEquals(a2q("{'coordinates':[{'y':2}]}"),
-                MAPPER.writeValueAsString(new IgnoreForListValuesXY()));
-
-        // and combine values too
-        assertEquals(a2q("{'coordinates':[{'z':3}]}"),
-                MAPPER.writeValueAsString(new IgnoreForListValuesXYZ()));
     }
 }

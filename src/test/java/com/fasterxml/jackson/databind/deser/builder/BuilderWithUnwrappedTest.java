@@ -39,7 +39,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
         private final int age;
         private final boolean alive;
 
-        Person(Builder builder) {
+        private Person(Builder builder) {
             id = builder.id;
             name = builder.name;
             age = builder.age;
@@ -64,12 +64,12 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
 
         @JsonPOJOBuilder(withPrefix = "set")
         final static class Builder {
-            final long id;
-            Name name;
-            int age;
-            boolean alive;
+            private final long id;
+            private Name name;
+            private int age;
+            private boolean alive;
 
-            Builder(@JsonProperty("person_id") long id) {
+            public Builder(@JsonProperty("person_id") long id) {
                 this.id = id;
             }
 
@@ -101,7 +101,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
         private final int age;
         private final boolean alive;
 
-        Animal(Builder builder) {
+        private Animal(Builder builder) {
             id = builder.id;
             name = builder.name;
             age = builder.age;
@@ -126,12 +126,12 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
 
         @JsonPOJOBuilder(withPrefix = "set")
         final static class Builder {
-            final long id;
-            Name name;
-            int age;
-            final boolean alive;
+            private final long id;
+            private Name name;
+            private int age;
+            private final boolean alive;
 
-            Builder(
+            public Builder(
                     @JsonProperty("animal_id") long id,
                     @JsonProperty("living") boolean alive
             ) {
@@ -155,59 +155,6 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
         }
     }
 
-    @JsonDeserialize(builder = AnimalNoCreator.Builder.class)
-    final static class AnimalNoCreator {
-        private final long id;
-        private final Name name;
-        private final String age;
-
-        AnimalNoCreator(Builder builder) {
-            id = builder.id;
-            name = builder.name;
-            age = builder.age;
-        }
-
-        long getId() {
-            return id;
-        }
-
-        Name getName() {
-            return name;
-        }
-
-        String getAge() {
-            return age;
-        }
-
-        @JsonPOJOBuilder(withPrefix = "set")
-        final static class Builder {
-            long id;
-            Name name;
-            String age;
-
-            Builder() { }
-
-            @JsonProperty("animal_id")
-            public void setId(long i) {
-                id = i;
-            }
-
-            @JsonUnwrapped
-            void setName(Name name) {
-                this.name = name;
-            }
-
-            @JsonProperty("years_old")
-            void setAge(String age) {
-                this.age = age;
-            }
-
-            AnimalNoCreator build() {
-                return new AnimalNoCreator(this);
-            }
-        }
-    }
-
     /*
     /**********************************************************
     /* Unit tests
@@ -215,7 +162,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
      */
 
     public void testWithUnwrappedAndCreatorSingleParameterAtBeginning() throws Exception {
-        final String json = a2q("{'person_id':1234,'first_name':'John','last_name':'Doe','years_old':30,'living':true}");
+        final String json = aposToQuotes("{'person_id':1234,'first_name':'John','last_name':'Doe','years_old':30,'living':true}");
 
         final ObjectMapper mapper = new ObjectMapper();
         Person person = mapper.readValue(json, Person.class);
@@ -228,7 +175,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
     }
 
     public void testWithUnwrappedAndCreatorSingleParameterInMiddle() throws Exception {
-        final String json = a2q("{'first_name':'John','last_name':'Doe','person_id':1234,'years_old':30,'living':true}");
+        final String json = aposToQuotes("{'first_name':'John','last_name':'Doe','person_id':1234,'years_old':30,'living':true}");
 
         final ObjectMapper mapper = new ObjectMapper();
         Person person = mapper.readValue(json, Person.class);
@@ -241,7 +188,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
     }
 
     public void testWithUnwrappedAndCreatorSingleParameterAtEnd() throws Exception {
-        final String json = a2q("{'first_name':'John','last_name':'Doe','years_old':30,'living':true,'person_id':1234}");
+        final String json = aposToQuotes("{'first_name':'John','last_name':'Doe','years_old':30,'living':true,'person_id':1234}");
 
         final ObjectMapper mapper = new ObjectMapper();
         Person person = mapper.readValue(json, Person.class);
@@ -254,7 +201,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
     }
 
     public void testWithUnwrappedAndCreatorMultipleParametersAtBeginning() throws Exception {
-        final String json = a2q("{'animal_id':1234,'living':true,'first_name':'John','last_name':'Doe','years_old':30}");
+        final String json = aposToQuotes("{'animal_id':1234,'living':true,'first_name':'John','last_name':'Doe','years_old':30}");
 
         final ObjectMapper mapper = new ObjectMapper();
         Animal animal = mapper.readValue(json, Animal.class);
@@ -267,7 +214,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
     }
 
     public void testWithUnwrappedAndCreatorMultipleParametersInMiddle() throws Exception {
-        final String json = a2q("{'first_name':'John','animal_id':1234,'last_name':'Doe','living':true,'years_old':30}");
+        final String json = aposToQuotes("{'first_name':'John','animal_id':1234,'last_name':'Doe','living':true,'years_old':30}");
 
         final ObjectMapper mapper = new ObjectMapper();
         Animal animal = mapper.readValue(json, Animal.class);
@@ -280,7 +227,7 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
     }
 
     public void testWithUnwrappedAndCreatorMultipleParametersAtEnd() throws Exception {
-        final String json = a2q("{'first_name':'John','last_name':'Doe','years_old':30,'living':true,'animal_id':1234}");
+        final String json = aposToQuotes("{'first_name':'John','last_name':'Doe','years_old':30,'living':true,'animal_id':1234}");
 
         final ObjectMapper mapper = new ObjectMapper();
         Animal animal = mapper.readValue(json, Animal.class);
@@ -290,17 +237,5 @@ public class BuilderWithUnwrappedTest extends BaseMapTest
         assertEquals("Doe", animal.getName().getLast());
         assertEquals(30, animal.getAge());
         assertEquals(true, animal.isAlive());
-    }
-
-    public void testWithUnwrappedNoCreator() throws Exception {
-        final String json = a2q("{'first_name':'John','last_name':'Doe','years_old':'30','animal_id':1234}");
-
-        final ObjectMapper mapper = new ObjectMapper();
-        AnimalNoCreator animal = mapper.readValue(json, AnimalNoCreator.class);
-        assertEquals(1234, animal.getId());
-        assertNotNull(animal.getName());
-        assertEquals("John", animal.getName().getFirst());
-        assertEquals("Doe", animal.getName().getLast());
-        assertEquals("30", animal.getAge());
     }
 }

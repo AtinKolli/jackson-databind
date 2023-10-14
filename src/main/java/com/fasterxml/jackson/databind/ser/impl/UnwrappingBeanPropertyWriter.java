@@ -58,14 +58,12 @@ public class UnwrappingBeanPropertyWriter
 
         // important: combine transformers:
         transformer = NameTransformer.chainedTransformer(transformer, _nameTransformer);
-
+    
         return _new(transformer, new SerializedString(newName));
     }
 
     /**
      * Overridable factory method used by sub-classes
-     *
-     * @since 2.6.0
      */
     protected UnwrappingBeanPropertyWriter _new(NameTransformer transformer, SerializedString newName)
     {
@@ -136,10 +134,7 @@ public class UnwrappingBeanPropertyWriter
     {
         if (ser != null) {
             NameTransformer t = _nameTransformer;
-            if (ser.isUnwrappingSerializer()
-                    // as per [databind#2060], need to also check this, in case someone writes
-                    // custom implementation that does not extend standard implementation:
-                    && (ser instanceof UnwrappingBeanSerializer)) {
+            if (ser.isUnwrappingSerializer()) {
                 t = NameTransformer.chainedTransformer(t, ((UnwrappingBeanSerializer) ser)._nameTransformer);
             }
             ser = ser.unwrappingSerializer(t);
@@ -199,7 +194,7 @@ public class UnwrappingBeanPropertyWriter
     /* Overrides: internal, other
     /**********************************************************
      */
-
+    
     // need to override as we must get unwrapping instance...
     @Override
     protected JsonSerializer<Object> _findAndAddDynamic(PropertySerializerMap map,
@@ -213,14 +208,11 @@ public class UnwrappingBeanPropertyWriter
             serializer = provider.findValueSerializer(type, this);
         }
         NameTransformer t = _nameTransformer;
-        if (serializer.isUnwrappingSerializer()
-            // as per [databind#2060], need to also check this, in case someone writes
-            // custom implementation that does not extend standard implementation:
-            && (serializer instanceof UnwrappingBeanSerializer)) {
-                t = NameTransformer.chainedTransformer(t, ((UnwrappingBeanSerializer) serializer)._nameTransformer);
+        if (serializer.isUnwrappingSerializer()) {
+            t = NameTransformer.chainedTransformer(t, ((UnwrappingBeanSerializer) serializer)._nameTransformer);
         }
         serializer = serializer.unwrappingSerializer(t);
-
+        
         _dynamicSerializers = _dynamicSerializers.newWith(type, serializer);
         return serializer;
     }

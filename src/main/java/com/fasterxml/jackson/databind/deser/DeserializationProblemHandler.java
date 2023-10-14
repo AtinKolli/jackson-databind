@@ -39,7 +39,7 @@ public abstract class DeserializationProblemHandler
      * @since 2.7
      */
     public final static Object NOT_HANDLED = new Object();
-
+    
     /**
      * Method called when a JSON Object property with an unrecognized
      * name is encountered.
@@ -61,7 +61,7 @@ public abstract class DeserializationProblemHandler
      *   will be instantiated (if no instantiation done yet: for example
      *   when bean uses non-default constructors)
      * @param p Parser to use for handling problematic content
-     *
+     * 
      * @return True if the problem is resolved (and content available used or skipped);
      *  false if the handler did not anything and the problem is unresolved. Note that in
      *  latter case caller will either throw an exception or explicitly skip the content,
@@ -202,23 +202,6 @@ public abstract class DeserializationProblemHandler
     }
 
     /**
-     * Deprecated variant of
-     * {@link #handleUnexpectedToken(DeserializationContext, JavaType, JsonToken, JsonParser, String)}
-     *
-     * @since 2.8
-     *
-     * @deprecated Since 2.10
-     */
-    @Deprecated
-    public Object handleUnexpectedToken(DeserializationContext ctxt,
-            Class<?> targetType, JsonToken t, JsonParser p,
-            String failureMsg)
-        throws IOException
-    {
-        return NOT_HANDLED;
-    }
-
-    /**
      * Method that deserializers should call if the first token of the value to
      * deserialize is of unexpected type (that is, type of token that deserializer
      * cannot handle). This could occur, for example, if a Number deserializer
@@ -243,17 +226,16 @@ public abstract class DeserializationProblemHandler
      *    what to do (and exception may be thrown), or value to use (possibly
      *    <code>null</code>
      *
-     * @since 2.10
+     * @since 2.8
      */
     public Object handleUnexpectedToken(DeserializationContext ctxt,
-            JavaType targetType, JsonToken t, JsonParser p,
+            Class<?> targetType, JsonToken t, JsonParser p,
             String failureMsg)
         throws IOException
     {
-        // Calling class-version handler for backward compatibility, as of 2.10
-        return handleUnexpectedToken(ctxt, targetType.getRawClass(), t, p, failureMsg);
+        return NOT_HANDLED;
     }
-
+    
     /**
      * Method called when instance creation for a type fails due to an exception.
      * Handler may choose to do one of following things:
@@ -319,9 +301,7 @@ public abstract class DeserializationProblemHandler
             String msg)
         throws IOException
     {
-        // 16-Oct-2016, tatu: Need to delegate to deprecated method from 2.8;
-        //   remove redirect from later versions (post-2.9)
-        return handleMissingInstantiator(ctxt, instClass, p, msg);
+        return NOT_HANDLED;
     }
 
     /**
@@ -396,23 +376,5 @@ public abstract class DeserializationProblemHandler
         throws IOException
     {
         return null;
-    }
-
-    /*
-    /**********************************************************
-    /* Deprecated
-    /**********************************************************
-     */
-
-    /**
-     * @since 2.8
-     * @deprecated Since 2.9: use variant that takes {@link ValueInstantiator}
-     */
-    @Deprecated
-    public Object handleMissingInstantiator(DeserializationContext ctxt,
-            Class<?> instClass, JsonParser p, String msg)
-        throws IOException
-    {
-        return NOT_HANDLED;
     }
 }

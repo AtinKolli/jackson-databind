@@ -51,9 +51,7 @@ public final class ObjectIdValueProperty
         if (_valueDeserializer == deser) {
             return this;
         }
-        // 07-May-2019, tatu: As per [databind#2303], must keep VD/NVP in-sync if they were
-        NullValueProvider nvp = (_valueDeserializer == _nullProvider) ? deser : _nullProvider;
-        return new ObjectIdValueProperty(this, deser, nvp);
+        return new ObjectIdValueProperty(this, deser, _nullProvider);
     }
 
     @Override
@@ -62,7 +60,7 @@ public final class ObjectIdValueProperty
     }
 
     // // // BeanProperty impl
-
+    
     @Override
     public <A extends Annotation> A getAnnotation(Class<A> acls) {
         return null;

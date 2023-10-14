@@ -24,21 +24,21 @@ public class TestNameConflicts extends BaseMapTest
             this.bar = bar.toString();
         }
     }
-
+    
     static class Bean193
     {
         @JsonProperty("val1")
         private int x;
         @JsonIgnore
         private int value2;
-
+        
         public Bean193(@JsonProperty("val1")int value1,
                     @JsonProperty("val2")int value2)
         {
             this.x = value1;
             this.value2 = value2;
         }
-
+        
         @JsonProperty("val2")
         int x()
         {
@@ -71,13 +71,13 @@ public class TestNameConflicts extends BaseMapTest
         public MultipleTheoreticalGetters(@JsonProperty("a") int foo) {
             ;
         }
-
+        
         @JsonProperty
         public int getA() { return 3; }
 
         public int a() { return 5; }
     }
-
+    
     /*
     /**********************************************************
     /* Test methods
@@ -85,7 +85,7 @@ public class TestNameConflicts extends BaseMapTest
      */
 
     private final ObjectMapper MAPPER = objectMapper();
-
+    
     // [Issue#193]
     public void testIssue193() throws Exception
     {
@@ -97,13 +97,13 @@ public class TestNameConflicts extends BaseMapTest
     public void testNonConflict() throws Exception
     {
         String json = MAPPER.writeValueAsString(new BogusConflictBean());
-        assertEquals(a2q("{'prop1':2,'prop2':1}"), json);
-    }
+        assertEquals(aposToQuotes("{'prop1':2,'prop2':1}"), json);
+    }    
 
     public void testHypotheticalGetters() throws Exception
     {
         String json = objectWriter().writeValueAsString(new MultipleTheoreticalGetters());
-        assertEquals(a2q("{'a':3}"), json);
+        assertEquals(aposToQuotes("{'a':3}"), json);
     }
 
     // for [jackson-core#158]
@@ -111,16 +111,16 @@ public class TestNameConflicts extends BaseMapTest
     {
         final ObjectMapper mapper = objectMapper();
         String json = mapper.writeValueAsString(new CoreBean158());
-        assertEquals(a2q("{'bar':'x'}"), json);
+        assertEquals(aposToQuotes("{'bar':'x'}"), json);
 
         // and back
         CoreBean158 result = null;
         try {
-            result = mapper.readValue(a2q("{'bar':'y'}"), CoreBean158.class);
+            result = mapper.readValue(aposToQuotes("{'bar':'y'}"), CoreBean158.class);
         } catch (Exception e) {
             fail("Unexpected failure when reading CoreBean158: "+e);
         }
         assertNotNull(result);
         assertEquals("y", result.bar);
-    }
+    }    
 }

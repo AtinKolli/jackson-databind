@@ -30,7 +30,7 @@ public class SimpleAbstractTypeResolver
     extends AbstractTypeResolver
     implements java.io.Serializable
 {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 8635483102371490919L;
 
     /**
      * Mappings from super types to subtypes
@@ -43,10 +43,10 @@ public class SimpleAbstractTypeResolver
      * is abstract (since resolver is never called for concrete classes);
      * as well as to ensure that there is supertype/subtype relationship
      * (to ensure there won't be cycles during resolution).
-     *
+     * 
      * @param superType Abstract type to resolve
      * @param subType Sub-class of superType, to map superTo to
-     *
+     * 
      * @return This resolver, to allow chaining of initializations
      */
     public <T> SimpleAbstractTypeResolver addMapping(Class<T> superType, Class<? extends T> subType)
@@ -70,7 +70,7 @@ public class SimpleAbstractTypeResolver
     @Override
     public JavaType findTypeMapping(DeserializationConfig config, JavaType type)
     {
-        // this is the main mapping base, so let's
+        // this is the main mapping base, so let's 
         Class<?> src = type.getRawClass();
         Class<?> dst = _mappings.get(new ClassKey(src));
         if (dst == null) {
@@ -78,13 +78,6 @@ public class SimpleAbstractTypeResolver
         }
         // 09-Aug-2015, tatu: Instead of direct call via JavaType, better use TypeFactory
         return config.getTypeFactory().constructSpecializedType(type, dst);
-    }
-
-    @Override
-    @Deprecated
-    public JavaType resolveAbstractType(DeserializationConfig config, JavaType type){
-        // never materialize anything, so:
-        return null;
     }
 
     @Override

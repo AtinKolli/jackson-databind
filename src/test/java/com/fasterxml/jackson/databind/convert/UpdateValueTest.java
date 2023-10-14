@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.*;
 
 /**
  * Tests for {@link ObjectMapper#updateValue}.
+ *
+ * @since 2.9
  */
 public class UpdateValueTest extends BaseMapTest
 {
@@ -24,7 +26,7 @@ public class UpdateValueTest extends BaseMapTest
         Map<String,Object> overrides = new LinkedHashMap<>();
         overrides.put("xyz", Boolean.TRUE);
         overrides.put("foo", "bar");
-
+        
         Map<String,Object> ob = MAPPER.updateValue(base, overrides);
         // first: should return first argument
         assertSame(base, ob);

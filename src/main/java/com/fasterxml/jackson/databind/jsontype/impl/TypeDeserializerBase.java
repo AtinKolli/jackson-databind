@@ -5,10 +5,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-
 import com.fasterxml.jackson.core.*;
-
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.BeanProperty;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.deser.std.NullifyingDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
@@ -22,9 +24,9 @@ public abstract class TypeDeserializerBase
     implements java.io.Serializable
 {
     private static final long serialVersionUID = 1;
-
+    
     protected final TypeIdResolver _idResolver;
-
+    
     protected final JavaType _baseType;
 
     /**
@@ -47,9 +49,9 @@ public abstract class TypeDeserializerBase
      * in cases where type id is to be exposed as part of JSON.
      */
     protected final String _typePropertyName;
-
+    
     protected final boolean _typeIdVisible;
-
+    
     /**
      * For efficient operation we will lazily build mappings from type ids
      * to actual deserializers, once needed.
@@ -100,7 +102,7 @@ public abstract class TypeDeserializerBase
     /* Accessors
     /**********************************************************
      */
-
+    
     @Override
     public abstract JsonTypeInfo.As getTypeInclusion();
 
@@ -108,18 +110,13 @@ public abstract class TypeDeserializerBase
 
     @Override
     public final String getPropertyName() { return _typePropertyName; }
-
-    @Override
+    
+    @Override    
     public TypeIdResolver getTypeIdResolver() { return _idResolver; }
 
-    @Override
+    @Override    
     public Class<?> getDefaultImpl() {
         return ClassUtil.rawClass(_defaultImpl);
-    }
-
-    @Override
-    public boolean hasDefaultImpl() {
-        return (_defaultImpl != null);
     }
 
     /**
@@ -136,10 +133,10 @@ public abstract class TypeDeserializerBase
         sb.append('[').append(getClass().getName());
         sb.append("; base-type:").append(_baseType);
         sb.append("; id-resolver: ").append(_idResolver);
-        sb.append(']');
-        return sb.toString();
+    	    sb.append(']');
+    	    return sb.toString();
     }
-
+    
     /*
     /**********************************************************
     /* Helper methods for sub-classes
@@ -164,8 +161,8 @@ public abstract class TypeDeserializerBase
                     // 10-May-2016, tatu: We may get some help...
                     JavaType actual = _handleUnknownTypeId(ctxt, typeId);
                     if (actual == null) { // what should this be taken to mean?
-                        // 17-Jan-2019, tatu: As per [databind#2221], better NOT return `null` but...
-                        return NullifyingDeserializer.instance;
+                        // TODO: try to figure out something better
+                        return null;
                     }
                     // ... would this actually work?
                     deser = ctxt.findContextualValueDeserializer(actual, _property);
@@ -191,13 +188,7 @@ public abstract class TypeDeserializerBase
                     //  Whether this is sufficient to avoid problems remains to be seen, but for
                     //  now it should improve things.
                     if (!type.hasGenericTypes()) {
-                        try { // [databind#2668]: Should not expose generic RTEs
-                            type = ctxt.constructSpecializedType(_baseType, type.getRawClass());
-                        } catch (IllegalArgumentException e) {
-                            // 29-Mar-2020, tatu: I hope this is not misleading for other cases, but
-                            //   for [databind#2668] seems reasonable
-                            throw ctxt.invalidTypeIdException(_baseType, typeId, e.getMessage());
-                        }
+                        type = ctxt.getTypeFactory().constructSpecializedType(_baseType, type.getRawClass());
                     }
                 }
                 deser = ctxt.findContextualValueDeserializer(type, _property);
@@ -209,9 +200,10 @@ public abstract class TypeDeserializerBase
 
     protected final JsonDeserializer<Object> _findDefaultImplDeserializer(DeserializationContext ctxt) throws IOException
     {
-        // 06-Feb-2013, tatu: As per [databind#148], consider default implementation value of
-        //   {@link java.lang.Void} to mean "serialize as null"; as well as DeserializationFeature
-        //   to do swift mapping to null
+        /* 06-Feb-2013, tatu: As per [databind#148], consider default implementation value of
+         *   {@link java.lang.Void} to mean "serialize as null"; as well as DeserializationFeature
+         *   to do swift mapping to null
+         */
         if (_defaultImpl == null) {
             if (!ctxt.isEnabled(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE)) {
                 return NullifyingDeserializer.instance;
@@ -222,7 +214,7 @@ public abstract class TypeDeserializerBase
         if (ClassUtil.isBogusClass(raw)) {
             return NullifyingDeserializer.instance;
         }
-
+        
         synchronized (_defaultImpl) {
             if (_defaultImplDeserializer == null) {
                 _defaultImplDeserializer = ctxt.findContextualValueDeserializer(
@@ -234,29 +226,16 @@ public abstract class TypeDeserializerBase
 
     /**
      * Helper method called when {@link JsonParser} indicates that it can use
-     * so-called native type ids. Assumption from there is that only native
-     * type ids are to be used.
-     *
-     * @since 2.3
-     */
-    @Deprecated
-    protected Object _deserializeWithNativeTypeId(JsonParser jp, DeserializationContext ctxt) throws IOException {
-        return _deserializeWithNativeTypeId(jp, ctxt, jp.getTypeId());
-    }
-
-    /**
-     * Helper method called when {@link JsonParser} indicates that it can use
      * so-called native type ids, and such type id has been found.
-     *
-     * @since 2.4
      */
-    protected Object _deserializeWithNativeTypeId(JsonParser p, DeserializationContext ctxt, Object typeId)
+    protected Object _deserializeWithNativeTypeId(JsonParser jp, DeserializationContext ctxt, Object typeId)
         throws IOException
     {
         JsonDeserializer<Object> deser;
         if (typeId == null) {
-            // 04-May-2014, tatu: Should error be obligatory, or should there be another method
-            //   for "try to deserialize with native type id"?
+            /* 04-May-2014, tatu: Should error be obligatory, or should there be another method
+             *   for "try to deserialize with native tpye id"?
+             */
             deser = _findDefaultImplDeserializer(ctxt);
             if (deser == null) {
                 return ctxt.reportInputMismatch(baseType(),
@@ -266,11 +245,11 @@ public abstract class TypeDeserializerBase
             String typeIdStr = (typeId instanceof String) ? (String) typeId : String.valueOf(typeId);
             deser = _findDeserializer(ctxt, typeIdStr);
         }
-        return deser.deserialize(p, ctxt);
+        return deser.deserialize(jp, ctxt);
     }
 
     /**
-     * Helper method called when given type id cannot be resolved into
+     * Helper method called when given type id cannot be resolved into 
      * concrete deserializer either directly (using given {@link  TypeIdResolver}),
      * or using default type.
      * Default implementation simply throws a {@link com.fasterxml.jackson.databind.JsonMappingException} to
@@ -279,8 +258,6 @@ public abstract class TypeDeserializerBase
      * @return If it is possible to resolve type id into a {@link JsonDeserializer}
      *   should return that deserializer; otherwise throw an exception to indicate
      *   the problem.
-     *
-     * @since 2.8
      */
     protected JavaType _handleUnknownTypeId(DeserializationContext ctxt, String typeId)
         throws IOException

@@ -16,8 +16,6 @@ import com.fasterxml.jackson.databind.deser.impl.ReadableObjectId;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.ObjectIdInfo;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
-import com.fasterxml.jackson.databind.util.ClassUtil;
 
 /**
  * Deserializer only used for abstract types used as placeholders during polymorphic
@@ -41,7 +39,7 @@ public class AbstractDeserializer
     protected transient Map<String,SettableBeanProperty> _properties;
 
     // support for "native" types, which require special care:
-
+    
     protected final boolean _acceptString;
     protected final boolean _acceptBoolean;
     protected final boolean _acceptInt;
@@ -73,12 +71,6 @@ public class AbstractDeserializer
         _acceptBoolean = (cls == Boolean.TYPE) || cls.isAssignableFrom(Boolean.class);
         _acceptInt = (cls == Integer.TYPE) || cls.isAssignableFrom(Integer.class);
         _acceptDouble = (cls == Double.TYPE) || cls.isAssignableFrom(Double.class);
-    }
-
-    @Deprecated // since 2.9
-    public AbstractDeserializer(BeanDeserializerBuilder builder,
-            BeanDescription beanDesc, Map<String, SettableBeanProperty> backRefProps) {
-        this(builder, beanDesc, backRefProps, null);
     }
 
     protected AbstractDeserializer(BeanDescription beanDesc)
@@ -113,7 +105,7 @@ public class AbstractDeserializer
     /**
      * Factory method used when constructing instances for non-POJO types, like
      * {@link java.util.Map}s.
-     *
+     * 
      * @since 2.3
      */
     public static AbstractDeserializer constructForNonPOJO(BeanDescription beanDesc) {
@@ -144,10 +136,10 @@ public class AbstractDeserializer
                         idProp = (_properties == null) ? null : _properties.get(propName.getSimpleName());
                         if (idProp == null) {
                             ctxt.reportBadDefinition(_baseType, String.format(
-"Invalid Object Id definition for %s: cannot find property with name %s",
-ClassUtil.nameOf(handledType()), ClassUtil.name(propName)));
+                                    "Invalid Object Id definition for %s: cannot find property with name '%s'",
+                                    handledType().getName(), propName));
                         }
-                        idType = idProp.getType(); // lgtm [java/dereferenced-value-may-be-null]
+                        idType = idProp.getType();
                         idGen = new PropertyBasedObjectIdGenerator(objectIdInfo.getScope());
 /*
                          ctxt.reportBadDefinition(_baseType, String.format(
@@ -185,16 +177,9 @@ handledType().getName()));
     public Class<?> handledType() {
         return _baseType.getRawClass();
     }
-
+    
     @Override
     public boolean isCachable() { return true; }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        // 30-May-2020, tatu: Not sure if our choice here matters, but let's
-        //     guess "POJO" is most likely. If need be, could get more creative
-        return LogicalType.POJO;
-    }
 
     @Override // since 2.9
     public Boolean supportsUpdate(DeserializationConfig config) {
@@ -224,13 +209,13 @@ handledType().getName()));
     public SettableBeanProperty findBackReference(String logicalName) {
         return (_backRefProperties == null) ? null : _backRefProperties.get(logicalName);
     }
-
+    
     /*
     /**********************************************************
     /* Deserializer implementation
     /**********************************************************
      */
-
+    
     @Override
     public Object deserializeWithType(JsonParser p, DeserializationContext ctxt,
             TypeDeserializer typeDeserializer)

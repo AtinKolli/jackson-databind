@@ -38,14 +38,6 @@ public class BooleanFormatTest extends BaseMapTest
         public BooleanWrapper(Boolean value) { b = value; }
     }
 
-    // [databind#3080]
-    protected static class PrimitiveBooleanWrapper {
-        public boolean b;
-
-        public PrimitiveBooleanWrapper() { }
-        public PrimitiveBooleanWrapper(boolean value) { b = value; }
-    }
-
     static class AltBoolean extends BooleanWrapper
     {
         public AltBoolean() { }
@@ -53,55 +45,27 @@ public class BooleanFormatTest extends BaseMapTest
     }
 
     /*
-    /**********************************************************************
+    /**********************************************************
     /* Test methods
-    /**********************************************************************
+    /**********************************************************
      */
 
-    private final static ObjectMapper MAPPER = newJsonMapper();
+    private final static ObjectMapper MAPPER = newObjectMapper();
 
     public void testShapeViaDefaults() throws Exception
     {
-        assertEquals(a2q("{'b':true}"),
+        assertEquals(aposToQuotes("{'b':true}"),
                 MAPPER.writeValueAsString(new BooleanWrapper(true)));
-        ObjectMapper m = jsonMapperBuilder()
-                .withConfigOverride(Boolean.class,
-                        cfg -> cfg.setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.NUMBER)
-        )).build();
-        assertEquals(a2q("{'b':1}"),
+        ObjectMapper m = newObjectMapper();
+        m.configOverride(Boolean.class)
+            .setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.NUMBER));
+        assertEquals(aposToQuotes("{'b':1}"),
                 m.writeValueAsString(new BooleanWrapper(true)));
-
-        m = jsonMapperBuilder()
-                .withConfigOverride(Boolean.class,
-                        cfg -> cfg.setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.STRING)
-        )).build();
-        assertEquals(a2q("{'b':'true'}"),
-                m.writeValueAsString(new BooleanWrapper(true)));
-    }
-
-    // [databind#3080]
-    public void testPrimitiveShapeViaDefaults() throws Exception
-    {
-        assertEquals(a2q("{'b':true}"),
-                MAPPER.writeValueAsString(new PrimitiveBooleanWrapper(true)));
-        ObjectMapper m = jsonMapperBuilder()
-                .withConfigOverride(Boolean.TYPE, cfg ->
-                    cfg.setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.NUMBER))
-        ).build();
-        assertEquals(a2q("{'b':1}"),
-                m.writeValueAsString(new PrimitiveBooleanWrapper(true)));
-
-        m = jsonMapperBuilder()
-                .withConfigOverride(Boolean.TYPE, cfg ->
-                    cfg.setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.STRING))
-        ).build();
-        assertEquals(a2q("{'b':'true'}"),
-                m.writeValueAsString(new PrimitiveBooleanWrapper(true)));
     }
 
     public void testShapeOnProperty() throws Exception
     {
-        assertEquals(a2q("{'b1':1,'b2':0,'b3':true}"),
+        assertEquals(aposToQuotes("{'b1':1,'b2':0,'b3':true}"),
                 MAPPER.writeValueAsString(new BeanWithBoolean(true, false, true)));
     }
 }

@@ -3,10 +3,12 @@ package com.fasterxml.jackson.databind.deser.std;
 import java.io.IOException;
 
 import com.fasterxml.jackson.core.*;
-
+import com.fasterxml.jackson.core.sym.FieldNameMatcher;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializer;
 import com.fasterxml.jackson.databind.deser.SettableBeanProperty;
+import com.fasterxml.jackson.databind.deser.impl.BeanPropertyMap;
+import com.fasterxml.jackson.databind.deser.impl.UnwrappedPropertyHandler;
 import com.fasterxml.jackson.databind.util.NameTransformer;
 
 /**
@@ -14,65 +16,56 @@ import com.fasterxml.jackson.databind.util.NameTransformer;
  * override some aspects like instance construction.
  */
 public class ThrowableDeserializer
-    extends BeanDeserializer // not the greatest idea but...
+    extends BeanDeserializer
 {
     private static final long serialVersionUID = 1L;
 
     protected final static String PROP_NAME_MESSAGE = "message";
-    protected final static String PROP_NAME_SUPPRESSED = "suppressed";
-
-    protected final static String PROP_NAME_LOCALIZED_MESSAGE = "localizedMessage";
 
     /*
-    /**********************************************************************
-    /* Life-cycle
-    /**********************************************************************
+    /************************************************************
+    /* Construction
+    /************************************************************
      */
 
-    @Deprecated // since 2.14
     public ThrowableDeserializer(BeanDeserializer baseDeserializer) {
         super(baseDeserializer);
         // need to disable this, since we do post-processing
         _vanillaProcessing = false;
     }
 
-    public static ThrowableDeserializer construct(DeserializationContext ctxt,
-            BeanDeserializer baseDeserializer)
-    {
-        // 27-May-2022, tatu: TODO -- handle actual renaming of fields to support
-        //    strategies like kebab- and snake-case where there are changes beyond
-        //    simple upper-/lower-casing
-        /*
-        PropertyNamingStrategy pts = ctxt.getConfig().getPropertyNamingStrategy();
-        if (pts != null) {
-        }
-        */
-        return new ThrowableDeserializer(baseDeserializer);
-    }
-
-
     /**
      * Alternative constructor used when creating "unwrapping" deserializers
      */
-    protected ThrowableDeserializer(BeanDeserializer src, NameTransformer unwrapper) {
-        super(src, unwrapper);
+    protected ThrowableDeserializer(BeanDeserializer src,
+            UnwrappedPropertyHandler unwrapHandler, BeanPropertyMap renamedProperties,
+            boolean ignoreAllUnknown) {
+        super(src, unwrapHandler, renamedProperties, ignoreAllUnknown);
     }
 
     @Override
-    public JsonDeserializer<Object> unwrappingDeserializer(NameTransformer unwrapper) {
+    public JsonDeserializer<Object> unwrappingDeserializer(DeserializationContext ctxt,
+            NameTransformer transformer)
+    {
         if (getClass() != ThrowableDeserializer.class) {
             return this;
         }
-        // main thing really is to just enforce ignoring of unknown
-        // properties; since there may be multiple unwrapped values
-        // and properties for all may be interleaved...
-        return new ThrowableDeserializer(this, unwrapper);
+        // main thing really is to just enforce ignoring of unknown properties; since
+        // there may be multiple unwrapped values and properties for all may be interleaved...
+        UnwrappedPropertyHandler uwHandler = _unwrappedPropertyHandler;
+        // delegate further unwraps, if any
+        if (uwHandler != null) {
+            uwHandler = uwHandler.renameAll(ctxt, transformer);
+        }
+        // and handle direct unwrapping as well:
+        return new ThrowableDeserializer(this, uwHandler,
+                _beanProperties.renameAll(ctxt, transformer), true);
     }
 
     /*
-    /**********************************************************************
+    /************************************************************
     /* Overridden methods
-    /**********************************************************************
+    /************************************************************
      */
 
     @Override
@@ -95,20 +88,18 @@ public class ThrowableDeserializer
         // and finally, verify we do have single-String arg constructor (if no @JsonCreator)
         if (!hasStringCreator && !hasDefaultCtor) {
             return ctxt.handleMissingInstantiator(handledType(), getValueInstantiator(), p,
-                    "Throwable needs a default constructor, a single-String-arg constructor; or explicit @JsonCreator");
+                    "Throwable needs a default contructor, a single-String-arg constructor; or explicit @JsonCreator");
         }
-
-        Throwable throwable = null;
+        
+        Object throwable = null;
         Object[] pending = null;
-        Throwable[] suppressed = null;
         int pendingIx = 0;
 
-        for (; !p.hasToken(JsonToken.END_OBJECT); p.nextToken()) {
-            String propName = p.currentName();
-            SettableBeanProperty prop = _beanProperties.find(propName);
-            p.nextToken(); // to point to field value
-
-            if (prop != null) { // normal case
+        int ix = p.currentFieldName(_fieldMatcher);
+        for (; ; ix = p.nextFieldName(_fieldMatcher)) {
+            if (ix >= 0) {
+                p.nextToken();
+                SettableBeanProperty prop = _fieldsByIndex[ix];
                 if (throwable != null) {
                     prop.deserializeAndSet(p, ctxt, throwable);
                     continue;
@@ -122,30 +113,31 @@ public class ThrowableDeserializer
                 pending[pendingIx++] = prop.deserialize(p, ctxt);
                 continue;
             }
-
+            if (ix != FieldNameMatcher.MATCH_UNKNOWN_NAME) {
+                if (ix == FieldNameMatcher.MATCH_END_OBJECT) {
+                    break;
+                }
+                return _handleUnexpectedWithin(p, ctxt, throwable);
+            }
             // Maybe it's "message"?
-
-            // 26-May-2022, tatu: [databind#3497] To support property naming strategies,
-            //    should ideally mangle property names. But for now let's cheat; works
-            //    for case-changing although not for kebab/snake cases and "localizedMessage"
-            if (PROP_NAME_MESSAGE.equalsIgnoreCase(propName)) {
+            String propName = p.currentName();
+            p.nextToken();
+            if (PROP_NAME_MESSAGE.equals(propName)) {
                 if (hasStringCreator) {
-                    throwable = (Throwable) _valueInstantiator.createFromString(ctxt, p.getValueAsString());
+                    throwable = _valueInstantiator.createFromString(ctxt, p.getValueAsString());
+                    // any pending values?
+                    if (pending != null) {
+                        for (int i = 0, len = pendingIx; i < len; i += 2) {
+                            SettableBeanProperty prop = (SettableBeanProperty)pending[i];
+                            prop.set(throwable, pending[i+1]);
+                        }
+                        pending = null;
+                    }
                     continue;
                 }
-                // fall through
             }
-
             // Things marked as ignorable should not be passed to any setter
             if ((_ignorableProps != null) && _ignorableProps.contains(propName)) {
-                p.skipChildren();
-                continue;
-            }
-            if (PROP_NAME_SUPPRESSED.equalsIgnoreCase(propName)) { // or "suppressed"?
-                suppressed = ctxt.readValue(p, Throwable[].class);
-                continue;
-            }
-            if (PROP_NAME_LOCALIZED_MESSAGE.equalsIgnoreCase(propName)) {
                 p.skipChildren();
                 continue;
             }
@@ -153,47 +145,30 @@ public class ThrowableDeserializer
                 _anySetter.deserializeAndSet(p, ctxt, throwable, propName);
                 continue;
             }
-
-            // 23-Jan-2018, tatu: One concern would be `message`, but without any-setter or single-String-ctor
-            //   (or explicit constructor). We could just ignore it but for now, let it fail
-            // [databind#4071]: In case of "message", skip for default constructor
-            if (PROP_NAME_MESSAGE.equalsIgnoreCase(propName)) {
-                p.skipChildren();
-                continue;
-            }
             // Unknown: let's call handler method
             handleUnknownProperty(p, ctxt, throwable, propName);
         }
         // Sanity check: did we find "message"?
         if (throwable == null) {
-            /* 15-Oct-2010, tatu: Can't assume missing message is an error, since it may be
-             *   suppressed during serialization.
-             *
-             *   Should probably allow use of default constructor, too...
-             */
-            //throw new XxxException("No 'message' property found: could not deserialize "+_beanType);
+            // 15-Oct-2010, tatu: Can't assume missing message is an error, since it may be
+            //   suppressed during serialization, as per [JACKSON-388].
+            //
+            //   Should probably allow use of default constructor, too...
+
+            //throw new JsonMappingException("No 'message' property found: could not deserialize "+_beanType);
             if (hasStringCreator) {
-                throwable = (Throwable) _valueInstantiator.createFromString(ctxt, null);
+                throwable = _valueInstantiator.createFromString(ctxt, null);
             } else {
-                throwable = (Throwable) _valueInstantiator.createUsingDefault(ctxt);
+                throwable = _valueInstantiator.createUsingDefault(ctxt);
+            }
+            // any pending values?
+            if (pending != null) {
+                for (int i = 0, len = pendingIx; i < len; i += 2) {
+                    SettableBeanProperty prop = (SettableBeanProperty)pending[i];
+                    prop.set(throwable, pending[i+1]);
+                }
             }
         }
-
-        // any pending values?
-        if (pending != null) {
-            for (int i = 0, len = pendingIx; i < len; i += 2) {
-                SettableBeanProperty prop = (SettableBeanProperty)pending[i];
-                prop.set(throwable, pending[i+1]);
-            }
-        }
-
-        // any suppressed exceptions?
-        if (suppressed != null) {
-            for (Throwable s : suppressed) {
-                throwable.addSuppressed(s);
-            }
-        }
-
         return throwable;
     }
 }

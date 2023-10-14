@@ -33,11 +33,6 @@ public class NoTypeInfo1654Test extends BaseMapTest
         @JsonDeserialize(contentUsing = Value1654Deserializer.class)
         @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
         public List<Value1654> values;
-
-        protected Value1654UntypedContainer() { }
-        public Value1654UntypedContainer(Value1654... v) {
-            values = Arrays.asList(v);
-        }
     }
 
     static class Value1654Deserializer extends JsonDeserializer<Value1654> {
@@ -54,41 +49,26 @@ public class NoTypeInfo1654Test extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
     // [databind#1654]
     public void testNoTypeElementOverride() throws Exception
     {
-        // egular typed case
-        String json = MAPPER.writeValueAsString(new Value1654TypedContainer(
+        final ObjectMapper mapper = newObjectMapper();
+
+        // First: regular typed case
+        String json = mapper.writeValueAsString(new Value1654TypedContainer(
                 new Value1654(1),
                 new Value1654(2),
                 new Value1654(3)
         ));
-        Value1654TypedContainer result = MAPPER.readValue(json, Value1654TypedContainer.class);
+        Value1654TypedContainer result = mapper.readValue(json, Value1654TypedContainer.class);
         assertEquals(3, result.values.size());
         assertEquals(2, result.values.get(1).x);
-    }
 
-    // [databind#1654]
-    public void testNoTypeInfoOverrideSer() throws Exception
-    {
-        Value1654UntypedContainer cont = new Value1654UntypedContainer(
-                new Value1654(3),
-                new Value1654(7)
-        );
-        assertEquals(a2q("{'values':[{'x':3},{'x': 7}] }"),
-                MAPPER.writeValueAsString(cont));
-    }
-
-    // [databind#1654]
-    public void testNoTypeInfoOverrideDeser() throws Exception
-    {
         // and then actual failing case
-        final String noTypeJson = a2q(
+        final String noTypeJson = aposToQuotes(
                 "{'values':[{'x':3},{'x': 7}] }"
                 );
-        Value1654UntypedContainer unResult = MAPPER.readValue(noTypeJson, Value1654UntypedContainer.class);
+        Value1654UntypedContainer unResult = mapper.readValue(noTypeJson, Value1654UntypedContainer.class);
         assertEquals(2, unResult.values.size());
         assertEquals(7, unResult.values.get(1).x);
     }

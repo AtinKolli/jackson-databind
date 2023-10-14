@@ -13,25 +13,18 @@ import com.fasterxml.jackson.databind.deser.impl.ReadableObjectId;
 /**
  * Exception thrown during deserialization when there are object id that can't
  * be resolved.
- *
- * @author pgelinas
  */
-public class UnresolvedForwardReference extends JsonMappingException {
+public class UnresolvedForwardReference extends JsonMappingException
+{
     private static final long serialVersionUID = 1L;
     private ReadableObjectId _roid;
     private List<UnresolvedId> _unresolvedIds;
 
-    /**
-     * @since 2.7
-     */
     public UnresolvedForwardReference(JsonParser p, String msg, JsonLocation loc, ReadableObjectId roid) {
         super(p, msg, loc);
         _roid = roid;
     }
 
-    /**
-     * @since 2.7
-     */
     public UnresolvedForwardReference(JsonParser p, String msg) {
         super(p, msg);
         _unresolvedIds = new ArrayList<UnresolvedId>();
@@ -58,7 +51,7 @@ public class UnresolvedForwardReference extends JsonMappingException {
     public List<UnresolvedId> getUnresolvedIds(){
         return _unresolvedIds;
     }
-
+    
     @Override
     public String getMessage()
     {
@@ -78,30 +71,5 @@ public class UnresolvedForwardReference extends JsonMappingException {
         }
         sb.append('.');
         return sb.toString();
-    }
-
-    /**
-     * This method is overridden to prevent filling of the stack trace when
-     * constructors are called (unfortunately alternative constructors can
-     * not be used due to historical reasons).
-     * To explicitly fill in stack traces method {@link #withStackTrace()}
-     * needs to be called after construction.
-     *
-     * @since 2.14
-     */
-    @Override
-    public synchronized UnresolvedForwardReference fillInStackTrace() {
-        return this;
-    }
-
-    /**
-     * "Mutant" factory method for filling in stack trace; needed since the default
-     * constructors will not fill in stack trace.
-     *
-     * @since 2.14
-     */
-    public UnresolvedForwardReference withStackTrace() {
-        super.fillInStackTrace();
-        return this;
     }
 }

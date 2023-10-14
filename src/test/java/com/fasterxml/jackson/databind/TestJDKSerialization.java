@@ -5,9 +5,14 @@ import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-
+import com.fasterxml.jackson.databind.DeserializationConfig;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.fasterxml.jackson.databind.util.SimpleLookupCache;
 
 /**
  * Tests to verify that most core Jackson components can be serialized
@@ -17,23 +22,21 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
  */
 public class TestJDKSerialization extends BaseMapTest
 {
-    @JsonPropertyOrder({ "x", "y" })
     static class MyPojo {
         public int x;
         protected int y;
-
+        
         public MyPojo() { }
         public MyPojo(int x0, int y0) {
             x = x0;
             y = y0;
         }
-
+        
         public int getY() { return y; }
         public void setY(int y) { this.y = y; }
     }
 
     // for [databind#899]
-    @JsonPropertyOrder({ "abc", "stuff" })
     static class EnumPOJO {
         public ABC abc = ABC.B;
 
@@ -69,15 +72,15 @@ public class TestJDKSerialization extends BaseMapTest
      *   ObjectMapper here can lead to strange unit test suite failures, so
      *   let's create a private copy for this class only.
      */
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = new ObjectMapper();
+    
     public void testConfigs() throws IOException
     {
         byte[] base = jdkSerialize(MAPPER.getDeserializationConfig().getBaseSettings());
         assertNotNull(jdkDeserialize(base));
 
         // first things first: underlying BaseSettings
-
+        
         DeserializationConfig origDC = MAPPER.getDeserializationConfig();
         SerializationConfig origSC = MAPPER.getSerializationConfig();
         byte[] dcBytes = jdkSerialize(origDC);
@@ -94,7 +97,7 @@ public class TestJDKSerialization extends BaseMapTest
     // for [databind#899]
     public void testEnumHandlers() throws IOException
     {
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = new ObjectMapper();
         // ensure we have serializers and/or deserializers, first
         String json = mapper.writerFor(EnumPOJO.class)
                 .writeValueAsString(new EnumPOJO());
@@ -138,7 +141,7 @@ public class TestJDKSerialization extends BaseMapTest
         ObjectWriter writer2 = jdkDeserialize(bytes);
         assertEquals(EXP_JSON, writer2.writeValueAsString(p));
     }
-
+    
     public void testObjectReader() throws IOException
     {
         ObjectReader origReader = MAPPER.readerFor(MyPojo.class);
@@ -148,7 +151,7 @@ public class TestJDKSerialization extends BaseMapTest
         ObjectReader anyReader = MAPPER.readerFor(AnyBean.class);
         AnyBean any = anyReader.readValue(JSON);
         assertEquals(Integer.valueOf(2), any.properties().get("y"));
-
+        
         byte[] readerBytes = jdkSerialize(origReader);
         ObjectReader reader2 = jdkDeserialize(readerBytes);
         MyPojo p2 = reader2.readValue(JSON);
@@ -164,8 +167,6 @@ public class TestJDKSerialization extends BaseMapTest
         final String EXP_JSON = "{\"x\":2,\"y\":3}";
         final MyPojo p = new MyPojo(2, 3);
         assertEquals(EXP_JSON, MAPPER.writeValueAsString(p));
-        assertNotNull(MAPPER.getFactory());
-        assertNotNull(MAPPER.getFactory().getCodec());
 
         byte[] bytes = jdkSerialize(MAPPER);
         ObjectMapper mapper2 = jdkDeserialize(bytes);
@@ -173,10 +174,6 @@ public class TestJDKSerialization extends BaseMapTest
         MyPojo p2 = mapper2.readValue(EXP_JSON, MyPojo.class);
         assertEquals(p.x, p2.x);
         assertEquals(p.y, p2.y);
-
-        // [databind#2038]: verify that codec is not lost
-        assertNotNull(mapper2.getFactory());
-        assertNotNull(mapper2.getFactory().getCodec());
     }
 
     public void testTypeFactory() throws Exception
@@ -190,5 +187,49 @@ public class TestJDKSerialization extends BaseMapTest
         assertNotNull(result);
         t = orig.constructType(JavaType.class);
         assertEquals(JavaType.class, t.getRawClass());
+    }
+
+    public void testLRUMap() throws Exception
+    {
+        SimpleLookupCache<String,Integer> map = new SimpleLookupCache<String,Integer>(32, 32);
+        map.put("a", 1);
+
+        byte[] bytes = jdkSerialize(map);
+        SimpleLookupCache<String,Integer> result = jdkDeserialize(bytes);
+        // transient implementation, will be read as empty
+        assertEquals(0, result.size());
+
+        // but should be possible to re-populate
+        result.put("a", 2);
+        assertEquals(1, result.size());
+    }
+
+    /*
+    /**********************************************************
+    /* Helper methods
+    /**********************************************************
+     */
+    
+    protected byte[] jdkSerialize(Object o) throws IOException
+    {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(1000);
+        ObjectOutputStream obOut = new ObjectOutputStream(bytes);
+        obOut.writeObject(o);
+        obOut.close();
+        return bytes.toByteArray();
+    }
+
+    @SuppressWarnings("unchecked")
+    protected <T> T jdkDeserialize(byte[] raw) throws IOException
+    {
+        ObjectInputStream objIn = new ObjectInputStream(new ByteArrayInputStream(raw));
+        try {
+            return (T) objIn.readObject();
+        } catch (ClassNotFoundException e) {
+            fail("Missing class: "+e.getMessage());
+            return null;
+        } finally {
+            objIn.close();
+        }
     }
 }

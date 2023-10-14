@@ -6,9 +6,13 @@ import java.util.*;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
-
 import com.fasterxml.jackson.core.*;
-
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.*;
 import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
 import com.fasterxml.jackson.databind.cfg.MapperConfig;
@@ -44,24 +48,24 @@ public class TestHandlerInstantiation extends BaseMapTest
     @JsonTypeIdResolver(TestCustomIdResolver.class)
     static class TypeIdBean {
         public int x;
-
+        
         public TypeIdBean() { }
         public TypeIdBean(int x) { this.x = x; }
     }
 
     static class TypeIdBeanWrapper {
         public TypeIdBean bean;
-
+        
         public TypeIdBeanWrapper() { this(null); }
         public TypeIdBeanWrapper(TypeIdBean b) { bean = b; }
     }
-
+    
     /*
     /**********************************************************************
     /* Helper classes, serializers/deserializers/resolvers
     /**********************************************************************
      */
-
+    
     static class MyBeanDeserializer extends JsonDeserializer<MyBean>
     {
         public String _prefix = "";
@@ -69,10 +73,10 @@ public class TestHandlerInstantiation extends BaseMapTest
         public MyBeanDeserializer(String p) {
             _prefix  = p;
         }
-
+        
         @Override
         public MyBean deserialize(JsonParser jp, DeserializationContext ctxt)
-                throws IOException
+                throws IOException, JsonProcessingException
         {
             return new MyBean(_prefix+jp.getText());
         }
@@ -81,15 +85,15 @@ public class TestHandlerInstantiation extends BaseMapTest
     static class MyKeyDeserializer extends KeyDeserializer
     {
         public MyKeyDeserializer() { }
-
+        
         @Override
         public Object deserializeKey(String key, DeserializationContext ctxt)
-                throws IOException
+                throws IOException, JsonProcessingException
         {
             return "KEY";
         }
     }
-
+    
     static class MyBeanSerializer extends JsonSerializer<MyBean>
     {
         public String _prefix = "";
@@ -97,22 +101,22 @@ public class TestHandlerInstantiation extends BaseMapTest
         public MyBeanSerializer(String p) {
             _prefix  = p;
         }
-
+        
         @Override
         public void serialize(MyBean value, JsonGenerator jgen, SerializerProvider provider)
-            throws IOException
+            throws IOException, JsonProcessingException
         {
             jgen.writeString(_prefix + value.value);
         }
     }
-
+    
     // copied from "TestCustomTypeIdResolver"
     static class TestCustomIdResolver extends TypeIdResolverBase
     {
         static List<JavaType> initTypes;
 
         final String _id;
-
+        
         public TestCustomIdResolver(String idForBean) {
             _id = idForBean;
         }
@@ -162,15 +166,15 @@ public class TestHandlerInstantiation extends BaseMapTest
     /* Helper classes, handler instantiator
     /**********************************************************************
      */
-
+    
     static class MyInstantiator extends HandlerInstantiator
     {
         private final String _prefix;
-
+        
         public MyInstantiator(String p) {
             _prefix = p;
         }
-
+        
         @Override
         public JsonDeserializer<?> deserializerInstance(DeserializationConfig config,
                 Annotated annotated,
@@ -190,9 +194,9 @@ public class TestHandlerInstantiation extends BaseMapTest
                 return new MyKeyDeserializer();
             }
             return null;
-
+            
         }
-
+        
         @Override
         public JsonSerializer<?> serializerInstance(SerializationConfig config,
                 Annotated annotated, Class<?> serClass)
@@ -220,7 +224,7 @@ public class TestHandlerInstantiation extends BaseMapTest
             return null;
         }
     }
-
+    
     /*
     /**********************************************************************
     /* Unit tests
@@ -231,7 +235,7 @@ public class TestHandlerInstantiation extends BaseMapTest
     {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setHandlerInstantiator(new MyInstantiator("abc:"));
-        MyBean result = mapper.readValue(q("123"), MyBean.class);
+        MyBean result = mapper.readValue(quote("123"), MyBean.class);
         assertEquals("abc:123", result.value);
     }
 
@@ -243,12 +247,12 @@ public class TestHandlerInstantiation extends BaseMapTest
         // easiest to test by just serializing...
         assertEquals("{\"KEY\":\"b\"}", mapper.writeValueAsString(map));
     }
-
+    
     public void testSerializer() throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setHandlerInstantiator(new MyInstantiator("xyz:"));
-        assertEquals(q("xyz:456"), mapper.writeValueAsString(new MyBean("456")));
+        assertEquals(quote("xyz:456"), mapper.writeValueAsString(new MyBean("456")));
     }
 
     public void testTypeIdResolver() throws Exception

@@ -3,10 +3,11 @@ package perf;
 import java.io.IOException;
 import java.util.UUID;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 public class ManualReadPerfWithUUID extends ObjectReaderTestBase
 {
@@ -18,7 +19,7 @@ public class ManualReadPerfWithUUID extends ObjectReaderTestBase
 
     @Override
     protected int targetSizeMegs() { return 8; }
-
+    
     @SuppressWarnings("serial")
     static class SlowDeser extends FromStringDeserializer<UUID>
     {
@@ -26,19 +27,19 @@ public class ManualReadPerfWithUUID extends ObjectReaderTestBase
 
         @Override
         protected UUID _deserialize(String id, DeserializationContext ctxt)
-            throws IOException
+            throws IOException, JsonProcessingException
         {
             return UUID.fromString(id);
         }
     }
-
+    
     static class UUIDWithJdk {
         @JsonDeserialize(contentUsing=SlowDeser.class)
         public UUID[] ids;
         public UUIDWithJdk() { }
         public UUIDWithJdk(UUID[] ids) { this.ids = ids; }
     }
-
+    
     public static void main(String[] args) throws Exception
     {
         if (args.length != 0) {
@@ -52,7 +53,7 @@ public class ManualReadPerfWithUUID extends ObjectReaderTestBase
         UUIDNative input1 = new UUIDNative(uuids);
         UUIDWithJdk input2 = new UUIDWithJdk(uuids);
 
-        JsonMapper m = new JsonMapper();
+        ObjectMapper m = new ObjectMapper();
 
         new ManualReadPerfWithRecord().testFromBytes(
                 m, "JSON-as-Object", input1, UUIDNative.class,

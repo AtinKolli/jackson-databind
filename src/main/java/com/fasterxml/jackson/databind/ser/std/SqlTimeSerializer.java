@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.*;
@@ -20,15 +19,6 @@ public class SqlTimeSerializer
     public void serialize(java.sql.Time value, JsonGenerator g, SerializerProvider provider) throws IOException
     {
         g.writeString(value.toString());
-    }
-
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-        return createSchemaNode("string", true);
     }
 
     @Override

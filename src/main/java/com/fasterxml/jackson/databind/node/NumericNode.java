@@ -11,8 +11,6 @@ import com.fasterxml.jackson.core.JsonParser;
 public abstract class NumericNode
     extends ValueNode
 {
-    private static final long serialVersionUID = 1L;
-
     protected NumericNode() { }
 
     @Override
@@ -36,7 +34,7 @@ public abstract class NumericNode
     @Override public abstract boolean canConvertToInt();
     @Override public abstract boolean canConvertToLong();
 
-    /*
+    /* 
     /**********************************************************
     /* General type coercions
     /**********************************************************
@@ -75,7 +73,7 @@ public abstract class NumericNode
         return doubleValue();
     }
 
-    /*
+    /* 
     /**********************************************************
     /* Other
     /**********************************************************

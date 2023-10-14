@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind;
 
 import com.fasterxml.jackson.databind.cfg.ConfigFeature;
-import com.fasterxml.jackson.databind.cfg.EnumFeature;
 
 /**
  * Enumeration that defines simple on/off features that affect
@@ -116,19 +115,6 @@ public enum SerializationFeature implements ConfigFeature
      */
     FAIL_ON_UNWRAPPED_TYPE_IDENTIFIERS(true),
 
-    /**
-     * Feature that determines what happens when a direct self-reference is detected
-     * by a POJO (and no Object Id handling is enabled for it):
-     * if enabled write that reference as null; if disabled, default behavior is
-     * used (which will try to serialize usually resulting in exception).
-     * But if {@link SerializationFeature#FAIL_ON_SELF_REFERENCES} is enabled. this property is ignored.
-     * <p>
-     * Feature is disabled by default.
-     *
-     * @since 2.11
-     */
-    WRITE_SELF_REFERENCES_AS_NULL(false),
-
     /*
     /******************************************************
     /* Output life cycle features
@@ -176,33 +162,32 @@ public enum SerializationFeature implements ConfigFeature
     /**
      * Feature that determines whether Date (and date/time) values
      * (and Date-based things like {@link java.util.Calendar}s) are to be
-     * serialized as numeric time stamps (true; the default),
+     * serialized as numeric timestamps (true; the default),
      * or as something else (usually textual representation).
-     * If textual representation is used, the actual format depends on configuration
-     * settings including possible per-property use of {@code @JsonFormat} annotation,
-     * globally configured {@link java.text.DateFormat}.
-     *<p>
-     * For "classic" JDK date types ({@link java.util.Date}, {@link java.util.Calendar})
-     * the default formatting is provided by {@link com.fasterxml.jackson.databind.util.StdDateFormat},
-     * and corresponds to format String of "yyyy-MM-dd'T'HH:mm:ss.SSSX"
+     * If textual representation is used, the actual format is
+     * one returned by a call to
+     * {@link com.fasterxml.jackson.databind.SerializationConfig#getDateFormat}:
+     * the default setting being {@link com.fasterxml.jackson.databind.util.StdDateFormat},
+     * which corresponds to format String of "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
      * (see {@link java.text.DateFormat} for details of format Strings).
-     * Whether this feature affects handling of other date-related
+     *<p>
+     * Note: whether this feature affects handling of other date-related
      * types depend on handlers of those types, although ideally they
      * should use this feature
      *<p>
      * Note: whether {@link java.util.Map} keys are serialized as Strings
-     * or not is controlled using {@link #WRITE_DATE_KEYS_AS_TIMESTAMPS} instead of
-     * this feature.
+     * or not is controlled using {@link #WRITE_DATE_KEYS_AS_TIMESTAMPS}.
      *<p>
      * Feature is enabled by default, so that date/time are by default
-     * serialized as time stamps.
+     * serialized as timestamps.
      */
     WRITE_DATES_AS_TIMESTAMPS(true),
 
     /**
      * Feature that determines whether {@link java.util.Date}s
      * (and sub-types) used as {@link java.util.Map} keys are serialized
-     * as time stamps or not (if not, will be serialized as textual values).
+     * as timestamps or not (if not, will be serialized as textual
+     * values).
      *<p>
      * Default value is 'false', meaning that Date-valued Map keys are serialized
      * as textual (ISO-8601) values.
@@ -227,31 +212,10 @@ public enum SerializationFeature implements ConfigFeature
      * Feature is disabled by default, so that zone id is NOT included; rather, timezone
      * offset is used for ISO-8601 compatibility (if any timezone information is
      * included in value).
-     *
+     * 
      * @since 2.6
      */
-    WRITE_DATES_WITH_ZONE_ID(false),
-
-    /**
-     * Feature that determines whether timezone/offset included in zoned date/time
-     * values (note: does NOT {@link java.util.Date} will be overridden if there
-     * is an explicitly set context time zone.
-     * If disabled, timezone/offset value is used-is; if enabled, context time zone
-     * is used instead.
-     *<p>
-     * Note that this setting only affects "Zoned" date/time values of
-     * {@code Java 8 date/time} types -- it will have no effect on old
-     * {@link java.util} value handling (of which {@link java.util.Date} has no timezone
-     * information and must use contextual timezone, implicit or explicit; and
-     * {@link java.util.Calendar} which will always use timezone Calendar value has).
-     * Setting is also ignored by Joda date/time values.
-     *<p>
-     * Featured is enabled by default for backwards-compatibility purposes (in
-     * Jackson 2.12 override was always done if there was explicitly defined timezone).
-     *
-     * @since 2.13
-     */
-    WRITE_DATES_WITH_CONTEXT_TIME_ZONE(true),
+    WRITE_DATES_WITH_ZONE_ID(false), 
 
     /**
      * Feature that determines whether time values that represents time periods
@@ -265,11 +229,11 @@ public enum SerializationFeature implements ConfigFeature
      *<p>
      * Feature is enabled by default, so that period/duration are by default
      * serialized as timestamps.
-     *
+     * 
      * @since 2.5
      */
     WRITE_DURATIONS_AS_TIMESTAMPS(true),
-
+    
     /**
      * Feature that determines how type <code>char[]</code> is serialized:
      * when enabled, will be serialized as an explict JSON array (with
@@ -293,7 +257,7 @@ public enum SerializationFeature implements ConfigFeature
     WRITE_ENUMS_USING_TO_STRING(false),
 
     /**
-     * Feature that determines whether Java Enum values are serialized
+     * Feature that determines whethere Java Enum values are serialized
      * as numbers (true), or textual values (false). If textual values are
      * used, other settings are also considered.
      * If this feature is enabled,
@@ -303,46 +267,9 @@ public enum SerializationFeature implements ConfigFeature
      * Note that this feature has precedence over {@link #WRITE_ENUMS_USING_TO_STRING},
      * which is only considered if this feature is set to false.
      *<p>
-     * Note that since 2.10, this does NOT apply to {@link Enum}s written as
-     * keys of {@link java.util.Map} values, which has separate setting,
-     * {@link #WRITE_ENUM_KEYS_USING_INDEX}.
-     *<p>
      * Feature is disabled by default.
      */
     WRITE_ENUMS_USING_INDEX(false),
-
-    /**
-     * Feature that determines whether {link Enum}s
-     * used as {@link java.util.Map} keys are serialized
-     * as using {@link Enum#ordinal()} or not.
-     * Similar to {@link #WRITE_ENUMS_USING_INDEX} used when writing
-     * {@link Enum}s as regular values.
-     *<p>
-     * NOTE: counterpart for this settings is
-     * {@link EnumFeature#READ_ENUM_KEYS_USING_INDEX}.
-     *<p>
-     * Feature is disabled by default.
-     *
-     * @since 2.10
-     */
-    WRITE_ENUM_KEYS_USING_INDEX(false),
-
-    /**
-     * Feature that determines whether Map entries with null values are
-     * to be serialized (true) or not (false).
-     *<p>
-     * NOTE: unlike other {@link SerializationFeature}s, this feature <b>cannot</b> be
-     * dynamically changed on per-call basis, because its effect is considered during
-     * construction of serializers and property handlers.
-     *<p>
-     * Feature is enabled by default.
-     *
-     * @deprecated Since 2.9 there are better mechanism for specifying filtering; specifically
-     *   using {@link com.fasterxml.jackson.annotation.JsonInclude} or configuration overrides
-     *   (see {@link ObjectMapper#configOverride(Class)}}).
-     */
-    @Deprecated // since 2.9
-    WRITE_NULL_MAP_VALUES(true),
 
     /**
      * Feature that determines whether Container properties (POJO properties
@@ -389,25 +316,6 @@ public enum SerializationFeature implements ConfigFeature
     WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED(false),
 
     /**
-     * Feature that determines whether {@link java.math.BigDecimal} entries are
-     * serialized using {@link java.math.BigDecimal#toPlainString()} to prevent
-     * values to be written using scientific notation.
-     *<p>
-     * NOTE: since this feature typically requires use of
-     * {@link com.fasterxml.jackson.core.JsonGenerator#writeNumber(String)}
-     * it may cause compatibility problems since not all {@link com.fasterxml.jackson.core.JsonGenerator}
-     * implementations support such mode of output: usually only text-based formats
-     * support it.
-     *<p>
-     * Feature is disabled by default.
-     *
-     * @deprecated Since 2.5: use {@link com.fasterxml.jackson.core.JsonGenerator.Feature#WRITE_BIGDECIMAL_AS_PLAIN} instead
-     *    (using {@link ObjectWriter#with(com.fasterxml.jackson.core.JsonGenerator.Feature)}).
-     */
-    @Deprecated // since 2.5
-    WRITE_BIGDECIMAL_AS_PLAIN(false),
-
-    /**
      * Feature that controls whether numeric timestamp values are
      * to be written using nanosecond timestamps (enabled) or not (disabled);
      * <b>if and only if</b> datatype supports such resolution.
@@ -416,7 +324,7 @@ public enum SerializationFeature implements ConfigFeature
      * and this setting <b>has no effect</b> on such types.
      *<p>
      * If disabled, standard millisecond timestamps are assumed.
-     * This is the counterpart to {@link DeserializationFeature#READ_DATE_TIMESTAMPS_AS_NANOSECONDS}.
+     * This is the counterpart to {@link SerializationFeature#WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS}.
      *<p>
      * Feature is enabled by default, to support most accurate time values possible.
      *
@@ -480,7 +388,7 @@ public enum SerializationFeature implements ConfigFeature
 
     private final boolean _defaultState;
     private final int _mask;
-
+    
     private SerializationFeature(boolean defaultState) {
         _defaultState = defaultState;
         _mask = (1 << ordinal());

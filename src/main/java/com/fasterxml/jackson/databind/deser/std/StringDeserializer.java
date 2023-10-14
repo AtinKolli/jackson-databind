@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 
 @JacksonStdImpl
 public class StringDeserializer extends StdScalarDeserializer<String> // non-final since 2.9
@@ -20,11 +19,6 @@ public class StringDeserializer extends StdScalarDeserializer<String> // non-fin
 
     public StringDeserializer() { super(String.class); }
 
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return LogicalType.Textual;
-    }
-
     // since 2.6, slightly faster lookups for this very common type
     @Override
     public boolean isCachable() { return true; }
@@ -37,15 +31,32 @@ public class StringDeserializer extends StdScalarDeserializer<String> // non-fin
     @Override
     public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException
     {
-        // The critical path: ensure we handle the common case first.
         if (p.hasToken(JsonToken.VALUE_STRING)) {
             return p.getText();
         }
+        JsonToken t = p.currentToken();
         // [databind#381]
-        if (p.hasToken(JsonToken.START_ARRAY)) {
+        if (t == JsonToken.START_ARRAY) {
             return _deserializeFromArray(p, ctxt);
         }
-        return _parseString(p, ctxt, this);
+        // need to gracefully handle byte[] data, as base64
+        if (t == JsonToken.VALUE_EMBEDDED_OBJECT) {
+            Object ob = p.getEmbeddedObject();
+            if (ob == null) {
+                return null;
+            }
+            if (ob instanceof byte[]) {
+                return ctxt.getBase64Variant().encode((byte[]) ob, false);
+            }
+            // otherwise, try conversion using toString()...
+            return ob.toString();
+        }
+        // allow coercions for other scalar types
+        String text = p.getValueAsString();
+        if (text != null) {
+            return text;
+        }
+        return (String) ctxt.handleUnexpectedToken(_valueClass, p);
     }
 
     // Since we can never have type info ("natural type"; String, Boolean, Integer, Double):

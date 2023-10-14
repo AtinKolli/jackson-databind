@@ -5,6 +5,7 @@ import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
 import com.fasterxml.jackson.databind.ser.impl.BeanAsArraySerializer;
 import com.fasterxml.jackson.databind.ser.impl.ObjectIdWriter;
 import com.fasterxml.jackson.databind.ser.impl.UnwrappingBeanSerializer;
@@ -23,10 +24,11 @@ import com.fasterxml.jackson.databind.util.NameTransformer;
  * done from {@link #resolve} method, and NOT from constructor;
  * otherwise we could end up with an infinite loop.
  */
+@JacksonStdImpl
 public class BeanSerializer
     extends BeanSerializerBase
 {
-    private static final long serialVersionUID = 29; // as per jackson 2.9
+    private static final long serialVersionUID = 30; // as per jackson 3.0
 
     /*
     /**********************************************************
@@ -44,7 +46,7 @@ public class BeanSerializer
     {
         super(type, builder, properties, filteredProperties);
     }
-
+    
     /**
      * Alternate copy constructor that can be used to construct
      * standard {@link BeanSerializer} passing an instance of
@@ -64,14 +66,8 @@ public class BeanSerializer
         super(src, objectIdWriter, filterId);
     }
 
-    protected BeanSerializer(BeanSerializerBase src, Set<String> toIgnore, Set<String> toInclude) {
-        super(src, toIgnore, toInclude);
-    }
-
-    // @since 2.11.1
-    protected BeanSerializer(BeanSerializerBase src,
-            BeanPropertyWriter[] properties, BeanPropertyWriter[] filteredProperties) {
-        super(src, properties, filteredProperties);
+    protected BeanSerializer(BeanSerializerBase src, Set<String> toIgnore) {
+        super(src, toIgnore);
     }
 
     /*
@@ -81,23 +77,12 @@ public class BeanSerializer
      */
 
     /**
-     * @deprecated Since 2.10
+     * Method for constructing dummy bean serializer; one that
+     * never outputs any properties
      */
-    @Deprecated
     public static BeanSerializer createDummy(JavaType forType)
     {
         return new BeanSerializer(forType, null, NO_PROPS, null);
-    }
-
-    /**
-     * Method for constructing dummy bean serializer; one that
-     * never outputs any properties
-     *
-     * @since 2.10
-     */
-    public static BeanSerializer createDummy(JavaType forType, BeanSerializerBuilder builder)
-    {
-        return new BeanSerializer(forType, builder, NO_PROPS, null);
     }
 
     @Override
@@ -115,20 +100,9 @@ public class BeanSerializer
         return new BeanSerializer(this, _objectIdWriter, filterId);
     }
 
-    @Override // @since 2.12
-    protected BeanSerializerBase withByNameInclusion(Set<String> toIgnore, Set<String> toInclude) {
-        return new BeanSerializer(this, toIgnore, toInclude);
-    }
-
-    @Override // @since 2.11.1
-    protected BeanSerializerBase withProperties(BeanPropertyWriter[] properties,
-            BeanPropertyWriter[] filteredProperties) {
-        return new BeanSerializer(this, properties, filteredProperties);
-    }
-
-    @Override // @since 2.16
-    public JsonSerializer<?> withIgnoredProperties(Set<String> toIgnore) {
-        return new BeanSerializer(this, toIgnore, null);
+    @Override
+    protected BeanSerializerBase withIgnorals(Set<String> toIgnore) {
+        return new BeanSerializer(this, toIgnore);
     }
 
     /**
@@ -140,17 +114,8 @@ public class BeanSerializer
     @Override
     protected BeanSerializerBase asArraySerializer()
     {
-        /* Cannot:
-         *
-         * - have Object Id (may be allowed in future)
-         * - have "any getter"
-         * - have per-property filters
-         */
-        if ((_objectIdWriter == null)
-                && (_anyGetterWriter == null)
-                && (_propertyFilterId == null)
-                ) {
-            return new BeanAsArraySerializer(this);
+        if (canCreateArraySerializer()) {
+            return BeanAsArraySerializer.construct(this);
         }
         // already is one, so:
         return this;
@@ -172,26 +137,24 @@ public class BeanSerializer
         throws IOException
     {
         if (_objectIdWriter != null) {
-            gen.setCurrentValue(bean); // [databind#631]
             _serializeWithObjectId(bean, gen, provider, true);
             return;
         }
-        gen.writeStartObject(bean);
         if (_propertyFilterId != null) {
-            serializeFieldsFiltered(bean, gen, provider);
-        } else {
-            serializeFields(bean, gen, provider);
+            gen.writeStartObject(bean);
+            _serializeFieldsFiltered(bean, gen, provider, _propertyFilterId);
+            gen.writeEndObject();
+            return;
         }
+        BeanPropertyWriter[] fProps = _filteredProps;
+        if ((fProps != null) && (provider.getActiveView() != null)) {
+            gen.writeStartObject(bean);
+            _serializeFieldsMaybeView(bean, gen, provider, fProps);
+            gen.writeEndObject();
+            return;
+        }
+        gen.writeStartObject(bean);
+        _serializeFieldsNoView(bean, gen, provider, _props);
         gen.writeEndObject();
-    }
-
-    /*
-    /**********************************************************
-    /* Standard methods
-    /**********************************************************
-     */
-
-    @Override public String toString() {
-        return "BeanSerializer for "+handledType().getName();
     }
 }

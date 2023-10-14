@@ -39,7 +39,7 @@ public class BackReference1516Test extends BaseMapTest
             this.parent = parent;
         }
     }
-
+    
     static class ParentWithoutCreator {
         public String id, name;
 
@@ -62,21 +62,21 @@ public class BackReference1516Test extends BaseMapTest
             this.parent = parent;
         }
     }
-
+    
     /*
     /**********************************************************
-    /* Test methods
+    /* Unit tests
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final String PARENT_CHILD_JSON = a2q(
+    private final String PARENT_CHILD_JSON = aposToQuotes(
 "{ 'id': 'abc',\n"+
 "  'name': 'Bob',\n"+
 "  'child': { 'id': 'def', 'name':'Bert' }\n"+
 "}");
-
+    
     public void testWithParentCreator() throws Exception
     {
         ParentWithCreator result = MAPPER.readValue(PARENT_CHILD_JSON,

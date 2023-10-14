@@ -4,13 +4,17 @@ import java.io.IOException;
 import java.util.*;
 
 import com.fasterxml.jackson.core.*;
-
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.BeanProperty;
+import com.fasterxml.jackson.databind.DeserializationConfig;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.annotation.JacksonStdImpl;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.deser.ResolvableDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.databind.util.ClassUtil;
 import com.fasterxml.jackson.databind.util.ObjectBuffer;
@@ -59,23 +63,10 @@ public class UntypedObjectDeserializer
     /**
      * If {@link java.util.Map} has been mapped to non-default implementation,
      * we'll store type here
-     *
-     * @since 2.6
      */
     protected JavaType _mapType;
 
-    /**
-     * @since 2.9
-     */
     protected final boolean _nonMerging;
-
-    /**
-     * @deprecated Since 2.6 use variant takes type arguments
-     */
-    @Deprecated
-    public UntypedObjectDeserializer() {
-        this(null, null);
-    }
 
     public UntypedObjectDeserializer(JavaType listType, JavaType mapType) {
         super(Object.class);
@@ -99,9 +90,6 @@ public class UntypedObjectDeserializer
         _nonMerging = base._nonMerging;
     }
 
-    /**
-     * @since 2.9
-     */
     protected UntypedObjectDeserializer(UntypedObjectDeserializer base,
             boolean nonMerging)
     {
@@ -196,13 +184,11 @@ public class UntypedObjectDeserializer
         if ((_stringDeserializer == null) && (_numberDeserializer == null)
                 && (_mapDeserializer == null) && (_listDeserializer == null)
                 &&  getClass() == UntypedObjectDeserializer.class) {
-            return UntypedObjectDeserializerNR.instance(preventMerge);
+            return Vanilla.instance(preventMerge);
         }
-
         if (preventMerge != _nonMerging) {
             return new UntypedObjectDeserializer(this, preventMerge);
         }
-
         return this;
     }
 
@@ -218,15 +204,11 @@ public class UntypedObjectDeserializer
      */
     @Override
     public boolean isCachable() {
-        // 26-Mar-2015, tatu: With respect to [databind#735], there are concerns over
-        //   cachability. It seems like we SHOULD be safe here; but just in case there
-        //   are problems with false sharing, this may need to be revisited.
+        /* 26-Mar-2015, tatu: With respect to [databind#735], there are concerns over
+         *   cachability. It seems like we SHOULD be safe here; but just in case there
+         *   are problems with false sharing, this may need to be revisited.
+         */
         return true;
-    }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return LogicalType.Untyped;
     }
 
     @Override // since 2.9
@@ -268,8 +250,9 @@ public class UntypedObjectDeserializer
             if (_numberDeserializer != null) {
                 return _numberDeserializer.deserialize(p, ctxt);
             }
-            // Caller may want to get all integral values returned as {@link java.math.BigInteger},
-            // or {@link java.lang.Long} for consistency
+            /* Caller may want to get all integral values returned as {@link java.math.BigInteger},
+             * or {@link java.lang.Long} for consistency
+             */
             if (ctxt.hasSomeOfFeatures(F_MASK_INT_COERCIONS)) {
                 return _coerceIntegral(p, ctxt);
             }
@@ -314,9 +297,10 @@ public class UntypedObjectDeserializer
 
         case JsonTokenId.ID_EMBEDDED_OBJECT:
             return p.getEmbeddedObject();
-
-        // Otherwise we probably got a "native" type (ones that map
-        // naturally and thus do not need or use type ids)
+            
+        /* Otherwise we probably got a "native" type (ones that map
+         * naturally and thus do not need or use type ids)
+         */
         case JsonTokenId.ID_STRING:
             if (_stringDeserializer != null) {
                 return _stringDeserializer.deserialize(p, ctxt);
@@ -366,8 +350,8 @@ public class UntypedObjectDeserializer
         switch (p.currentTokenId()) {
         case JsonTokenId.ID_START_OBJECT:
         case JsonTokenId.ID_FIELD_NAME:
-            // We may also be given END_OBJECT (similar to FIELD_NAME),
-            // if caller has advanced to the first token of Object, but for empty Object
+            // 28-Oct-2015, tatu: [databind#989] We may also be given END_OBJECT (similar to FIELD_NAME),
+            //    if caller has advanced to the first token of Object, but for empty Object
         case JsonTokenId.ID_END_OBJECT:
             if (_mapDeserializer != null) {
                 return _mapDeserializer.deserialize(p, ctxt, intoValue);
@@ -472,7 +456,6 @@ public class UntypedObjectDeserializer
         // let's create full array then
         ArrayList<Object> result = new ArrayList<Object>(totalSize);
         buffer.completeAndClearBuffer(values, ptr, result);
-        ctxt.returnObjectBuffer(buffer);
         return result;
     }
 
@@ -493,8 +476,9 @@ public class UntypedObjectDeserializer
     protected Object mapObject(JsonParser p, DeserializationContext ctxt) throws IOException
     {
         String key1;
-        JsonToken t = p.currentToken();
 
+        JsonToken t = p.currentToken();
+        
         if (t == JsonToken.START_OBJECT) {
             key1 = p.nextFieldName();
         } else if (t == JsonToken.FIELD_NAME) {
@@ -507,17 +491,18 @@ public class UntypedObjectDeserializer
         }
         if (key1 == null) {
             // empty map might work; but caller may want to modify... so better just give small modifiable
-            return new LinkedHashMap<>(2);
+            return new LinkedHashMap<String,Object>(2);
         }
         // minor optimization; let's handle 1 and 2 entry cases separately
         // 24-Mar-2015, tatu: Ideally, could use one of 'nextXxx()' methods, but for
         //   that we'd need new method(s) in JsonDeserializer. So not quite yet.
         p.nextToken();
         Object value1 = deserialize(p, ctxt);
+
         String key2 = p.nextFieldName();
         if (key2 == null) { // has to be END_OBJECT, then
             // single entry; but we want modifiable
-            LinkedHashMap<String, Object> result = new LinkedHashMap<>(2);
+            LinkedHashMap<String, Object> result = new LinkedHashMap<String, Object>(2);
             result.put(key1, value1);
             return result;
         }
@@ -525,72 +510,23 @@ public class UntypedObjectDeserializer
         Object value2 = deserialize(p, ctxt);
 
         String key = p.nextFieldName();
+
         if (key == null) {
-            LinkedHashMap<String, Object> result = new LinkedHashMap<>(4);
+            LinkedHashMap<String, Object> result = new LinkedHashMap<String, Object>(4);
             result.put(key1, value1);
-            if (result.put(key2, value2) != null) {
-                // 22-May-2020, tatu: [databind#2733] may need extra handling
-                return _mapObjectWithDups(p, ctxt, result, key1, value1, value2, key);
-            }
+            result.put(key2, value2);
             return result;
         }
         // And then the general case; default map size is 16
-        LinkedHashMap<String, Object> result = new LinkedHashMap<>();
+        LinkedHashMap<String, Object> result = new LinkedHashMap<String, Object>();
         result.put(key1, value1);
-        if (result.put(key2, value2) != null) {
-            // 22-May-2020, tatu: [databind#2733] may need extra handling
-            return _mapObjectWithDups(p, ctxt, result, key1, value1, value2, key);
-        }
+        result.put(key2, value2);
 
         do {
             p.nextToken();
-            final Object newValue = deserialize(p, ctxt);
-            final Object oldValue = result.put(key, newValue);
-            if (oldValue != null) {
-                return _mapObjectWithDups(p, ctxt, result, key, oldValue, newValue,
-                        p.nextFieldName());
-            }
+            result.put(key, deserialize(p, ctxt));
         } while ((key = p.nextFieldName()) != null);
         return result;
-    }
-
-    // @since 2.12 (wrt [databind#2733]
-    protected Object _mapObjectWithDups(JsonParser p, DeserializationContext ctxt,
-            final Map<String, Object> result, String key,
-            Object oldValue, Object newValue, String nextKey) throws IOException
-    {
-        final boolean squashDups = ctxt.isEnabled(StreamReadCapability.DUPLICATE_PROPERTIES);
-
-        if (squashDups) {
-            _squashDups(result, key, oldValue, newValue);
-        }
-
-        while (nextKey != null) {
-            p.nextToken();
-            newValue = deserialize(p, ctxt);
-            oldValue = result.put(nextKey, newValue);
-            if ((oldValue != null) && squashDups) {
-                _squashDups(result, key, oldValue, newValue);
-            }
-            nextKey = p.nextFieldName();
-        }
-
-        return result;
-    }
-
-    @SuppressWarnings("unchecked")
-    private void _squashDups(final Map<String, Object> result, String key,
-            Object oldValue, Object newValue)
-    {
-        if (oldValue instanceof List<?>) {
-            ((List<Object>) oldValue).add(newValue);
-            result.put(key, oldValue);
-        } else {
-            ArrayList<Object> l = new ArrayList<>();
-            l.add(oldValue);
-            l.add(newValue);
-            result.put(key, l);
-        }
     }
 
     /**
@@ -613,9 +549,7 @@ public class UntypedObjectDeserializer
             }
             values[ptr++] = value;
         } while (p.nextToken() != JsonToken.END_ARRAY);
-        final Object[] result = buffer.completeAndClearBuffer(values, ptr);
-        ctxt.returnObjectBuffer(buffer);
-        return result;
+        return buffer.completeAndClearBuffer(values, ptr);
     }
 
     protected Object mapObject(JsonParser p, DeserializationContext ctxt,
@@ -649,17 +583,13 @@ public class UntypedObjectDeserializer
     }
 
     /*
-    /**********************************************************************
-    /* Separate "vanilla" implementation for common case of no deser overrides
-    /**********************************************************************
+    /**********************************************************
+    /* Separate "vanilla" implementation for common case of
+    /* no custom deserializer overrides
+    /**********************************************************
      */
 
-    /**
-     * Streamlined version of {@link UntypedObjectDeserializer} that has fewer checks and
-     * is only used when no custom deserializer overrides are applied.
-     */
     @JacksonStdImpl
-    @Deprecated // since 2.14, to be removed in near future
     public static class Vanilla
         extends StdDeserializer<Object>
     {
@@ -667,9 +597,11 @@ public class UntypedObjectDeserializer
 
         public final static Vanilla std = new Vanilla();
 
-        // @since 2.9
+        /**
+         * @since 2.9
+         */
         protected final boolean _nonMerging;
-
+        
         public Vanilla() { this(false); }
 
         protected Vanilla(boolean nonMerging) {
@@ -683,12 +615,7 @@ public class UntypedObjectDeserializer
             }
             return std;
         }
-
-        @Override // since 2.12
-        public LogicalType logicalType() {
-            return LogicalType.Untyped;
-        }
-
+        
         @Override // since 2.9
         public Boolean supportsUpdate(DeserializationConfig config) {
             // 21-Apr-2017, tatu: Bit tricky... some values, yes. So let's say "dunno"
@@ -805,6 +732,7 @@ public class UntypedObjectDeserializer
             if (_nonMerging) {
                 return deserialize(p, ctxt);
             }
+
             switch (p.currentTokenId()) {
             case JsonTokenId.ID_END_OBJECT:
             case JsonTokenId.ID_END_ARRAY:
@@ -870,10 +798,18 @@ public class UntypedObjectDeserializer
                 l.add(value);
                 return l;
             }
+            Object value2 = deserialize(p, ctxt);
+            if (p.nextToken()  == JsonToken.END_ARRAY) {
+                ArrayList<Object> l = new ArrayList<Object>(2);
+                l.add(value);
+                l.add(value2);
+                return l;
+            }
             ObjectBuffer buffer = ctxt.leaseObjectBuffer();
             Object[] values = buffer.resetAndStart();
             int ptr = 0;
             values[ptr++] = value;
+            values[ptr++] = value2;
             int totalSize = ptr;
             do {
                 value = deserialize(p, ctxt);
@@ -887,10 +823,12 @@ public class UntypedObjectDeserializer
             // let's create full array then
             ArrayList<Object> result = new ArrayList<Object>(totalSize);
             buffer.completeAndClearBuffer(values, ptr, result);
-            ctxt.returnObjectBuffer(buffer);
             return result;
         }
 
+        /**
+         * Method called to map a JSON Array into a Java Object array (Object[]).
+         */
         protected Object[] mapArrayToArray(JsonParser p, DeserializationContext ctxt) throws IOException {
             ObjectBuffer buffer = ctxt.leaseObjectBuffer();
             Object[] values = buffer.resetAndStart();
@@ -903,79 +841,44 @@ public class UntypedObjectDeserializer
                 }
                 values[ptr++] = value;
             } while (p.nextToken() != JsonToken.END_ARRAY);
-            Object[] result = buffer.completeAndClearBuffer(values, ptr);
-            ctxt.returnObjectBuffer(buffer);
-            return result;
+            return buffer.completeAndClearBuffer(values, ptr);
         }
 
+        /**
+         * Method called to map a JSON Object into a Java value.
+         */
         protected Object mapObject(JsonParser p, DeserializationContext ctxt) throws IOException
         {
             // will point to FIELD_NAME at this point, guaranteed
-            // 19-Jul-2021, tatu: Was incorrectly using "getText()" before 2.13, fixed for 2.13.0
-            String key1 = p.currentName();
+            String key1 = p.getText();
             p.nextToken();
             Object value1 = deserialize(p, ctxt);
 
-            String key = p.nextFieldName();
-            if (key == null) { // single entry; but we want modifiable
+            String key2 = p.nextFieldName();
+            if (key2 == null) { // single entry; but we want modifiable
                 LinkedHashMap<String, Object> result = new LinkedHashMap<String, Object>(2);
                 result.put(key1, value1);
+                return result;
+            }
+            p.nextToken();
+            Object value2 = deserialize(p, ctxt);
+
+            String key = p.nextFieldName();
+            if (key == null) {
+                LinkedHashMap<String, Object> result = new LinkedHashMap<String, Object>(4);
+                result.put(key1, value1);
+                result.put(key2, value2);
                 return result;
             }
             // And then the general case; default map size is 16
             LinkedHashMap<String, Object> result = new LinkedHashMap<String, Object>();
             result.put(key1, value1);
+            result.put(key2, value2);
             do {
                 p.nextToken();
-                final Object newValue = deserialize(p, ctxt);
-                final Object oldValue = result.put(key, newValue);
-                if (oldValue != null) {
-                    return _mapObjectWithDups(p, ctxt, result, key, oldValue, newValue,
-                            p.nextFieldName());
-                }
+                result.put(key, deserialize(p, ctxt));
             } while ((key = p.nextFieldName()) != null);
             return result;
-        }
-
-        // NOTE: copied from above (alas, no easy way to share/reuse)
-        // @since 2.12 (wrt [databind#2733]
-        protected Object _mapObjectWithDups(JsonParser p, DeserializationContext ctxt,
-                final Map<String, Object> result, String initialKey,
-                Object oldValue, Object newValue, String nextKey) throws IOException
-        {
-            final boolean squashDups = ctxt.isEnabled(StreamReadCapability.DUPLICATE_PROPERTIES);
-
-            if (squashDups) {
-                _squashDups(result, initialKey, oldValue, newValue);
-            }
-
-            while (nextKey != null) {
-                p.nextToken();
-                newValue = deserialize(p, ctxt);
-                oldValue = result.put(nextKey, newValue);
-                if ((oldValue != null) && squashDups) {
-                    _squashDups(result, nextKey, oldValue, newValue);
-                }
-                nextKey = p.nextFieldName();
-            }
-
-            return result;
-        }
-
-        // NOTE: copied from above (alas, no easy way to share/reuse)
-        @SuppressWarnings("unchecked")
-        private void _squashDups(final Map<String, Object> result, String key,
-                Object oldValue, Object newValue)
-        {
-            if (oldValue instanceof List<?>) {
-                ((List<Object>) oldValue).add(newValue);
-                result.put(key, oldValue);
-            } else {
-                ArrayList<Object> l = new ArrayList<>();
-                l.add(oldValue);
-                l.add(newValue);
-                result.put(key, l);
-            }
         }
     }
 }

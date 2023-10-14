@@ -63,7 +63,7 @@ public class SingleValueAsArrayTest extends BaseMapTest
     /* Unit tests
     /**********************************************************
      */
-
+    
     private final ObjectMapper MAPPER = new ObjectMapper();
     {
         MAPPER.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
@@ -76,7 +76,7 @@ public class SingleValueAsArrayTest extends BaseMapTest
     }
 
     public void testWithSingleString() throws Exception {
-        Bean1421B<List<String>> a = MAPPER.readValue(q("test2"),
+        Bean1421B<List<String>> a = MAPPER.readValue(quote("test2"),
                 new TypeReference<Bean1421B<List<String>>>() {});
         List<String> expected = new ArrayList<>();
         expected.add("test2");

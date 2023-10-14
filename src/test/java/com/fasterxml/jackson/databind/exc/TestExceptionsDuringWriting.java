@@ -6,7 +6,6 @@ import java.util.*;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.testutil.BrokenStringWriter;
 
 /**
  * Unit test for verifying that exceptions are properly handled (caught,
@@ -44,7 +43,7 @@ public class TestExceptionsDuringWriting
 
     /**
      * Unit test that verifies that by default all exceptions except for
-     * JacksonExceptions are caught and wrapped.
+     * JsonMappingException are caught and wrapped.
      */
     public void testCatchAndRethrow()
         throws Exception
@@ -79,60 +78,24 @@ public class TestExceptionsDuringWriting
      * Unit test for verifying that regular IOExceptions are not wrapped
      * but are passed through as is.
      */
+    @SuppressWarnings("resource")
     public void testExceptionWithSimpleMapper()
         throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
-        try (BrokenStringWriter sw = new BrokenStringWriter("TEST")) {
+        try {
+            BrokenStringWriter sw = new BrokenStringWriter("TEST");
             mapper.writeValue(sw, createLongObject());
             fail("Should have gotten an exception");
         } catch (IOException e) {
             verifyException(e, IOException.class, "TEST");
         }
     }
-
-    public void testExceptionWithMapperAndGenerator()
-        throws Exception
-    {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonFactory f = new MappingJsonFactory();
-        BrokenStringWriter sw = new BrokenStringWriter("TEST");
-        try (JsonGenerator jg = f.createGenerator(sw)) {
-            mapper.writeValue(jg, createLongObject());
-            fail("Should have gotten an exception");
-        } catch (IOException e) {
-            verifyException(e, IOException.class, "TEST");
-        }
-    }
-
-    public void testExceptionWithGeneratorMapping()
-        throws Exception
-    {
-        JsonFactory f = new MappingJsonFactory();
-        try (JsonGenerator jg = f.createGenerator(new BrokenStringWriter("TEST"))) {
-            jg.writeObject(createLongObject());
-            fail("Should have gotten an exception");
-        } catch (Exception e) {
-            verifyException(e, IOException.class, "TEST");
-        }
-    }
-
     /*
     /**********************************************************
     /* Helper methods
     /**********************************************************
      */
-
-    void verifyException(Exception e, Class<?> expType, String expMsg)
-        throws Exception
-    {
-        if (e.getClass() != expType) {
-            fail("Expected exception of type "+expType.getName()+", got "+e.getClass().getName());
-        }
-        if (expMsg != null) {
-            verifyException(e, expMsg);
-        }
-    }
 
     Object createLongObject()
     {

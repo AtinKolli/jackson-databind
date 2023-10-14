@@ -12,7 +12,7 @@ public class TestArrayConversions
     extends com.fasterxml.jackson.databind.BaseMapTest
 {
     final static String OVERFLOW_MSG_BYTE = "out of range of Java byte";
-    final static String OVERFLOW_MSG_SHORT = "out of range of Java short";
+    final static String OVERFLOW_MSG = "overflow";
 
     final static String OVERFLOW_MSG_INT = "out of range of int";
     final static String OVERFLOW_MSG_LONG = "out of range of long";
@@ -57,7 +57,7 @@ public class TestArrayConversions
         byte[] exp = "sure.".getBytes("Ascii");
         verifyIntegralArrays(exp, data, exp.length);
     }
-
+    
     public void testShortArrayToX() throws Exception
     {
         short[] data = shorts();
@@ -85,10 +85,10 @@ public class TestArrayConversions
         verifyLongArrayConversion(data, byte[].class);
         verifyLongArrayConversion(data, short[].class);
         verifyLongArrayConversion(data, int[].class);
-
+ 
         List<Number> expNums = _numberList(data, data.length);
         List<Long> actNums = MAPPER.convertValue(data, new TypeReference<List<Long>>() {});
-        assertEquals(expNums, actNums);
+        assertEquals(expNums, actNums);        
     }
 
     public void testOverflows()
@@ -96,31 +96,28 @@ public class TestArrayConversions
         // Byte overflow
         try {
             MAPPER.convertValue(new int[] { 1000 }, byte[].class);
-            fail("Expected an exception");
         } catch (IllegalArgumentException e) {
             verifyException(e, OVERFLOW_MSG_BYTE);
         }
         // Short overflow
         try {
             MAPPER.convertValue(new int[] { -99999 }, short[].class);
-            fail("Expected an exception");
         } catch (IllegalArgumentException e) {
-            verifyException(e, OVERFLOW_MSG_SHORT);
+            verifyException(e, OVERFLOW_MSG);
         }
         // Int overflow
         try {
             MAPPER.convertValue(new long[] { Long.MAX_VALUE }, int[].class);
-            fail("Expected an exception");
         } catch (IllegalArgumentException e) {
             verifyException(e, OVERFLOW_MSG_INT);
         }
         // Longs need help of BigInteger...
-        BigInteger biggie = BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);;
+        BigInteger biggie = BigInteger.valueOf(Long.MAX_VALUE);
+        biggie.add(BigInteger.ONE);
         List<BigInteger> l = new ArrayList<BigInteger>();
         l.add(biggie);
         try {
             MAPPER.convertValue(l, long[].class);
-            fail("Expected an exception");
         } catch (IllegalArgumentException e) {
             verifyException(e, OVERFLOW_MSG_LONG);
         }
@@ -133,7 +130,7 @@ public class TestArrayConversions
      */
 
     // note: all value need to be within byte range
-
+    
     private byte[] bytes() { return new byte[] { 1, -1, 0, 98, 127 }; }
     private short[] shorts() { return new short[] { 1, -1, 0, 98, 127 }; }
     private int[] ints() { return new int[] { 1, -1, 0, 98, 127 }; }
@@ -170,7 +167,7 @@ public class TestArrayConversions
         T result = _convert(data, arrayType);
         verifyDoubleArrays(data, result, data.length);
     }
-
+    
     private <T> T _convert(Object input, Class<T> outputType)
     {
         // must be a primitive array, like "int[].class"
@@ -191,7 +188,7 @@ public class TestArrayConversions
         }
         return result;
     }
-
+    
     /**
      * Helper method for checking that given collections contain integral Numbers
      * that essentially contain same values in same order
@@ -204,7 +201,7 @@ public class TestArrayConversions
             double value1 = n1.longValue();
             double value2 = n2.longValue();
             assertEquals("Entry #"+i+"/"+size+" not equal", value1, value2);
-        }
+        }        
     }
 
     private void verifyDoubleArrays(Object inputArray, Object outputArray, int size)

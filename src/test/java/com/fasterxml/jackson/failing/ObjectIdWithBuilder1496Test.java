@@ -18,13 +18,12 @@ public class ObjectIdWithBuilder1496Test extends BaseMapTest
          public long getId() { return id; }
          private int var;
          public int getVar() { return var; }
-
-         POJO (long id, int var) { this.id = id; this.var = var; }
+         private POJO (long id, int var) { this.id = id; this.var = var; }
 
          @Override
          public String toString() { return "id: " + id + ", var: " + var; }
     }
-
+         
     @JsonIdentityInfo(generator=ObjectIdGenerators.PropertyGenerator.class, property="id")
     @JsonPOJOBuilder(withPrefix = "", buildMethodName="readFromCacheOrBuild")
     static final class POJOBuilder {
@@ -36,7 +35,7 @@ public class ObjectIdWithBuilder1496Test extends BaseMapTest
         public POJOBuilder var(int _var) { var = _var; return this; }
 
         public POJO build() { return new POJO(id, var); }
-
+        
         // Special build method for jackson deserializer that caches objects already deserialized
         private final static ConcurrentHashMap<Long, POJO> cache = new ConcurrentHashMap<>();
         public POJO readFromCacheOrBuild() {
@@ -58,8 +57,8 @@ public class ObjectIdWithBuilder1496Test extends BaseMapTest
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = newObjectMapper();
+    
     public void testBuilderId1496() throws Exception
     {
         POJO input = new POJOBuilder().id(123L).var(456).build();

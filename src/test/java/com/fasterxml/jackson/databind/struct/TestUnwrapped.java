@@ -3,7 +3,6 @@ package com.fasterxml.jackson.databind.struct;
 import com.fasterxml.jackson.annotation.*;
 
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 /**
  * Unit tests for verifying that basic {@link JsonUnwrapped} annotation
@@ -34,7 +33,7 @@ public class TestUnwrapped extends BaseMapTest
             this.y = y;
         }
     }
-
+    
     static class DeepUnwrapping
     {
         @JsonUnwrapped
@@ -45,7 +44,7 @@ public class TestUnwrapped extends BaseMapTest
             unwrapped = new Unwrapping(str, x, y);
         }
     }
-
+    
     static class UnwrappingWithCreator {
         public String name;
 
@@ -93,8 +92,9 @@ public class TestUnwrapped extends BaseMapTest
     }
 
     static class Outer {
+        // @JsonProperty
         @JsonUnwrapped
-        Inner inner;
+        private Inner inner;
     }
 
     // [databind#1493]: case-insensitive handling
@@ -107,36 +107,8 @@ public class TestUnwrapped extends BaseMapTest
         public String street;
         public String addon;
         public String zip;
-        public String town;
+        public String town;    
         public String country;
-    }
-
-    // [databind#2088]
-    static class Issue2088Bean {
-        int x;
-        int y;
-
-        @JsonUnwrapped
-        Issue2088UnwrappedBean w;
-
-        public Issue2088Bean(@JsonProperty("x") int x, @JsonProperty("y") int y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        public void setW(Issue2088UnwrappedBean w) {
-            this.w = w;
-        }
-    }
-
-    static class Issue2088UnwrappedBean {
-        int a;
-        int b;
-
-        public Issue2088UnwrappedBean(@JsonProperty("a") int a, @JsonProperty("b") int b) {
-            this.a = a;
-            this.b = b;
-        }
     }
 
     /*
@@ -148,15 +120,13 @@ public class TestUnwrapped extends BaseMapTest
     private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testSimpleUnwrappingSerialize() throws Exception {
-        JsonMapper mapper = JsonMapper.builder().enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build();
-        assertEquals("{\"x\":1,\"y\":2,\"name\":\"Tatu\"}",
-                mapper.writeValueAsString(new Unwrapping("Tatu", 1, 2)));
+        assertEquals("{\"name\":\"Tatu\",\"x\":1,\"y\":2}",
+                MAPPER.writeValueAsString(new Unwrapping("Tatu", 1, 2)));
     }
 
     public void testDeepUnwrappingSerialize() throws Exception {
-        JsonMapper mapper = JsonMapper.builder().enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build();
-        assertEquals("{\"x\":1,\"y\":2,\"name\":\"Tatu\"}",
-                mapper.writeValueAsString(new DeepUnwrapping("Tatu", 1, 2)));
+        assertEquals("{\"name\":\"Tatu\",\"x\":1,\"y\":2}",
+                MAPPER.writeValueAsString(new DeepUnwrapping("Tatu", 1, 2)));
     }
 
     /*
@@ -240,20 +210,9 @@ public class TestUnwrapped extends BaseMapTest
     // [databind#1493]: case-insensitive handling
     public void testCaseInsensitiveUnwrap() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
         Person p = mapper.readValue("{ }", Person.class);
         assertNotNull(p);
-    }
-
-    // [databind#2088]: accidental skipping of values
-    public void testIssue2088UnwrappedFieldsAfterLastCreatorProp() throws Exception
-    {
-        Issue2088Bean bean = MAPPER.readValue("{\"x\":1,\"a\":2,\"y\":3,\"b\":4}", Issue2088Bean.class);
-        assertEquals(1, bean.x);
-        assertEquals(2, bean.w.a);
-        assertEquals(3, bean.y);
-        assertEquals(4, bean.w.b);
     }
 }

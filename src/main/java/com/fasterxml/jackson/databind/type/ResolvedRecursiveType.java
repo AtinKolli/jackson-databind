@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.JavaType;
  *
  * @since 2.7
  */
-public class ResolvedRecursiveType extends IdentityEqualityType
+public class ResolvedRecursiveType extends TypeBase
 {
     private static final long serialVersionUID = 1L;
 
@@ -25,51 +25,32 @@ public class ResolvedRecursiveType extends IdentityEqualityType
         }
         _referencedType = ref;
     }
-
+   
     @Override
     public JavaType getSuperClass() {
-        if (_referencedType != null) {
-            return _referencedType.getSuperClass();
-        }
-        return super.getSuperClass();
+    	if (_referencedType != null) {
+    		return _referencedType.getSuperClass();
+    	}
+    	return super.getSuperClass();
     }
 
     public JavaType getSelfReferencedType() { return _referencedType; }
 
-    // 23-Jul-2019, tatu: [databind#2331] Need to also delegate this...
-    @Override
-    public TypeBindings getBindings() {
-        if (_referencedType != null) { // `null` before resolution [databind#2395]
-            return _referencedType.getBindings();
-        }
-        return super.getBindings();
-    }
-
     @Override
     public StringBuilder getGenericSignature(StringBuilder sb) {
-        // 30-Oct-2019, tatu: Alas, need to break recursion, otherwise we'll
-        //    end up in StackOverflowError... two choices; '?' for "not known",
-        //    or erased signature.
-        if (_referencedType != null) {
-//            return _referencedType.getGenericSignature(sb);
-            return _referencedType.getErasedSignature(sb);
-        }
-        return sb.append("?");
+        return _referencedType.getGenericSignature(sb);
     }
 
     @Override
     public StringBuilder getErasedSignature(StringBuilder sb) {
-        if (_referencedType != null) {
-            return _referencedType.getErasedSignature(sb);
-        }
-        return sb;
+        return _referencedType.getErasedSignature(sb);
     }
 
     @Override
     public JavaType withContentType(JavaType contentType) {
         return this;
     }
-
+    
     @Override
     public JavaType withTypeHandler(Object h) {
         return this;
@@ -120,17 +101,17 @@ public class ResolvedRecursiveType extends IdentityEqualityType
         return sb.toString();
     }
 
-    //@Override
-    //public boolean equals(Object o) {
-        //if (o == this) return true;
-        //if (o == null) return false;
-        //if (o.getClass() == getClass()) {
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (o == null) return false;
+        if (o.getClass() == getClass()) {
             // 16-Jun-2017, tatu: as per [databind#1658], cannot do recursive call since
             //    there is likely to be a cycle...
 
             // but... true or false?
-            //return false;
-
+            return false;
+            
             /*
             // Do NOT ever match unresolved references
             if (_referencedType == null) {
@@ -139,7 +120,7 @@ public class ResolvedRecursiveType extends IdentityEqualityType
             return (o.getClass() == getClass()
                     && _referencedType.equals(((ResolvedRecursiveType) o).getSelfReferencedType()));
                     */
-        //}
-        //return false;
-    //}
+        }
+        return false;
+    }
 }

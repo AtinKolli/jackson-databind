@@ -19,7 +19,7 @@ public class IgnoredCreatorProperty1572Test extends BaseMapTest
 
         @JsonIgnore
         String otherOtherStr;
-
+        
         @JsonCreator
         public OuterTest(/*@JsonProperty("innerTest")*/ InnerTest inner,
                 /*@JsonProperty("otherOtherStr")*/ String otherStr) {
@@ -60,7 +60,7 @@ public class IgnoredCreatorProperty1572Test extends BaseMapTest
     {
         final ObjectMapper mapper = new ObjectMapper();
         mapper.setAnnotationIntrospector(new ImplicitNames());
-        String JSON = a2q("{'innerTest': {\n"
+        String JSON = aposToQuotes("{'innerTest': {\n"
                 +"'str':'str',\n"
                 +"'otherStr': 'otherStr'\n"
                 +"}}\n");

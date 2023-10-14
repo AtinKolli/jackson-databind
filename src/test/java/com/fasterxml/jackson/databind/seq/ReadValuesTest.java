@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.BaseMapTest;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 
 @SuppressWarnings("resource")
 public class ReadValuesTest extends BaseMapTest
@@ -41,8 +40,8 @@ public class ReadValuesTest extends BaseMapTest
         BYTE_ARRAY_OFFSET
         ;
     }
-
-    private final ObjectMapper MAPPER = newJsonMapper();
+    
+    private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testRootBeans() throws Exception
     {
@@ -164,22 +163,6 @@ public class ReadValuesTest extends BaseMapTest
     /**********************************************************
      */
 
-    public void testRootBeansWithParser() throws Exception
-    {
-        final String JSON = "{\"a\":3}{\"a\":27}  ";
-        JsonParser jp = MAPPER.createParser(JSON);
-
-        Iterator<Bean> it = jp.readValuesAs(Bean.class);
-
-        assertTrue(it.hasNext());
-        Bean b = it.next();
-        assertEquals(3, b.a);
-        assertTrue(it.hasNext());
-        b = it.next();
-        assertEquals(27, b.a);
-        assertFalse(it.hasNext());
-    }
-
     public void testRootArraysWithParser() throws Exception
     {
         final String JSON = "[1][3]";
@@ -188,7 +171,7 @@ public class ReadValuesTest extends BaseMapTest
         // NOTE: We must point JsonParser to the first element; if we tried to
         // use "managed" accessor, it would try to advance past START_ARRAY.
         assertToken(JsonToken.START_ARRAY, jp.nextToken());
-
+        
         Iterator<int[]> it = MAPPER.readerFor(int[].class).readValues(jp);
         assertTrue(it.hasNext());
         int[] array = it.next();
@@ -209,7 +192,7 @@ public class ReadValuesTest extends BaseMapTest
         // use "managed" accessor, it would try to advance past START_ARRAY.
         assertToken(JsonToken.START_ARRAY, jp.nextToken());
         jp.nextToken();
-
+        
         Iterator<Integer> it = MAPPER.readerFor(Integer.class).readValues(jp);
         assertTrue(it.hasNext());
         int value = it.next();
@@ -252,7 +235,7 @@ public class ReadValuesTest extends BaseMapTest
         // explicitly passed JsonParser MUST point to the first token of
         // the first element
         assertToken(JsonToken.START_OBJECT, jp.nextToken());
-
+        
         Iterator<Bean> it = MAPPER.readerFor(Bean.class).readValues(jp);
 
         assertTrue(it.hasNext());
@@ -275,7 +258,7 @@ public class ReadValuesTest extends BaseMapTest
         // explicitly passed JsonParser MUST point to the first token of
         // the first element
         jp.clearCurrentToken();
-
+        
         Iterator<Map<?,?>> it = MAPPER.readerFor(Map.class).readValues(jp);
 
         assertTrue(it.hasNext());
@@ -308,38 +291,18 @@ public class ReadValuesTest extends BaseMapTest
         assertEquals(2, map.size());
         assertFalse(iterator.hasNext());
     }
-
-    public void testObjectReaderWithJsonParserFastDoubleParser() throws Exception
-    {
-        testObjectReaderWithFastDoubleParser(true);
-    }
-
-    public void testObjectReaderWithJsonReadFeatureFastDoubleParser() throws Exception
-    {
-        testObjectReaderWithFastDoubleParser(false);
-    }
-
-    public void testObjectReaderWithJsonParserFastFloatParser() throws Exception
-    {
-        testObjectReaderWithFastFloatParser(true);
-    }
-
-    public void testObjectReaderWithJsonReadFeatureFastFloatParser() throws Exception
-    {
-        testObjectReaderWithFastFloatParser(false);
-    }
-
+    
     public void testNonRootArraysUsingParser() throws Exception
     {
         final String JSON = "[[1],[3]]";
         JsonParser p = MAPPER.createParser(JSON);
         assertToken(JsonToken.START_ARRAY, p.nextToken());
-
+        
         // Important: as of 2.1, START_ARRAY can only be skipped if the
         // target type is NOT a Collection or array Java type.
         // So we have to explicitly skip it in this particular case.
         assertToken(JsonToken.START_ARRAY, p.nextToken());
-
+        
         Iterator<int[]> it = MAPPER.readValues(p, int[].class);
 
         assertTrue(it.hasNext());
@@ -352,78 +315,5 @@ public class ReadValuesTest extends BaseMapTest
         assertEquals(3, array[0]);
         assertFalse(it.hasNext());
         p.close();
-    }
-
-    public void testEmptyIterator() throws Exception
-    {
-        MappingIterator<Object> empty = MappingIterator.emptyIterator();
-
-        assertFalse(empty.hasNext());
-        assertFalse(empty.hasNextValue());
-
-        empty.close();
-    }
-
-    private void testObjectReaderWithFastDoubleParser(final boolean useParserFeature) throws Exception
-    {
-        final String JSON = "[{ \"val1\": 1.23456, \"val2\": 5 }, { \"val1\": 3.14, \"val2\": -6.5 }]";
-        final ObjectMapper mapper;
-        if (useParserFeature) {
-            JsonFactory factory = new JsonFactory();
-            factory.enable(JsonParser.Feature.USE_FAST_DOUBLE_PARSER);
-            factory.enable(JsonParser.Feature.USE_FAST_BIG_NUMBER_PARSER);
-            mapper = JsonMapper.builder(factory).build();
-        } else {
-            mapper = JsonMapper.builder()
-                    .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
-                    .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
-                    .build();
-        }
-
-        final MappingIterator<Map<String, Double>> iterator = mapper.reader().forType(new TypeReference<Map<String, Double>>(){}).readValues(JSON);
-
-        Map<String, Double> map;
-        assertTrue(iterator.hasNext());
-        map = iterator.nextValue();
-        assertEquals(2, map.size());
-        assertEquals(Double.valueOf(1.23456), map.get("val1"));
-        assertEquals(Double.valueOf(5), map.get("val2"));
-        assertTrue(iterator.hasNext());
-        map = iterator.nextValue();
-        assertEquals(Double.valueOf(3.14), map.get("val1"));
-        assertEquals(Double.valueOf(-6.5), map.get("val2"));
-        assertEquals(2, map.size());
-        assertFalse(iterator.hasNext());
-    }
-
-    private void testObjectReaderWithFastFloatParser(final boolean useParserFeature) throws Exception
-    {
-        final String JSON = "[{ \"val1\": 1.23456, \"val2\": 5 }, { \"val1\": 3.14, \"val2\": -6.5 }]";
-        final ObjectMapper mapper;
-        if (useParserFeature) {
-            JsonFactory factory = new JsonFactory();
-            factory.enable(JsonParser.Feature.USE_FAST_DOUBLE_PARSER);
-            factory.enable(JsonParser.Feature.USE_FAST_BIG_NUMBER_PARSER);
-            mapper = JsonMapper.builder(factory).build();
-        } else {
-            mapper = JsonMapper.builder()
-                    .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
-                    .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
-                    .build();
-        }
-        final MappingIterator<Map<String, Float>> iterator = mapper.reader().forType(new TypeReference<Map<String, Float>>(){}).readValues(JSON);
-
-        Map<String, Float> map;
-        assertTrue(iterator.hasNext());
-        map = iterator.nextValue();
-        assertEquals(2, map.size());
-        assertEquals(Float.valueOf(1.23456f), map.get("val1"));
-        assertEquals(Float.valueOf(5), map.get("val2"));
-        assertTrue(iterator.hasNext());
-        map = iterator.nextValue();
-        assertEquals(Float.valueOf(3.14f), map.get("val1"));
-        assertEquals(Float.valueOf(-6.5f), map.get("val2"));
-        assertEquals(2, map.size());
-        assertFalse(iterator.hasNext());
     }
 }

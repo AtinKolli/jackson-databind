@@ -16,27 +16,20 @@ public class AnnotatedMethodCollector
 {
     private final MixInResolver _mixInResolver;
 
-    /**
-     * @since 2.11
-     */
-    private final boolean _collectAnnotations;
-
     AnnotatedMethodCollector(AnnotationIntrospector intr,
-            MixInResolver mixins, boolean collectAnnotations)
+            MixInResolver mixins)
     {
         super(intr);
         _mixInResolver = (intr == null) ? null : mixins;
-        _collectAnnotations = collectAnnotations;
     }
 
     public static AnnotatedMethodMap collectMethods(AnnotationIntrospector intr,
             TypeResolutionContext tc,
             MixInResolver mixins, TypeFactory types,
-            JavaType type, List<JavaType> superTypes, Class<?> primaryMixIn,
-            boolean collectAnnotations)
+            JavaType type, List<JavaType> superTypes, Class<?> primaryMixIn)
     {
         // Constructor also always members of resolved class, parent == resolution context
-        return new AnnotatedMethodCollector(intr, mixins, collectAnnotations)
+        return new AnnotatedMethodCollector(intr, mixins)
                 .collect(types, tc, type, superTypes, primaryMixIn);
     }
 
@@ -44,7 +37,7 @@ public class AnnotatedMethodCollector
             JavaType mainType, List<JavaType> superTypes, Class<?> primaryMixIn)
     {
         Map<MemberKey,MethodBuilder> methods = new LinkedHashMap<>();
-
+        
         // first: methods from the class itself
         _addMemberMethods(tc, mainType.getRawClass(), methods, primaryMixIn);
 
@@ -56,38 +49,37 @@ public class AnnotatedMethodCollector
                     type.getRawClass(), methods, mixin);
         }
         // Special case: mix-ins for Object.class? (to apply to ALL classes)
-        boolean checkJavaLangObject = false;
+        /*
         if (_mixInResolver != null) {
             Class<?> mixin = _mixInResolver.findMixInClassFor(Object.class);
             if (mixin != null) {
-                _addMethodMixIns(tc, mainType.getRawClass(), methods, mixin); //, mixins);
-                checkJavaLangObject = true;
+                _addMethodMixIns(tc, mainType.getRawClass(), memberMethods, mixin, mixins);
             }
         }
 
         // Any unmatched mix-ins? Most likely error cases (not matching any method);
         // but there is one possible real use case: exposing Object#hashCode
         // (alas, Object#getClass can NOT be exposed)
-        // Since we only know of that ONE case, optimize for it
-        if (checkJavaLangObject && (_intr != null) && !methods.isEmpty()) {
-            // Could use lookup but probably as fast or faster to traverse
-            for (Map.Entry<MemberKey,MethodBuilder> entry : methods.entrySet()) {
-                MemberKey k = entry.getKey();
-                if (!"hashCode".equals(k.getName()) || (0 != k.argCount())) {
-                    continue;
+        if (_intr != null) {
+            if (!mixins.isEmpty()) {
+                Iterator<AnnotatedMethod> it = mixins.iterator();
+                while (it.hasNext()) {
+                    AnnotatedMethod mixIn = it.next();
+                    try {
+                        Method m = Object.class.getDeclaredMethod(mixIn.getName(), mixIn.getRawParameterTypes());
+                        if (m != null) {
+                            // Since it's from java.lang.Object, no generics, no need for real type context:
+                            AnnotatedMethod am = _constructMethod(tc, m);
+                            _addMixOvers(mixIn.getAnnotated(), am, false);
+                            memberMethods.add(am);
+                        }
+                    } catch (Exception e) { }
                 }
-                try {
-                    // And with that, we can generate it appropriately
-                    Method m = Object.class.getDeclaredMethod(k.getName());
-                    MethodBuilder b = entry.getValue();
-                    b.annotations = collectDefaultAnnotations(b.annotations,
-                            m.getDeclaredAnnotations());
-                    b.method = m;
-                } catch (Exception e) { }
             }
         }
+        */
 
-        // And then let's create the lookup map
+        // And then let's 
         if (methods.isEmpty()) {
             return new AnnotatedMethodMap();
         }
@@ -123,7 +115,7 @@ public class AnnotatedMethodCollector
                         : collectAnnotations(m.getDeclaredAnnotations());
                 methods.put(key, new MethodBuilder(tc, m, c));
             } else {
-                if (_collectAnnotations) {
+                if (_intr != null) {
                     b.annotations = collectDefaultAnnotations(b.annotations, m.getDeclaredAnnotations());
                 }
                 Method old = b.method;
@@ -154,7 +146,7 @@ public class AnnotatedMethodCollector
             return;
         }
         for (Class<?> mixin : ClassUtil.findRawSuperTypes(mixInCls, targetClass, true)) {
-            for (Method m : mixin.getDeclaredMethods()) {
+            for (Method m : ClassUtil.getDeclaredMethods(mixin)) {
                 if (!_isIncludableMemberMethod(m)) {
                     continue;
                 }
@@ -172,7 +164,7 @@ public class AnnotatedMethodCollector
         }
     }
 
-    private static boolean _isIncludableMemberMethod(Method m)
+    private boolean _isIncludableMemberMethod(Method m)
     {
         if (Modifier.isStatic(m.getModifiers())
                 // Looks like generics can introduce hidden bridge and/or synthetic methods.
@@ -182,7 +174,8 @@ public class AnnotatedMethodCollector
         }
         // also, for now we have no use for methods with more than 2 arguments:
         // (2 argument methods for "any setter", fwtw)
-        return (m.getParameterCount() <= 2);
+        int pcount = m.getParameterTypes().length;
+        return (pcount <= 2);
     }
 
     private final static class MethodBuilder {

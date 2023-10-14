@@ -1,7 +1,6 @@
 package com.fasterxml.jackson.databind.introspect;
 
 import java.lang.reflect.*;
-import java.util.Objects;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.util.ClassUtil;
@@ -21,11 +20,9 @@ public final class AnnotatedMethod
     /**
      * Field that is used to make JDK serialization work with this
      * object.
-     *
-     * @since 2.1
      */
     protected Serialization _serialization;
-
+    
     /*
     /*****************************************************
     /* Life-cycle
@@ -44,7 +41,6 @@ public final class AnnotatedMethod
 
     /**
      * Method used for JDK serialization support
-     * @since 2.1
      */
     protected AnnotatedMethod(Serialization ser)
     {
@@ -57,6 +53,7 @@ public final class AnnotatedMethod
     public AnnotatedMethod withAnnotations(AnnotationMap ann) {
         return new AnnotatedMethod(_typeContext, _method, ann, _paramAnnotations);
     }
+
 
     @Override
     public Method getAnnotated() { return _method; }
@@ -92,11 +89,9 @@ public final class AnnotatedMethod
     /* AnnotatedWithParams
     /*****************************************************
      */
-
+    
     @Override
     public final Object call() throws Exception {
-        // 31-Mar-2021, tatu: Note! This is faster than calling without arguments
-        //   because JDK in its wisdom would otherwise allocate `new Object[0]` to pass
         return _method.invoke(null);
     }
 
@@ -126,9 +121,9 @@ public final class AnnotatedMethod
 
     @Override
     public int getParameterCount() {
-        return _method.getParameterCount();
+        return getRawParameterTypes().length;
     }
-
+    
     @Override
     public Class<?> getRawParameterType(int index)
     {
@@ -146,13 +141,8 @@ public final class AnnotatedMethod
     }
 
     @Override
-    @Deprecated // since 2.7
-    public Type getGenericParameterType(int index) {
-        Type[] types = getGenericParameterTypes();
-        if (index >= types.length) {
-            return null;
-        }
-        return types[index];
+    public Parameter[] getNativeParameters() {
+        return _method.getParameters();
     }
 
     @Override
@@ -168,7 +158,7 @@ public final class AnnotatedMethod
             _method.invoke(pojo, value);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new IllegalArgumentException("Failed to setValue() with method "
-                    +getFullName()+": "+ClassUtil.exceptionMessage(e), e);
+                    +getFullName()+": "+e.getMessage(), e);
         }
     }
 
@@ -179,7 +169,7 @@ public final class AnnotatedMethod
             return _method.invoke(pojo, (Object[]) null);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new IllegalArgumentException("Failed to getValue() with method "
-                    +getFullName()+": "+ClassUtil.exceptionMessage(e), e);
+                    +getFullName()+": "+e.getMessage(), e);
         }
     }
 
@@ -191,14 +181,6 @@ public final class AnnotatedMethod
 
     @Override
     public String getFullName() {
-        final String methodName = super.getFullName();
-        switch (getParameterCount()) {
-        case 0:
-            return methodName+"()";
-        case 1:
-            return methodName+"("+getRawParameterType(0).getName()+")";
-        default:
-        }
         return String.format("%s(%d params)", super.getFullName(), getParameterCount());
     }
 
@@ -210,11 +192,6 @@ public final class AnnotatedMethod
         return _paramClasses;
     }
 
-    @Deprecated // since 2.7
-    public Type[] getGenericParameterTypes() {
-        return _method.getGenericParameterTypes();
-    }
-
     public Class<?> getRawReturnType() {
         return _method.getReturnType();
     }
@@ -223,16 +200,10 @@ public final class AnnotatedMethod
      * Helper method that can be used to check whether method returns
      * a value or not; if return type declared as <code>void</code>, returns
      * false, otherwise true
-     *
-     * @since 2.4
-     *
-     * @deprecated Since 2.12 (related to [databind#2675]), needs to be configurable
      */
-    @Deprecated
     public boolean hasReturnType() {
         Class<?> rt = getRawReturnType();
-        // also, as per [databind#2675], only consider `void` to be real "No return type"
-        return (rt != Void.TYPE);
+        return (rt != Void.TYPE && rt != Void.class);
     }
 
     /*
@@ -248,17 +219,14 @@ public final class AnnotatedMethod
 
     @Override
     public int hashCode() {
-        return _method.hashCode();
+        return _method.getName().hashCode();
     }
-
+    
     @Override
     public boolean equals(Object o) {
         if (o == this) return true;
-        if (!ClassUtil.hasClass(o, getClass())) {
-            return false;
-        }
-        AnnotatedMethod other = (AnnotatedMethod) o;
-        return Objects.equals(_method, other._method);
+        return ClassUtil.hasClass(o, getClass())
+                && (((AnnotatedMethod) o)._method == _method);
     }
 
     /*
@@ -286,7 +254,7 @@ public final class AnnotatedMethod
                         +"' from Class '"+clazz.getName());
         }
     }
-
+    
     /**
      * Helper class that is used as the workaround to persist
      * Field references. It basically just stores declaring class

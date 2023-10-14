@@ -34,7 +34,7 @@ public class TestPOJOAsArray extends BaseMapTest
             y = y0;
         }
     }
-
+    
     // note: must be serialized/deserialized alphabetically; fields NOT declared in that order
     @JsonPropertyOrder(alphabetic=true)
     static class PojoAsArray
@@ -133,7 +133,7 @@ public class TestPOJOAsArray extends BaseMapTest
      */
 
     private final static ObjectMapper MAPPER = new ObjectMapper();
-
+    
     /**
      * Test that verifies that property annotation works
      */
@@ -160,7 +160,7 @@ public class TestPOJOAsArray extends BaseMapTest
         assertEquals(1, p.x);
         assertEquals(2, p.y);
     }
-
+    
     /**
      * Test that verifies that property annotation works
      */
@@ -243,7 +243,7 @@ public class TestPOJOAsArray extends BaseMapTest
     {
         // as POJO:
 //        CreatorWithIndex value = MAPPER.readValue(aposToQuotes("{'b':1,'a':2}"),
-        CreatorWithIndex value = MAPPER.readValue(a2q("[2,1]"),
+        CreatorWithIndex value = MAPPER.readValue(aposToQuotes("[2,1]"),
                 CreatorWithIndex.class);
         assertEquals(2, value._a);
         assertEquals(1, value._b);
@@ -251,11 +251,10 @@ public class TestPOJOAsArray extends BaseMapTest
 
     public void testWithConfigOverrides() throws Exception
     {
-        ObjectMapper mapper = jsonMapperBuilder()
-                .withConfigOverride(NonAnnotatedXY.class,
-                        o -> o.setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.ARRAY)))
-                .build();
-        final String json = mapper.writeValueAsString(new NonAnnotatedXY(2, 3));
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configOverride(NonAnnotatedXY.class)
+            .setFormat(JsonFormat.Value.forShape(JsonFormat.Shape.ARRAY));
+        String json = mapper.writeValueAsString(new NonAnnotatedXY(2, 3));
         assertEquals("[2,3]", json);
 
         // also, read it back

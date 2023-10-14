@@ -2,14 +2,12 @@ package com.fasterxml.jackson.databind.deser.impl;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.NullValueProvider;
+import com.fasterxml.jackson.databind.exc.InvalidNullException;
 import com.fasterxml.jackson.databind.util.AccessPattern;
 
 /**
- * Simple {@link NullValueProvider} that will simply return given
- * constant value when a null is encountered; or, with a specially
- * constructed instance (see {@link #skipper}, indicate the need
- * for special behavior of skipping property altogether (not setting
- * as anything OR throwing exception).
+ * Simple {@link NullValueProvider} that will always throw a
+ * {@link InvalidNullException} when a null is encountered.
  */
 public class NullsConstantProvider
     implements NullValueProvider, java.io.Serializable
@@ -19,7 +17,7 @@ public class NullsConstantProvider
     private final static NullsConstantProvider SKIPPER = new NullsConstantProvider(null);
 
     private final static NullsConstantProvider NULLER = new NullsConstantProvider(null);
-
+    
     protected final Object _nullValue;
 
     protected final AccessPattern _access;
@@ -68,12 +66,12 @@ public class NullsConstantProvider
     public static boolean isNuller(NullValueProvider p) {
         return (p == NULLER);
     }
-
+    
     @Override
     public AccessPattern getNullAccessPattern() {
         return _access;
     }
-
+    
     @Override
     public Object getNullValue(DeserializationContext ctxt) {
         return _nullValue;

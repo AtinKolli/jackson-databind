@@ -8,16 +8,14 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.*;
 import com.fasterxml.jackson.databind.deser.impl.ObjectIdReader;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.type.LogicalType;
 import com.fasterxml.jackson.databind.util.AccessPattern;
-import com.fasterxml.jackson.databind.util.NameTransformer;
 
 /**
  * Base class that simplifies implementations of {@link JsonDeserializer}s
  * that mostly delegate functionality to another deserializer implementation
- * (possibly forming a chaining of deserializers delegating functionality
+ * (possibly forming a chaing of deserializers delegating functionality
  * in some cases)
- *
+ * 
  * @since 2.1
  */
 public abstract class DelegatingDeserializer
@@ -27,7 +25,7 @@ public abstract class DelegatingDeserializer
     private static final long serialVersionUID = 1L;
 
     protected final JsonDeserializer<?> _delegatee;
-
+    
     /*
     /**********************************************************************
     /* Construction
@@ -45,9 +43,9 @@ public abstract class DelegatingDeserializer
     /* Abstract methods to implement
     /**********************************************************************
      */
-
+    
     protected abstract JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee);
-
+    
     /*
     /**********************************************************************
     /* Overridden methods for contextualization, resolving
@@ -73,16 +71,6 @@ public abstract class DelegatingDeserializer
             return this;
         }
         return newDelegatingInstance(del);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public JsonDeserializer<Object> unwrappingDeserializer(NameTransformer unwrapper) {
-        JsonDeserializer<?> unwrapping = _delegatee.unwrappingDeserializer(unwrapper);
-        if (unwrapping == _delegatee) {
-            return this;
-        }
-        return (JsonDeserializer<Object>) newDelegatingInstance(unwrapping);
     }
 
     @Override
@@ -150,33 +138,18 @@ public abstract class DelegatingDeserializer
     }
 
     @Override
-    public Object getNullValue(DeserializationContext ctxt) throws JsonMappingException {
-        return _delegatee.getNullValue(ctxt);
-    }
-
-    @Override
     public AccessPattern getNullAccessPattern() {
         return _delegatee.getNullAccessPattern();
     }
 
     @Override
-    public Object getAbsentValue(DeserializationContext ctxt) throws JsonMappingException {
-        return _delegatee.getAbsentValue(ctxt);
+    public Object getNullValue(DeserializationContext ctxt) throws JsonMappingException {
+        return _delegatee.getNullValue(ctxt);
     }
 
     @Override
     public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
         return _delegatee.getEmptyValue(ctxt);
-    }
-
-    @Override
-    public AccessPattern getEmptyAccessPattern() {
-        return _delegatee.getEmptyAccessPattern();
-    }
-
-    @Override // since 2.12
-    public LogicalType logicalType() {
-        return _delegatee.logicalType();
     }
 
     @Override

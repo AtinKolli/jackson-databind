@@ -97,12 +97,12 @@ public class FormatFeatureUnwrapSingleTest extends BaseMapTest
             v = new LinkedHashSet<String>(Arrays.asList(values));
         }
     }
-
+    
     static class UnwrapStringLike {
         @JsonFormat(with={ JsonFormat.Feature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED })
         public URI[] v = { URI.create("http://foo") };
     }
-
+    
     @JsonPropertyOrder( { "strings", "ints", "bools", "enums" })
     static class WrapWriteWithCollections
     {
@@ -129,42 +129,40 @@ public class FormatFeatureUnwrapSingleTest extends BaseMapTest
     public void testWithArrayTypes() throws Exception
     {
         // default: strings unwrapped, ints wrapped
-        assertEquals(a2q("{'strings':'a','ints':[1],'bools':[true]}"),
+        assertEquals(aposToQuotes("{'strings':'a','ints':[1],'bools':[true]}"),
                 MAPPER.writeValueAsString(new WrapWriteWithArrays()));
 
         // change global default to "yes, unwrap"; changes 'bools' only
-        assertEquals(a2q("{'strings':'a','ints':[1],'bools':true}"),
+        assertEquals(aposToQuotes("{'strings':'a','ints':[1],'bools':true}"),
                 MAPPER.writer().with(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)
                 .writeValueAsString(new WrapWriteWithArrays()));
 
         // change global default to "no, don't, unwrap", same as first case
-        assertEquals(a2q("{'strings':'a','ints':[1],'bools':[true]}"),
+        assertEquals(aposToQuotes("{'strings':'a','ints':[1],'bools':[true]}"),
                 MAPPER.writer().without(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)
                 .writeValueAsString(new WrapWriteWithArrays()));
 
         // And then without SerializationFeature but with config override:
-        ObjectMapper mapper = jsonMapperBuilder()
-                .withConfigOverride(String[].class,
-                        v -> v.setFormat(JsonFormat.Value.empty()
-                                .withFeature(JsonFormat.Feature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)))
-                .build();
-        assertEquals(a2q("{'values':'a'}"),
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configOverride(String[].class).setFormat(JsonFormat.Value.empty()
+                .withFeature(JsonFormat.Feature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED));
+        assertEquals(aposToQuotes("{'values':'a'}"),
                 mapper.writeValueAsString(new StringArrayNotAnnoted("a")));
     }
 
     public void testWithCollectionTypes() throws Exception
     {
         // default: strings unwrapped, ints wrapped
-        assertEquals(a2q("{'strings':'a','ints':[1],'bools':[true],'enums':'B'}"),
+        assertEquals(aposToQuotes("{'strings':'a','ints':[1],'bools':[true],'enums':'B'}"),
                 MAPPER.writeValueAsString(new WrapWriteWithCollections()));
 
         // change global default to "yes, unwrap"; changes 'bools' only
-        assertEquals(a2q("{'strings':'a','ints':[1],'bools':true,'enums':'B'}"),
+        assertEquals(aposToQuotes("{'strings':'a','ints':[1],'bools':true,'enums':'B'}"),
                 MAPPER.writer().with(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)
                 .writeValueAsString(new WrapWriteWithCollections()));
 
         // change global default to "no, don't, unwrap", same as first case
-        assertEquals(a2q("{'strings':'a','ints':[1],'bools':[true],'enums':'B'}"),
+        assertEquals(aposToQuotes("{'strings':'a','ints':[1],'bools':[true],'enums':'B'}"),
                 MAPPER.writer().without(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)
                 .writeValueAsString(new WrapWriteWithCollections()));
     }

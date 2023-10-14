@@ -46,18 +46,18 @@ public class MapMergeTest extends BaseMapTest
     /********************************************************
      */
 
-    private final ObjectMapper MAPPER = jsonMapperBuilder()
+    private final ObjectMapper MAPPER = newObjectMapper()
             // 26-Oct-2016, tatu: Make sure we'll report merge problems by default
             .disable(MapperFeature.IGNORE_MERGE_FOR_UNMERGEABLE)
-            .build();
-
-    private final ObjectMapper MAPPER_SKIP_NULLS = newJsonMapper()
-            .setDefaultSetterInfo(JsonSetter.Value.forContentNulls(Nulls.SKIP));
     ;
 
+    private final ObjectMapper MAPPER_SKIP_NULLS = newObjectMapper()
+            .setDefaultSetterInfo(JsonSetter.Value.forContentNulls(Nulls.SKIP));
+    ;
+    
     public void testShallowMapMerging() throws Exception
     {
-        final String JSON = a2q("{'values':{'c':'y','d':null}}");
+        final String JSON = aposToQuotes("{'values':{'c':'y','d':null}}");
         MergedMap v = MAPPER.readValue(JSON, MergedMap.class);
         assertEquals(3, v.values.size());
         assertEquals("y", v.values.get("c"));
@@ -73,7 +73,7 @@ public class MapMergeTest extends BaseMapTest
 
     public void testShallowNonStringMerging() throws Exception
     {
-        final String JSON = a2q("{'values':{'72':'b','666':null}}");
+        final String JSON = aposToQuotes("{'values':{'72':'b','666':null}}");
         MergedIntMap v = MAPPER.readValue(JSON , MergedIntMap.class);
         assertEquals(3, v.values.size());
         assertEquals("a", v.values.get(Integer.valueOf(13)));
@@ -85,7 +85,7 @@ public class MapMergeTest extends BaseMapTest
         assertEquals("a", v.values.get(Integer.valueOf(13)));
         assertEquals("b", v.values.get(Integer.valueOf(72)));
     }
-
+    
     @SuppressWarnings("unchecked")
     public void testDeeperMapMerging() throws Exception
     {
@@ -101,7 +101,7 @@ public class MapMergeTest extends BaseMapTest
 
         // to be update
         MergedMap v = MAPPER.readerForUpdating(base)
-                .readValue(a2q("{'values':{'props':{'x':'xyz','y' : '...','extra':{ 'ab' : true}}}}"));
+                .readValue(aposToQuotes("{'values':{'props':{'x':'xyz','y' : '...','extra':{ 'ab' : true}}}}"));
         assertEquals(2, v.values.size());
         assertEquals("foobar", v.values.get("name"));
         assertNotNull(v.values.get("props"));
@@ -131,7 +131,7 @@ public class MapMergeTest extends BaseMapTest
 
         // to be update
         MergedMap v = MAPPER.readerForUpdating(base)
-                .readValue(a2q("{'values':{'props':{'names': [ 'bar' ] }}}"));
+                .readValue(aposToQuotes("{'values':{'props':{'names': [ 'bar' ] }}}"));
         assertEquals(2, v.values.size());
         assertEquals("foobar", v.values.get("name"));
         assertNotNull(v.values.get("props"));
@@ -150,7 +150,7 @@ public class MapMergeTest extends BaseMapTest
     /* Forcing shallow merge of root Maps:
     /********************************************************
      */
-
+    
     public void testDefaultDeepMapMerge() throws Exception
     {
         // First: deep merge should be enabled by default
@@ -158,7 +158,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("a")));
 
         Map<?,?> resultMap = MAPPER.readerForUpdating(input)
-                .readValue(a2q("{'list':['b']}"));
+                .readValue(aposToQuotes("{'list':['b']}"));
 
         List<?> resultList = (List<?>) resultMap.get("list");
         assertEquals(Arrays.asList("a", "b"), resultList);
@@ -166,7 +166,7 @@ public class MapMergeTest extends BaseMapTest
 
     public void testDisabledMergeViaGlobal() throws Exception
     {
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = newObjectMapper();
         // disable merging, globally; does not affect main level
         mapper.setDefaultMergeable(false);
 
@@ -174,7 +174,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("a")));
 
         Map<?,?> resultMap = mapper.readerForUpdating(input)
-                .readValue(a2q("{'list':['b']}"));
+                .readValue(aposToQuotes("{'list':['b']}"));
 
         List<?> resultList = (List<?>) resultMap.get("list");
 
@@ -183,7 +183,7 @@ public class MapMergeTest extends BaseMapTest
 
     public void testDisabledMergeByType() throws Exception
     {
-        ObjectMapper mapper = newJsonMapper();
+        ObjectMapper mapper = newObjectMapper();
         // disable merging for "untyped", that is, `Object.class`
         mapper.configOverride(Object.class)
             .setMergeable(false);
@@ -192,14 +192,14 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("a")));
 
         Map<?,?> resultMap = mapper.readerForUpdating(input)
-                .readValue(a2q("{'list':['b']}"));
+                .readValue(aposToQuotes("{'list':['b']}"));
         List<?> resultList = (List<?>) resultMap.get("list");
         assertEquals(Arrays.asList("b"), resultList);
 
         // and for extra points, disable by default but ENABLE for type,
         // which should once again allow merging
 
-        mapper = newJsonMapper();
+        mapper = newObjectMapper();
         mapper.setDefaultMergeable(false);
         mapper.configOverride(Object.class)
             .setMergeable(true);
@@ -208,7 +208,7 @@ public class MapMergeTest extends BaseMapTest
         input.put("list", new ArrayList<>(Arrays.asList("x")));
 
         resultMap = mapper.readerForUpdating(input)
-                .readValue(a2q("{'list':['y']}"));
+                .readValue(aposToQuotes("{'list':['y']}"));
         resultList = (List<?>) resultMap.get("list");
         assertEquals(Arrays.asList("x", "y"), resultList);
     }

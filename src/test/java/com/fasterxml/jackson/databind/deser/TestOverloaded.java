@@ -30,45 +30,77 @@ public class TestOverloaded
         public void setList(ArrayList<String> l) { super.setList(l); }
     }
 
-    static class NumberBean {
-        protected Object value;
+    // 27-Feb-2010, tatus: Won't fix immediately, need to comment out
+    /*
+    static class OverloadBean
+    {
+        String a;
 
-        public void setValue(Number n) { value = n; }
+        public OverloadBean() { }
+
+        public void setA(int value) { a = String.valueOf(value); }
+        public void setA(String value) { a = value; }
+    }
+    */
+
+    static class NumberBean {
+    	protected Object value;
+    	
+    	public void setValue(Number n) { value = n; }
     }
 
     static class WasNumberBean extends NumberBean {
-        public void setValue(String str) { value = str; }
+    	public void setValue(String str) { value = str; }
     }
 
+    // [JACKSON-739]
     static class Overloaded739
     {
         protected Object _value;
-
+        
         @JsonProperty
         public void setValue(String str) { _value = str; }
 
         // no annotation, should not be chosen:
         public void setValue(Object o) { throw new UnsupportedOperationException(); }
     }
-
+    
     /**
      * And then a Bean that is conflicting and should not work
      */
     static class ConflictBean {
-        public void setA(ArrayList<Object> a) { }
-        public void setA(LinkedList<Object> a) { }
+    	public void setA(ArrayList<Object> a) { }
+    	public void setA(LinkedList<Object> a) { }
     }
-
+    
     /*
     /************************************************************
     /* Unit tests, valid
     /************************************************************
     */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = new ObjectMapper();
+    
+    /**
+     * Unit test related to [JACKSON-189]
+     */
+    // 27-Feb-2010, tatus: Won't fix immediately, need to comment out
+    /*
+    public void testSimpleOverload() throws Exception
+    {
+        OverloadBean bean;
+        try {
+            bean = new ObjectMapper().readValue("{ \"a\" : 13 }", OverloadBean.class);
+        } catch (JsonMappingException e) {
+            fail("Did not expect an exception, got: "+e.getMessage());
+            return;
+        }
+        assertEquals("13", bean.a);
+    }
+    */
 
     /**
-     * It should be ok to overload with specialized
+     * It should be ok to overload with specialized 
      * version; more specific method should be used.
      */
     public void testSpecialization() throws Exception
@@ -103,19 +135,19 @@ public class TestOverloaded
         assertNotNull(bean);
         assertEquals("abc", bean._value);
     }
-
+    
     /*
     /************************************************************
     /* Unit tests, failures
     /************************************************************
     */
-
+    
     /**
      * For genuine setter conflict, an exception is to be thrown.
      */
     public void testSetterConflict() throws Exception
     {
-    	try {
+    	try {    		
     	MAPPER.readValue("{ }", ConflictBean.class);
     	} catch (Exception e) {
     	    verifyException(e, "Conflicting setter definitions");

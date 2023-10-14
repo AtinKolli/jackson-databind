@@ -6,7 +6,6 @@ import java.util.*;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.introspect.ClassIntrospector;
-import com.fasterxml.jackson.databind.introspect.SimpleMixInResolver;
 import com.fasterxml.jackson.databind.introspect.ClassIntrospector.MixInResolver;
 
 public class TestMixinSerForMethods
@@ -94,7 +93,7 @@ public class TestMixinSerForMethods
      */
 
     /**
-     * Unit test for verifying that leaf-level mix-ins work ok;
+     * Unit test for verifying that leaf-level mix-ins work ok; 
      * that is, any annotations added properly override all annotations
      * that masked methods (fields etc) have.
      */
@@ -148,18 +147,11 @@ public class TestMixinSerForMethods
         assertEquals(Integer.valueOf(42), result.get("x"));
     }
 
-    public void testSimpleMixInResolverHasMixins() {
-        SimpleMixInResolver simple = new SimpleMixInResolver(null);
-        assertFalse(simple.hasMixIns());
-        simple.addLocalDefinition(String.class, Number.class);
-        assertTrue(simple.hasMixIns());
-    }
-
     // [databind#688]
     public void testCustomResolver() throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
-        MixInResolver res = new ClassIntrospector.MixInResolver() {
+        mapper.setMixInResolver(new ClassIntrospector.MixInResolver() {
             @Override
             public Class<?> findMixInClassFor(Class<?> target) {
                 if (target == EmptyBean.class) {
@@ -172,13 +164,9 @@ public class TestMixinSerForMethods
             public MixInResolver copy() {
                 return this;
             }
-        };
-        mapper.setMixInResolver(res);
+        });
         Map<String,Object> result = writeAndMap(mapper, new SimpleBean());
         assertEquals(1, result.size());
         assertEquals(Integer.valueOf(42), result.get("x"));
-
-        SimpleMixInResolver simple = new SimpleMixInResolver(res);
-        assertTrue(simple.hasMixIns());
     }
 }

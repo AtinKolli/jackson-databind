@@ -3,7 +3,6 @@ package com.fasterxml.jackson.databind.ser;
 import java.io.IOException;
 import java.util.*;
 
-import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.core.JsonGenerator;
 
 import com.fasterxml.jackson.databind.*;
@@ -15,13 +14,13 @@ public class TestIterable extends BaseMapTest
         implements Iterable<Integer>
     {
         List<Integer> _ints = new ArrayList<Integer>();
-
+    
         public IterableWrapper(int[] values) {
             for (int i : values) {
                 _ints.add(Integer.valueOf(i));
             }
         }
-
+    
         @Override
         public Iterator<Integer> iterator() {
             return _ints.iterator();
@@ -46,7 +45,7 @@ public class TestIterable extends BaseMapTest
 
         public Iterator<String> getValues() { return values.iterator(); }
     }
-
+    
     static class IntIterable implements Iterable<Integer>
     {
         @Override
@@ -79,7 +78,7 @@ public class TestIterable extends BaseMapTest
 
         public int getX() { return 13; }
     }
-
+ 
     // [databind#358]
     static class A {
         public String unexpected = "Bye.";
@@ -100,10 +99,6 @@ public class TestIterable extends BaseMapTest
         }
     }
 
-    // [databind#2390]
-    @JsonFilter("default")
-    static class IntIterable2390 extends IntIterable { }
-
     /*
     /**********************************************************
     /* Test methods
@@ -112,9 +107,10 @@ public class TestIterable extends BaseMapTest
 
     private final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final ObjectMapper STATIC_MAPPER = jsonMapperBuilder()
-            .enable(MapperFeature.USE_STATIC_TYPING)
-            .build();
+    private final ObjectMapper STATIC_MAPPER = new ObjectMapper();
+    {
+        STATIC_MAPPER.enable(MapperFeature.USE_STATIC_TYPING);
+    }
 
     public void testIterator() throws IOException
     {
@@ -123,7 +119,7 @@ public class TestIterable extends BaseMapTest
         l.add(null);
         l.add(-9);
         l.add(0);
-
+        
         assertEquals("[1,null,-9,0]", MAPPER.writeValueAsString(l.iterator()));
         l.clear();
         assertEquals("[]", MAPPER.writeValueAsString(l.iterator()));
@@ -142,30 +138,16 @@ public class TestIterable extends BaseMapTest
         assertEquals("[1,2,3]",
                 STATIC_MAPPER.writeValueAsString(new IntIterable()));
     }
-
+    
     public void testWithIterator() throws IOException
     {
         assertEquals("{\"values\":[\"itValue\"]}",
                 STATIC_MAPPER.writeValueAsString(new BeanWithIterator()));
-
-        // [databind#1977]
-        ArrayList<Number> numbersList = new ArrayList<>();
-        numbersList.add(1);
-        numbersList.add(0.25);
-        String json = MAPPER.writeValueAsString(numbersList.iterator());
-        assertEquals("[1,0.25]", json);
     }
 
     // [databind#358]
     public void testIterable358() throws Exception {
         String json = MAPPER.writeValueAsString(new B());
         assertEquals("{\"list\":[[\"Hello world.\"]]}", json);
-    }
-
-    // [databind#2390]
-    public void testIterableWithAnnotation() throws Exception
-    {
-        assertEquals("[1,2,3]",
-                STATIC_MAPPER.writeValueAsString(new IntIterable2390()));
     }
 }

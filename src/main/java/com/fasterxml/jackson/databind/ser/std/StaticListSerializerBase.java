@@ -1,14 +1,10 @@
 package com.fasterxml.jackson.databind.ser.std;
 
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.*;
-import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-
 import com.fasterxml.jackson.core.JsonGenerator;
-
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.jsonFormatVisitors.JsonArrayFormatVisitor;
@@ -68,7 +64,7 @@ public abstract class StaticListSerializerBase<T extends Collection<?>>
     {
         JsonSerializer<?> ser = null;
         Boolean unwrapSingle = null;
-
+        
         if (property != null) {
             final AnnotationIntrospector intr = serializers.getAnnotationIntrospector();
             AnnotatedMember m = property.getMember();
@@ -86,11 +82,11 @@ public abstract class StaticListSerializerBase<T extends Collection<?>>
         // [databind#124]: May have a content converter
         ser = findContextualConvertingSerializer(serializers, property, ser);
         if (ser == null) {
-            ser = serializers.findContentValueSerializer(String.class, property);
+            ser = serializers.findValueSerializer(String.class, property);
         }
         // Optimization: default serializer just writes String, so we can avoid a call:
         if (isDefaultSerializer(ser)) {
-            if (Objects.equals(unwrapSingle, _unwrapSingle)) {
+            if (unwrapSingle == _unwrapSingle) {
                 return this;
             }
             return _withResolved(property, unwrapSingle);
@@ -103,24 +99,12 @@ public abstract class StaticListSerializerBase<T extends Collection<?>>
 
     @Override
     public boolean isEmpty(SerializerProvider provider, T value) {
-        return (value == null) || (value.isEmpty());
-    }
-
-    /**
-     * @deprecated Since 2.15
-     */
-    @Deprecated
-    @Override
-    public JsonNode getSchema(SerializerProvider provider, Type typeHint) {
-        return createSchemaNode("array", true).set("items", contentSchema());
+        return (value == null) || (value.size() == 0);
     }
 
     @Override
     public void acceptJsonFormatVisitor(JsonFormatVisitorWrapper visitor, JavaType typeHint) throws JsonMappingException {
-        JsonArrayFormatVisitor v2 = visitor.expectArrayFormat(typeHint);
-        if (v2 != null) {
-            acceptContentVisitor(v2);
-        }
+        acceptContentVisitor(visitor.expectArrayFormat(typeHint));
     }
 
     /*

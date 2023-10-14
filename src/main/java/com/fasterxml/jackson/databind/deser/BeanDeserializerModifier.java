@@ -3,6 +3,8 @@ package com.fasterxml.jackson.databind.deser;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.BeanDeserializer;
+import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import com.fasterxml.jackson.databind.type.ArrayType;
 import com.fasterxml.jackson.databind.type.CollectionLikeType;
@@ -52,7 +54,7 @@ public abstract class BeanDeserializerModifier
      * initial list of {@link BeanPropertyDefinition}s, and done basic by-name
      * and by-type filtering, but before constructing builder or actual
      * property handlers; or arranging order.
-     *
+     * 
      * The most common changes to make at this point are to completely remove
      * specified properties, or rename then: other modifications are easier
      * to make at later points.
@@ -79,13 +81,9 @@ public abstract class BeanDeserializerModifier
      * Method called by {@link BeanDeserializerFactory} after constructing default
      * bean deserializer instance with properties collected and ordered earlier.
      * Implementations can modify or replace given deserializer and return deserializer
-     * to use. Note that although initial deserializer being passed is usually of type
+     * to use. Note that although initial deserializer being passed is of type
      * {@link BeanDeserializer}, modifiers may return deserializers of other types;
      * and this is why implementations must check for type before casting.
-     *<p>
-     * Since 2.10 this is also called for custom deserializers for types not deemed to
-     * be of any more specific (reference, enum, array, collection(-like), map(-like),
-     * node type)
      */
     public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config,
             BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
@@ -99,9 +97,6 @@ public abstract class BeanDeserializerModifier
      */
 
     /**
-     * Method called by {@link BeanDeserializerFactory} after constructing default
-     * enum type deserializer instance.
-     *
      * @since 2.2
      */
     public JsonDeserializer<?> modifyEnumDeserializer(DeserializationConfig config,
@@ -110,9 +105,6 @@ public abstract class BeanDeserializerModifier
     }
 
     /**
-     * Method called by {@link BeanDeserializerFactory} after constructing default
-     * {@link ReferenceType} deserializer instance.
-     *
      * @since 2.7
      */
     public JsonDeserializer<?> modifyReferenceDeserializer(DeserializationConfig config,
@@ -126,15 +118,15 @@ public abstract class BeanDeserializerModifier
      * {@link ArrayType}
      * to make it possible to either replace or augment this deserializer with
      * additional functionality.
-     *
+     * 
      * @param config Configuration in use
      * @param valueType Type of the value deserializer is used for.
      * @param beanDesc Description f
      * @param deserializer Default deserializer that would be used.
-     *
+     * 
      * @return Deserializer to use; either <code>deserializer</code> that was passed
      *   in, or an instance method constructed.
-     *
+     * 
      * @since 2.2
      */
     public JsonDeserializer<?> modifyArrayDeserializer(DeserializationConfig config,
@@ -143,9 +135,6 @@ public abstract class BeanDeserializerModifier
     }
 
     /**
-     * Method called by {@link BeanDeserializerFactory} after constructing default
-     * {@link CollectionType} deserializer instance.
-     *
      * @since 2.2
      */
     public JsonDeserializer<?> modifyCollectionDeserializer(DeserializationConfig config,
@@ -154,9 +143,6 @@ public abstract class BeanDeserializerModifier
     }
 
     /**
-     * Method called by {@link BeanDeserializerFactory} after constructing default
-     * {@link CollectionLikeType} deserializer instance.
-     *
      * @since 2.2
      */
     public JsonDeserializer<?> modifyCollectionLikeDeserializer(DeserializationConfig config,
@@ -165,9 +151,6 @@ public abstract class BeanDeserializerModifier
     }
 
     /**
-     * Method called by {@link BeanDeserializerFactory} after constructing default
-     * {@link MapType} deserializer instance.
-     *
      * @since 2.2
      */
     public JsonDeserializer<?> modifyMapDeserializer(DeserializationConfig config,
@@ -176,9 +159,6 @@ public abstract class BeanDeserializerModifier
     }
 
     /**
-     * Method called by {@link BeanDeserializerFactory} after constructing default
-     * {@link MapLikeType} deserializer instance.
-     *
      * @since 2.2
      */
     public JsonDeserializer<?> modifyMapLikeDeserializer(DeserializationConfig config,
@@ -192,7 +172,7 @@ public abstract class BeanDeserializerModifier
      * This make it possible to replace the default key deserializer, or augment
      * it somehow (including optional use of default deserializer with occasional
      * override).
-     *
+     * 
      * @since 2.2
      */
     public KeyDeserializer modifyKeyDeserializer(DeserializationConfig config,

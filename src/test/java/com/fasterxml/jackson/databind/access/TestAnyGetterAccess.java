@@ -22,7 +22,7 @@ public class TestAnyGetterAccess
         public int id;
 
         protected HashMap<String,String> other = new HashMap<String,String>();
-
+        
         @JsonAnyGetter
         public Map<String,String> any() {
             return other;
@@ -51,8 +51,8 @@ public class TestAnyGetterAccess
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
-
+    private final ObjectMapper MAPPER = new ObjectMapper();
+    
     public void testDynaBean() throws Exception
     {
         DynaBean b = new DynaBean();

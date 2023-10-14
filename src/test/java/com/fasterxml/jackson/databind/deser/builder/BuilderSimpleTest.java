@@ -30,7 +30,7 @@ public class BuilderSimpleTest extends BaseMapTest
     static class SimpleBuilderXY
     {
         public int x, y;
-
+    	
         public SimpleBuilderXY withX(int x0) {
     		    this.x = x0;
     		    return this;
@@ -65,7 +65,7 @@ public class BuilderSimpleTest extends BaseMapTest
     {
         public int a; // to be used as is
         private int b, c;
-
+    	
         @JsonProperty("b")
         public BuildABC assignB(int b0) {
             this.b = b0;
@@ -84,17 +84,17 @@ public class BuilderSimpleTest extends BaseMapTest
     }
 
     // // Then Builder that is itself immutable
-
+    
     @JsonDeserialize(builder=BuildImmutable.class)
     static class ValueImmutable
     {
         final int value;
         protected ValueImmutable(int v) { value = v; }
     }
-
+    
     static class BuildImmutable {
         private final int value;
-
+        
         private BuildImmutable() { this(0); }
         private BuildImmutable(int v) {
             value = v;
@@ -118,7 +118,7 @@ public class BuilderSimpleTest extends BaseMapTest
     @JsonPOJOBuilder(withPrefix="foo", buildMethodName="construct")
     static class BuildFoo {
         private int value;
-
+        
         public BuildFoo fooValue(int v) {
             value = v;
             return this;
@@ -127,6 +127,7 @@ public class BuilderSimpleTest extends BaseMapTest
             return new ValueFoo(value);
         }
     }
+
 
     // for [databind#761]
 
@@ -139,7 +140,7 @@ public class BuilderSimpleTest extends BaseMapTest
     interface ValueInterface2 {
         int getX();
     }
-
+    
     static class ValueInterfaceImpl implements ValueInterface
     {
         final int _x;
@@ -167,7 +168,7 @@ public class BuilderSimpleTest extends BaseMapTest
             return _x;
         }
     }
-
+    
     static class ValueInterfaceBuilder
     {
         public int x;
@@ -215,11 +216,10 @@ public class BuilderSimpleTest extends BaseMapTest
     {
         public int x;
         private Map<String,Object> stuff = new HashMap<String,Object>();
-
-        // And tweaked slightly for [databind#2415]
-        @JsonCreator
-        public ValueBuilder822(@JsonProperty("x") int x0) {
+        
+        public ValueBuilder822 withX(int x0) {
             this.x = x0;
+            return this;
         }
 
         @JsonAnySetter
@@ -268,44 +268,17 @@ public class BuilderSimpleTest extends BaseMapTest
         }
     }
 
-    // (related to) [databind#2354]: should be ok to have private inner class:
-
-    @JsonDeserialize(builder=Value2354.Value2354Builder.class)
-    static class Value2354
-    {
-        private final int value;
-
-        protected Value2354(int v) { value = v; }
-
-        public int value() { return value; }
-
-        @SuppressWarnings("unused")
-        private static class Value2354Builder {
-            private int value;
-
-            public Value2354Builder withValue(int v) {
-                value = v;
-                return this;
-            }
-
-            // should be ok for this to be private, too, since name is (pre)configured
-            private Value2354 build() {
-                return new Value2354(value);
-            }
-        }
-    }
-
     /*
     /**********************************************************
-    /* Test methods
+    /* Unit tests
     /**********************************************************
      */
 
-    private final ObjectMapper MAPPER = newJsonMapper();
+    private final ObjectMapper MAPPER = new ObjectMapper();
 
     public void testSimple() throws Exception
     {
-        String json = a2q("{'x':1,'y':2}");
+        String json = aposToQuotes("{'x':1,'y':2}");
         Object o = MAPPER.readValue(json, ValueClassXY.class);
         assertNotNull(o);
         assertSame(ValueClassXY.class, o.getClass());
@@ -319,7 +292,7 @@ public class BuilderSimpleTest extends BaseMapTest
     public void testSimpleWithIgnores() throws Exception
     {
         // 'z' is unknown, and would fail by default:
-        final String json = a2q("{'x':1,'y':2,'z':4}");
+        final String json = aposToQuotes("{'x':1,'y':2,'z':4}");
         Object o = null;
 
         try {
@@ -331,10 +304,9 @@ public class BuilderSimpleTest extends BaseMapTest
         }
 
         // but with config overrides should pass
-        ObjectMapper ignorantMapper = jsonMapperBuilder()
-                .withConfigOverride(SimpleBuilderXY.class,
-                        override -> override.setIgnorals(JsonIgnoreProperties.Value.forIgnoreUnknown(true)))
-                .build();
+        ObjectMapper ignorantMapper = new ObjectMapper();
+        ignorantMapper.configOverride(SimpleBuilderXY.class)
+                .setIgnorals(JsonIgnoreProperties.Value.forIgnoreUnknown(true));
         o = ignorantMapper.readValue(json, ValueClassXY.class);
         assertNotNull(o);
         assertSame(ValueClassXY.class, o.getClass());
@@ -343,10 +315,10 @@ public class BuilderSimpleTest extends BaseMapTest
         assertEquals(value._x, 2);
         assertEquals(value._y, 3);
     }
-
+    
     public void testMultiAccess() throws Exception
     {
-        String json = a2q("{'c':3,'a':2,'b':-9}");
+        String json = aposToQuotes("{'c':3,'a':2,'b':-9}");
         ValueClassABC value = MAPPER.readValue(json, ValueClassABC.class);
         assertNotNull(value);
         assertEquals(2, value.a);
@@ -354,7 +326,7 @@ public class BuilderSimpleTest extends BaseMapTest
         assertEquals(3, value.c);
 
         // also, since we can ignore some properties:
-        value = MAPPER.readValue(a2q("{'c':3,'d':5,'b':-9}"), ValueClassABC.class);
+        value = MAPPER.readValue(aposToQuotes("{'c':3,'d':5,'b':-9}"), ValueClassABC.class);
         assertNotNull(value);
         assertEquals(0, value.a);
         assertEquals(-9, value.b);
@@ -365,7 +337,7 @@ public class BuilderSimpleTest extends BaseMapTest
     public void testImmutable() throws Exception
     {
         final String json = "{\"value\":13}";
-        ValueImmutable value = MAPPER.readValue(json, ValueImmutable.class);
+        ValueImmutable value = MAPPER.readValue(json, ValueImmutable.class);        
         assertEquals(13, value.value);
     }
 
@@ -373,12 +345,12 @@ public class BuilderSimpleTest extends BaseMapTest
     public void testCustomWith() throws Exception
     {
         final String json = "{\"value\":1}";
-        ValueFoo value = MAPPER.readValue(json, ValueFoo.class);
+        ValueFoo value = MAPPER.readValue(json, ValueFoo.class);        
         assertEquals(1, value.value);
     }
 
     // for [databind#761]
-
+    
     public void testBuilderMethodReturnMoreGeneral() throws Exception
     {
         final String json = "{\"x\":1}";
@@ -395,7 +367,7 @@ public class BuilderSimpleTest extends BaseMapTest
 
     public void testSelfBuilder777() throws Exception
     {
-        SelfBuilder777 result = MAPPER.readValue(a2q("{'x':3}'"),
+        SelfBuilder777 result = MAPPER.readValue(aposToQuotes("{'x':3}'"),
                 SelfBuilder777.class);
         assertNotNull(result);
         assertEquals(3, result.x);
@@ -422,13 +394,5 @@ public class BuilderSimpleTest extends BaseMapTest
         MAPPER.registerModule(new NopModule1557());
         ValueFoo value = MAPPER.readValue(json, ValueFoo.class);
         assertEquals(1, value.value);
-    }
-
-    // related to [databind#2354] (ensure private inner builder classes are ok)
-    public void testPrivateInnerBuilder() throws Exception
-    {
-        String json = a2q("{'value':13}");
-        Value2354 result = MAPPER.readValue(json, Value2354.class);
-        assertEquals(13, result.value());
     }
 }
